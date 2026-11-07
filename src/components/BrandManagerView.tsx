@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { Header } from './Header';
 import { toBengaliNumber } from '../utils/bengaliUtils';
+import { BRAND_LOGO_PRESETS } from '../data/quotes';
 import { 
   BadgeCheck, 
   Upload, 
@@ -115,15 +116,45 @@ export const BrandManagerView: React.FC = () => {
 
             <div>
               <label className="text-xs font-semibold text-[#baa791] block mb-2">
-                কাস্টম লোগো (PNG / SVG / JPG)
+                লোগো নির্বাচন (প্রিসেট অথবা কাস্টম আপলোড)
               </label>
+              
+              {/* Presets Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                {BRAND_LOGO_PRESETS.map((preset) => {
+                  const isSelected = brand.logo === preset.svgData;
+                  return (
+                    <button
+                      key={preset.id}
+                      onClick={() => {
+                        updateBrandField('logo', preset.svgData);
+                        showToast(`${preset.name} নির্বাচন করা হয়েছে`);
+                      }}
+                      className={`p-2 rounded-xl border flex flex-col items-center text-center gap-1.5 transition ${
+                        isSelected
+                          ? 'bg-[#2a1d13] border-[#d4af37] text-[#f7df94]'
+                          : 'bg-[#120e0a] border-[#2d2117] text-[#877461] hover:border-[#44301d]'
+                      }`}
+                      title={preset.name}
+                    >
+                      <div className="w-10 h-10 p-1 flex items-center justify-center">
+                        <img src={preset.svgData} alt={preset.name} className="w-full h-full object-contain" />
+                      </div>
+                      <span className="text-[10px] leading-tight font-medium truncate w-full">
+                        {preset.name.split('(')[0]}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center gap-2 px-4 py-2.5 bg-[#221811] hover:bg-[#2e2016] text-[#f7df94] border border-[#3f2f1d] rounded-xl text-xs font-medium transition"
                 >
                   <Upload className="w-4 h-4" />
-                  <span>নতুন লোগো আপলোড করুন</span>
+                  <span>নিজস্ব লোগো ফাইল আপলোড</span>
                 </button>
                 <input
                   ref={fileInputRef}
@@ -190,11 +221,11 @@ export const BrandManagerView: React.FC = () => {
             <div className="mb-4">
               <span className="text-[11px] text-[#877461] block mb-1.5">ডার্ক ব্যাকগ্রাউন্ডে প্রিভিউ</span>
               <div className="p-5 rounded-xl bg-[#120e0a] border border-[#2d2117] flex flex-col items-center justify-center text-center">
-                <div className="w-16 h-16 rounded-full p-0.5 bg-gradient-to-tr from-[#d4af37] to-[#8c6d1f] flex items-center justify-center mb-2.5 shadow-lg">
+                <div className="w-14 h-14 flex items-center justify-center mb-2">
                   <img
                     src={brand.logo || '/logo.svg'}
                     alt="Logo"
-                    className="w-full h-full object-contain rounded-full bg-[#120e0a]"
+                    className="w-full h-full object-contain"
                   />
                 </div>
                 <h3 className="font-bold text-base tracking-widest text-[#f7df94] uppercase">
@@ -217,11 +248,11 @@ export const BrandManagerView: React.FC = () => {
             <div>
               <span className="text-[11px] text-[#877461] block mb-1.5">গোল্ডেন ব্যাকগ্রাউন্ডে প্রিভিউ</span>
               <div className="p-5 rounded-xl bg-gradient-to-br from-[#edd390] to-[#b38627] flex flex-col items-center justify-center text-center shadow-inner">
-                <div className="w-16 h-16 rounded-full p-0.5 bg-[#2b1a08] flex items-center justify-center mb-2.5 shadow-md">
+                <div className="w-14 h-14 flex items-center justify-center mb-2">
                   <img
                     src={brand.logo || '/logo.svg'}
                     alt="Logo"
-                    className="w-full h-full object-contain rounded-full bg-[#2b1a08]"
+                    className="w-full h-full object-contain"
                   />
                 </div>
                 <h3 className="font-bold text-base tracking-widest text-[#241406] uppercase">

@@ -31,11 +31,11 @@ export const Sidebar: React.FC = () => {
           onClick={() => setCurrentView('dashboard')}
           className="flex items-center gap-3 p-3 rounded-xl hover:bg-[#1f1610] cursor-pointer transition border border-transparent hover:border-[#382a1d]"
         >
-          <div className="w-11 h-11 rounded-full p-0.5 bg-gradient-to-tr from-[#d4af37] via-[#f7df94] to-[#8c6d1f] flex items-center justify-center shrink-0 shadow-md">
+          <div className="w-10 h-10 rounded-xl bg-[#1d150e] border border-[#3b2a1a] flex items-center justify-center shrink-0 p-1.5 shadow-sm">
             <img
               src={brand.logo || '/logo.svg'}
               alt={brand.name}
-              className="w-full h-full object-contain rounded-full bg-[#140e0a]"
+              className="w-full h-full object-contain"
             />
           </div>
           <div className="overflow-hidden">

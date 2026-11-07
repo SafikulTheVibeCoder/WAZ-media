@@ -473,6 +473,24 @@ export async function renderPoster(
   if (!ctx) return;
 
   const k = W / 1080;
+  const fontName = poster.font || 'Noto Sans Bengali';
+
+  // Ensure custom web fonts are fully loaded in memory before rendering to canvas
+  try {
+    const baseSize = Math.round(poster.fontSize * k);
+    const refSize = Math.round(Math.max(baseSize * 0.46, 22 * k));
+    await Promise.all([
+      document.fonts.load(`600 ${baseSize}px "${fontName}"`),
+      document.fonts.load(`500 ${refSize}px "${fontName}"`),
+      document.fonts.load(`600 ${refSize}px "${fontName}"`),
+      document.fonts.load(`700 ${refSize}px "${fontName}"`),
+      document.fonts.load(`400 ${Math.round(baseSize * (poster.arabicSizeRatio || 1.15))}px "Noto Naskh Arabic"`),
+      document.fonts.ready,
+    ]);
+  } catch (err) {
+    console.warn('Font loading check:', err);
+  }
+
   const theme = THEME_PRESETS.find((t) => t.id === poster.theme) || THEME_PRESETS[0];
 
   const primaryText = poster.textColor || theme.text;
@@ -552,7 +570,7 @@ export async function renderPoster(
         curY += logoH + 12 * k;
       }
       if (brand.name) {
-        ctx.font = `700 ${nameFontSize}px "Hind Siliguri", sans-serif`;
+        ctx.font = `700 ${nameFontSize}px "${fontName}", "Noto Sans Bengali", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.letterSpacing = `${3 * k}px`;
@@ -560,7 +578,7 @@ export async function renderPoster(
         curY += nameH;
       }
       if (brand.showTag && brand.tagline) {
-        ctx.font = `500 ${tagFontSize}px "Hind Siliguri", sans-serif`;
+        ctx.font = `500 ${tagFontSize}px "${fontName}", "Noto Sans Bengali", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.letterSpacing = `${1.5 * k}px`;
@@ -570,7 +588,7 @@ export async function renderPoster(
         ctx.globalAlpha = 1;
       }
       if (brand.showHandle && brand.handle) {
-        ctx.font = `400 ${tagFontSize * 0.9}px "Hind Siliguri", sans-serif`;
+        ctx.font = `400 ${tagFontSize * 0.9}px "${fontName}", "Noto Sans Bengali", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.globalAlpha = 0.7;
@@ -595,13 +613,13 @@ export async function renderPoster(
       let textY = startY + (totalBrandHeight - textBlockHeight) / 2;
 
       if (brand.name) {
-        ctx.font = `700 ${nameFontSize}px "Hind Siliguri", sans-serif`;
+        ctx.font = `700 ${nameFontSize}px "${fontName}", "Noto Sans Bengali", sans-serif`;
         ctx.letterSpacing = `${2 * k}px`;
         ctx.fillText(brand.name, textX, textY);
         textY += nameH;
       }
       if (brand.showTag && brand.tagline) {
-        ctx.font = `500 ${tagFontSize}px "Hind Siliguri", sans-serif`;
+        ctx.font = `500 ${tagFontSize}px "${fontName}", "Noto Sans Bengali", sans-serif`;
         ctx.letterSpacing = `${1 * k}px`;
         ctx.globalAlpha = 0.85;
         ctx.fillText(brand.tagline, textX, textY);
@@ -609,7 +627,7 @@ export async function renderPoster(
         ctx.globalAlpha = 1;
       }
       if (brand.showHandle && brand.handle) {
-        ctx.font = `400 ${tagFontSize * 0.9}px "Hind Siliguri", sans-serif`;
+        ctx.font = `400 ${tagFontSize * 0.9}px "${fontName}", "Noto Sans Bengali", sans-serif`;
         ctx.globalAlpha = 0.7;
         ctx.fillText(brand.handle, textX, textY);
         ctx.globalAlpha = 1;
@@ -683,7 +701,7 @@ export async function renderPoster(
 
     // Bengali main text
     const bnSize = baseSize;
-    const bnFontStr = `600 ${bnSize}px "${poster.font}", sans-serif`;
+    const bnFontStr = `600 ${bnSize}px "${fontName}", "Noto Sans Bengali", sans-serif`;
     ctx.font = bnFontStr;
     const bnLines = wrapText(ctx, poster.bn || '', maxContentWidth);
     items.push({
@@ -709,18 +727,18 @@ export async function renderPoster(
     }
 
     if (hasRef) {
-      const refSize = Math.max(baseSize * 0.45, 18 * k);
-      const refFontStr = `500 ${refSize}px "${poster.font}", sans-serif`;
+      const refSize = Math.max(baseSize * 0.48, 22 * k);
+      const refFontStr = `600 ${refSize}px "${fontName}", "Noto Sans Bengali", sans-serif`;
       ctx.font = refFontStr;
       const refLines = wrapText(ctx, `— ${poster.ref.trim()} —`, maxContentWidth);
       refItem = {
         type: 'ref',
         lines: refLines,
         font: refFontStr,
-        lineHeight: refSize * 1.4,
+        lineHeight: refSize * 1.5,
         color: accent,
         dir: 'ltr',
-        height: refLines.length * (refSize * 1.4),
+        height: refLines.length * (refSize * 1.5),
       };
     }
 

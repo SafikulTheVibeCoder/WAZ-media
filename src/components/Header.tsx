@@ -16,11 +16,11 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, actionButton })
     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 mb-6 border-b border-[#2d2117]">
       {/* Mobile brand header shown only on small screens */}
       <div className="flex md:hidden items-center gap-3">
-        <div className="w-9 h-9 rounded-full p-0.5 bg-gradient-to-tr from-[#d4af37] to-[#8c6d1f] flex items-center justify-center shrink-0">
+        <div className="w-9 h-9 rounded-xl bg-[#1d150e] border border-[#3b2a1a] flex items-center justify-center shrink-0 p-1 shadow-sm">
           <img
             src={brand.logo || '/logo.svg'}
             alt="Logo"
-            className="w-full h-full object-contain rounded-full bg-[#140e0a]"
+            className="w-full h-full object-contain"
           />
         </div>
         <div>

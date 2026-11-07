@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { PosterConfig, BrandConfig, SavedDesign, UserStats, QuoteItem } from '../types';
-import { DEFAULT_POSTER, DEFAULT_BRAND, INITIAL_QUOTES } from '../data/quotes';
+import { DEFAULT_POSTER, DEFAULT_BRAND, DEFAULT_LOGO, INITIAL_QUOTES } from '../data/quotes';
 
 interface AppContextType {
   currentView: string;
@@ -49,7 +49,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [poster, setPoster] = useState<PosterConfig>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.POSTER);
-      return saved ? { ...DEFAULT_POSTER, ...JSON.parse(saved) } : DEFAULT_POSTER;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // If font was old default, upgrade to Noto Sans Bengali
+        if (parsed.font === 'Hind Siliguri' || !parsed.font) {
+          parsed.font = 'Noto Sans Bengali';
+        }
+        if (parsed.ref === 'সূরা আল-বাকারা ২:১৫৩') {
+          parsed.ref = 'সূরা আল-বাকারা, আয়াত: ১৫৩';
+        }
+        return { ...DEFAULT_POSTER, ...parsed };
+      }
+      return DEFAULT_POSTER;
     } catch {
       return DEFAULT_POSTER;
     }
@@ -58,7 +69,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [brand, setBrand] = useState<BrandConfig>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.BRAND);
-      return saved ? { ...DEFAULT_BRAND, ...JSON.parse(saved) } : DEFAULT_BRAND;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Automatically migrate old glossy base64 logo to the new clean matte vector logo
+        if (!parsed.logo || parsed.logo.includes('PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNTYi')) {
+          parsed.logo = DEFAULT_LOGO;
+        }
+        return { ...DEFAULT_BRAND, ...parsed };
+      }
+      return DEFAULT_BRAND;
     } catch {
       return DEFAULT_BRAND;
     }

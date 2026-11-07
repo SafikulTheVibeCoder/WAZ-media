@@ -11,10 +11,22 @@
     <meta name="theme-color" content="#1a120b" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Anek+Bangla:wght@400;500;600;700&family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&family=Tiro+Bangla:ital@0;1&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='%231a120b' stroke='%23d4af37' stroke-width='4'/><path d='M30 65 L42 35 L50 55 L58 35 L70 65' fill='none' stroke='%23d4af37' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/><circle cx='50' cy='25' r='4' fill='%23d4af37'/></svg>" />
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Anek+Bangla:wght@400;500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700;800&family=Noto+Serif+Bengali:wght@400;500;600;700&family=Tiro+Bangla:ital@0;1&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
   </head>
   <body class="bg-[#0f0b08] text-[#f4eee2] antialiased selection:bg-[#c9a24a] selection:text-black min-h-screen">
+    <!-- Font Preloader for Canvas rendering of Bengali numerals and Arabic glyphs -->
+    <div style="position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;z-index:-1;" aria-hidden="true">
+      <span style="font-family:'Noto Sans Bengali';font-weight:400;">০১২৩৪৫৬৭৮৯ সূরা আল-বাকারা ১৫৩</span>
+      <span style="font-family:'Noto Sans Bengali';font-weight:600;">০১২৩৪৫৬৭৮৯ সূরা আল-বাকারা ১৫৩</span>
+      <span style="font-family:'Noto Sans Bengali';font-weight:700;">০১২৩৪৫৬৭৮৯ সূরা আল-বাকারা ১৫৩</span>
+      <span style="font-family:'Hind Siliguri';font-weight:400;">০১২৩৪৫৬৭৮৯ সূরা আল-বাকারা ১৫৩</span>
+      <span style="font-family:'Hind Siliguri';font-weight:600;">০১২৩৪৫৬৭৮৯ সূরা আল-বাকারা ১৫৩</span>
+      <span style="font-family:'Anek Bangla';font-weight:600;">০১২৩৪৫৬৭৮৯ সূরা আল-বাকারা ১৫৩</span>
+      <span style="font-family:'Noto Serif Bengali';font-weight:600;">০১২৩৪৫৬৭৮৯ সূরা আল-বাকারা ১৫৩</span>
+      <span style="font-family:'Tiro Bangla';font-weight:400;">০১২৩৪৫৬৭৮৯ সূরা আল-বাকারা ১৫৩</span>
+      <span style="font-family:'Noto Naskh Arabic';font-weight:400;">بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</span>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

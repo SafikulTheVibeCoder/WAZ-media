@@ -433,14 +433,20 @@ export const PosterStudioView: React.FC = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[#baa791]">রেফারেন্স / হাদিস বা সূরার নাম</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-[#baa791]">রেফারেন্স / হাদিস বা সূরার নাম</label>
+                    <span className="text-[10px] text-[#c49b3a]">যেমন: সূরা আল-বাকারা, আয়াত: ১৫৩</span>
+                  </div>
                   <input
                     type="text"
                     value={poster.ref}
                     onChange={(e) => updatePosterField('ref', e.target.value)}
-                    placeholder="যেমন: সূরা আল-বাকারা ২:১৫৩ অথবা সহীহ বুখারি ১"
+                    placeholder="যেমন: সূরা আল-বাকারা, আয়াত: ১৫৩ অথবা সহীহ বুখারি, হাদিস: ১"
                     className="w-full px-3.5 py-2.5 bg-[#120e0a] border border-[#2d2117] rounded-xl text-sm text-[#f4eee2] focus:border-[#d4af37] focus:outline-none"
                   />
+                  <p className="text-[11px] text-[#7a6a58]">
+                    স্পষ্টভাবে আয়াত নম্বর উল্লেখ করলে পাঠকদের বুঝতে কোনো দ্বিধা থাকে না।
+                  </p>
                 </div>
 
                 <div className="pt-2 border-t border-[#231a12] flex items-center justify-between">
@@ -595,10 +601,11 @@ export const PosterStudioView: React.FC = () => {
                     onChange={(e) => updatePosterField('font', e.target.value)}
                     className="w-full px-3 py-2 bg-[#120e0a] border border-[#2d2117] rounded-xl text-sm text-[#f4eee2] focus:border-[#d4af37] outline-none"
                   >
+                    <option value="Noto Sans Bengali">নোটো সান্স বেঙ্গলি (সর্বাধিক স্পষ্ট সংখ্যা ও যুক্তাক্ষর - প্রস্তাবিত)</option>
+                    <option value="Anek Bangla">আনেক বাংলা (Anek Bangla - আধুনিক ও স্পষ্ট)</option>
+                    <option value="Noto Serif Bengali">নোটো সেরিফ বেঙ্গলি (Noto Serif - আভিজাত্যময়)</option>
+                    <option value="Tiro Bangla">তিরো বাংলা (Tiro Bangla - ঐতিহ্যবাহী ক্যালিগ্রাফিক)</option>
                     <option value="Hind Siliguri">হিন্দ শিলিগুড়ি (Hind Siliguri - স্ট্যান্ডার্ড)</option>
-                    <option value="Noto Sans Bengali">নোটো সান্স বেঙ্গলি (Noto Sans Bengali - পরিষ্কার)</option>
-                    <option value="Tiro Bangla">তিরো বাংলা (Tiro Bangla - ঐতিহ্যবাহী ক্লাসিক)</option>
-                    <option value="Anek Bangla">অনেেক বাংলা (Anek Bangla - বোল্ড ও আধুনিক)</option>
                   </select>
                 </div>
 
