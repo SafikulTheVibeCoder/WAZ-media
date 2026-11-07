@@ -1,0 +1,6 @@
+{
+  "name": "WAZ MEDIA - ইসলামিক কনটেন্ট ও পোস্টার স্টুডিও",
+  "description": "যাচাইকৃত ইসলামিক কুরআন ও হাদিসের বাণী, সোশ্যাল মিডিয়া পোস্টার ও স্ট্যাটাস তৈরির আধুনিক অনলাইন স্টুডিও।",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
