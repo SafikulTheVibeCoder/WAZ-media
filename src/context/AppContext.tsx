@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { PosterConfig, BrandConfig, SavedDesign, UserStats, QuoteItem } from '../types';
+import { PosterConfig, BrandConfig, SavedDesign, UserStats, QuoteItem, PosterPreset, PosterPresetConfig } from '../types';
 import { DEFAULT_POSTER, DEFAULT_BRAND, DEFAULT_LOGO, INITIAL_QUOTES } from '../data/quotes';
+import { BUILTIN_PRESETS } from '../data/presets';
 
 interface AppContextType {
   currentView: string;
@@ -29,6 +30,14 @@ interface AppContextType {
   resetBrandDefaults: () => void;
   exportBackup: () => void;
   importBackup: (jsonData: string) => boolean;
+  // Presets feature
+  presets: PosterPreset[];
+  activePresetId: string | null;
+  saveCurrentAsPreset: (name: string, description?: string, category?: string) => PosterPreset;
+  applyPreset: (presetId: string) => void;
+  deletePreset: (presetId: string) => void;
+  updatePreset: (presetId: string, name: string, description?: string) => void;
+  resetPresetsToDefault: () => void;
 }
 
 const STORAGE_KEYS = {
@@ -36,7 +45,9 @@ const STORAGE_KEYS = {
   BRAND: 'waz_media_brand_settings',
   DESIGNS: 'waz_media_saved_designs',
   STATS: 'waz_media_user_stats',
-  FAVORITES: 'waz_media_favorites'
+  FAVORITES: 'waz_media_favorites',
+  PRESETS: 'waz_media_poster_presets',
+  ACTIVE_PRESET: 'waz_media_active_preset',
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -110,6 +121,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   });
 
+  const [presets, setPresets] = useState<PosterPreset[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.PRESETS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+      return BUILTIN_PRESETS;
+    } catch {
+      return BUILTIN_PRESETS;
+    }
+  });
+
+  const [activePresetId, setActivePresetId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.ACTIVE_PRESET) || 'preset-golden-classic';
+    } catch {
+      return 'preset-golden-classic';
+    }
+  });
+
   const [toast, setToast] = useState<string | null>(null);
 
   // Sync to local storage
@@ -152,6 +186,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       console.warn('Storage failed for favorites:', e);
     }
   }, [favorites]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.PRESETS, JSON.stringify(presets));
+    } catch (e) {
+      console.warn('Storage failed for presets:', e);
+    }
+  }, [presets]);
+
+  useEffect(() => {
+    try {
+      if (activePresetId) {
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_PRESET, activePresetId);
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.ACTIVE_PRESET);
+      }
+    } catch (e) {
+      console.warn('Storage failed for activePresetId:', e);
+    }
+  }, [activePresetId]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -276,12 +330,140 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const isFavorite = (id: string) => favorites.includes(id);
 
+  // --- PRESETS IMPLEMENTATION ---
+  const saveCurrentAsPreset = (name: string, description?: string, category?: string): PosterPreset => {
+    const now = Date.now();
+    const id = 'preset-user-' + now.toString(36) + Math.random().toString(36).substring(2, 6);
+
+    const config: PosterPresetConfig = {
+      theme: poster.theme,
+      size: poster.size,
+      font: poster.font,
+      fontSize: poster.fontSize,
+      arabicSizeRatio: poster.arabicSizeRatio,
+      lineHeight: poster.lineHeight,
+      autoFit: poster.autoFit,
+      textColor: poster.textColor,
+      accentColor: poster.accentColor,
+      arabicColor: poster.arabicColor,
+      align: poster.align,
+      refPos: poster.refPos,
+      overlay: poster.overlay,
+      bgType: poster.bgType,
+      bgPattern: poster.bgPattern,
+      borderStyle: poster.borderStyle,
+      decorCorner: poster.decorCorner,
+      decorDivider: poster.decorDivider,
+      showBismillah: poster.showBismillah,
+      bgDataUrl: poster.bgDataUrl,
+      brandPos: brand.pos,
+      brandLogoSize: brand.logoSize,
+      brandShowLogo: brand.showLogo,
+      brandShowTag: brand.showTag,
+      brandShowHandle: brand.showHandle,
+      brandWatermark: brand.watermark,
+    };
+
+    const newPreset: PosterPreset = {
+      id,
+      name: name.trim() || 'আমার কাস্টম প্রিসেট',
+      description: description?.trim() || `${poster.size} • ${poster.font} • ${poster.theme}`,
+      category: category?.trim() || 'সংরক্ষিত প্রিসেট',
+      createdAt: now,
+      isBuiltIn: false,
+      previewGradient: `linear-gradient(135deg, ${poster.accentColor}44 0%, #17110c 100%)`,
+      config,
+    };
+
+    setPresets((prev) => [newPreset, ...prev]);
+    setActivePresetId(id);
+    showToast(`"${newPreset.name}" প্রিসেট সফলভাবে সংরক্ষিত হয়েছে!`);
+    return newPreset;
+  };
+
+  const applyPreset = (presetId: string) => {
+    const target = presets.find((p) => p.id === presetId);
+    if (!target) return;
+    const cfg = target.config;
+
+    // Apply all layout, typography, colors, patterns, and borders
+    // while keeping current text content (bn, ar, ref)!
+    setPoster((prev) => ({
+      ...prev,
+      theme: cfg.theme,
+      size: cfg.size,
+      font: cfg.font,
+      fontSize: cfg.fontSize,
+      arabicSizeRatio: cfg.arabicSizeRatio,
+      lineHeight: cfg.lineHeight,
+      autoFit: cfg.autoFit,
+      textColor: cfg.textColor,
+      accentColor: cfg.accentColor,
+      arabicColor: cfg.arabicColor,
+      align: cfg.align,
+      refPos: cfg.refPos,
+      overlay: cfg.overlay,
+      bgType: cfg.bgType,
+      bgPattern: cfg.bgPattern,
+      borderStyle: cfg.borderStyle,
+      decorCorner: cfg.decorCorner,
+      decorDivider: cfg.decorDivider,
+      showBismillah: cfg.showBismillah,
+      bgDataUrl: cfg.bgDataUrl !== undefined ? cfg.bgDataUrl : prev.bgDataUrl,
+    }));
+
+    if (cfg.brandPos !== undefined) {
+      setBrand((prev) => ({
+        ...prev,
+        pos: cfg.brandPos ?? prev.pos,
+        logoSize: cfg.brandLogoSize ?? prev.logoSize,
+        showLogo: cfg.brandShowLogo ?? prev.showLogo,
+        showTag: cfg.brandShowTag ?? prev.showTag,
+        showHandle: cfg.brandShowHandle ?? prev.showHandle,
+        watermark: cfg.brandWatermark ?? prev.watermark,
+      }));
+    }
+
+    setActivePresetId(presetId);
+    showToast(`"${target.name}" প্রিসেটের স্টাইল সফলভাবে প্রয়োগ করা হয়েছে`);
+  };
+
+  const deletePreset = (presetId: string) => {
+    setPresets((prev) => prev.filter((p) => p.id !== presetId));
+    if (activePresetId === presetId) {
+      setActivePresetId(null);
+    }
+    showToast('প্রিসেট মুছে ফেলা হয়েছে');
+  };
+
+  const updatePreset = (presetId: string, name: string, description?: string) => {
+    setPresets((prev) =>
+      prev.map((p) =>
+        p.id === presetId
+          ? {
+              ...p,
+              name: name.trim() || p.name,
+              description: description !== undefined ? description.trim() : p.description,
+            }
+          : p
+      )
+    );
+    showToast('প্রিসেট আপডেট সম্পন্ন হয়েছে');
+  };
+
+  const resetPresetsToDefault = () => {
+    setPresets(BUILTIN_PRESETS);
+    setActivePresetId('preset-golden-classic');
+    showToast('ডিফল্ট প্রিসেটগুলো রিস্টোর করা হয়েছে');
+  };
+
   const exportBackup = () => {
     const backupData = {
       brand,
       savedDesigns,
       stats,
-      version: 1,
+      presets,
+      version: 2,
       exportedAt: new Date().toISOString(),
     };
     const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
@@ -299,6 +481,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const parsed = JSON.parse(jsonData);
       if (parsed.brand) setBrand(parsed.brand);
       if (Array.isArray(parsed.savedDesigns)) setSavedDesigns(parsed.savedDesigns);
+      if (Array.isArray(parsed.presets)) setPresets(parsed.presets);
       if (parsed.stats) setStats(parsed.stats);
       showToast('ব্যাকআপ সফলভাবে রিস্টোর হয়েছে');
       return true;
@@ -337,6 +520,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         resetBrandDefaults,
         exportBackup,
         importBackup,
+        presets,
+        activePresetId,
+        saveCurrentAsPreset,
+        applyPreset,
+        deletePreset,
+        updatePreset,
+        resetPresetsToDefault,
       }}
     >
       {children}

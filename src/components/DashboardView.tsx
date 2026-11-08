@@ -4,6 +4,7 @@ import { Header } from './Header';
 import { INITIAL_QUOTES, THEME_PRESETS, CATEGORIES } from '../data/quotes';
 import { QuoteItem } from '../types';
 import { toBengaliNumber } from '../utils/bengaliUtils';
+import { generateLocalFacebookPost } from '../utils/seoUtils';
 import { 
   Sparkles, 
   Copy, 
@@ -31,7 +32,10 @@ export const DashboardView: React.FC = () => {
     startNewDesign,
     toggleFavorite,
     isFavorite,
-    setPoster
+    setPoster,
+    brand,
+    presets,
+    applyPreset,
   } = useApp();
 
   const [selectedCat, setSelectedCat] = useState('সব');
@@ -51,11 +55,37 @@ export const DashboardView: React.FC = () => {
   };
 
   const handleCopyQuote = (quote: QuoteItem) => {
-    const text = `${quote.ar}\n\n${quote.bn}\n\n— ${quote.ref}\n\n#WAZMEDIA #ইসলামিক_পোস্টার #IslamicReminders`;
-    navigator.clipboard.writeText(text);
+    const post = generateLocalFacebookPost(
+      {
+        bn: quote.bn,
+        ar: quote.ar,
+        ref: quote.ref,
+        size: '1080x1080',
+        theme: 'golden',
+        font: 'Noto Sans Bengali',
+        fontSize: 60,
+        align: 'center',
+        textColor: '#FFFFFF',
+        accentColor: '#D4AF37',
+        arabicColor: '#F7DF94',
+        bgType: 'theme',
+        bgDataUrl: null,
+        bgPattern: 'geometric',
+        overlay: 0.25,
+        borderStyle: 'double',
+        decorCorner: true,
+        decorDivider: true,
+        showAr: Boolean(quote.ar),
+        showBismillah: true,
+        autoFit: true,
+        refPos: 'below',
+      },
+      brand
+    );
+    navigator.clipboard.writeText(post.fbCaption);
     setCopiedId(quote.id);
     setTimeout(() => setCopiedId(null), 2000);
-    showToast('ক্যাপশন ক্লিপবোর্ডে কপি হয়েছে');
+    showToast('সম্পূর্ণ এসইও ফেসবুক পোস্ট কপি হয়েছে');
   };
 
   const handleApplyPresetTemplate = (preset: {
@@ -388,6 +418,64 @@ export const DashboardView: React.FC = () => {
             <div className="text-sm font-semibold text-white line-clamp-2">আল্লাহর সীমাহীন ক্ষমা ও দয়া</div>
             <p className="text-[11px] text-[#d6b794] mt-2">রয়্যাল অবসিডিয়ান • ৯:১৬ স্টোরি</p>
           </div>
+        </div>
+      </div>
+
+      {/* Saved Style Presets Section */}
+      <div className="bg-[#17110c] border border-[#2d2117] rounded-2xl p-6 shadow-xl">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-[#f4eee2] flex items-center gap-2">
+              <Bookmark className="w-5 h-5 text-[#d4af37]" />
+              <span>সংরক্ষিত ডিজাইন প্রিসেট (Saved Style Presets)</span>
+            </h2>
+            <p className="text-xs text-[#9b8976] mt-0.5">
+              পূর্বে সংরক্ষিত যেকোনো ডিজাইনের স্টাইল নির্বাচন করে এক ক্লিকেই ক্যানভাসে প্রয়োগ করুন
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setCurrentView('poster');
+            }}
+            className="text-xs text-[#d4af37] hover:underline flex items-center gap-1 font-semibold"
+          >
+            পোস্টার স্টুডিও →
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {presets.slice(0, 6).map((preset) => (
+            <div
+              key={preset.id}
+              onClick={() => {
+                applyPreset(preset.id);
+                setCurrentView('poster');
+              }}
+              className="p-4 rounded-xl border border-[#2d2117] hover:border-[#d4af37] bg-[#1a120b] hover:bg-[#221811] cursor-pointer transition group shadow flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#271d15] text-[#d4af37] border border-[#3f2f1d]">
+                    {preset.category || 'প্রিসেট'}
+                  </span>
+                  <span className="text-[10px] text-[#877461]">
+                    {preset.config.size}
+                  </span>
+                </div>
+                <h4 className="text-sm font-semibold text-[#f4eee2] group-hover:text-[#f7df94] transition mb-1">
+                  {preset.name}
+                </h4>
+                <p className="text-xs text-[#877461] line-clamp-2">
+                  {preset.description || `${preset.config.font} • ${preset.config.theme}`}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-[#231a12] text-[11px] text-[#baa791]">
+                <span>ফন্ট: {preset.config.font}</span>
+                <span className="text-[#d4af37] group-hover:underline font-medium">প্রয়োগ করুন →</span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

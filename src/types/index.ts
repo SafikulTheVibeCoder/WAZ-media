@@ -108,3 +108,43 @@ export interface UserStats {
   caps: number;
   saved: number;
 }
+
+export interface PosterPresetConfig {
+  theme: ThemeId;
+  size: AspectRatio;
+  font: string;
+  fontSize: number;
+  arabicSizeRatio: number;
+  lineHeight: number;
+  autoFit: boolean;
+  textColor: string;
+  accentColor: string;
+  arabicColor: string;
+  align: 'left' | 'center' | 'right';
+  refPos: 'below' | 'top' | 'bottom';
+  overlay: number;
+  bgType: 'theme' | 'custom' | 'pattern';
+  bgPattern: PatternStyle;
+  borderStyle: BorderStyle;
+  decorCorner: boolean;
+  decorDivider: boolean;
+  showBismillah: boolean;
+  bgDataUrl?: string | null;
+  brandPos?: BrandPosition;
+  brandLogoSize?: number;
+  brandShowLogo?: boolean;
+  brandShowTag?: boolean;
+  brandShowHandle?: boolean;
+  brandWatermark?: boolean;
+}
+
+export interface PosterPreset {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  createdAt: number;
+  isBuiltIn?: boolean;
+  previewGradient?: string;
+  config: PosterPresetConfig;
+}

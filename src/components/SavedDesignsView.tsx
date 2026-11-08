@@ -4,6 +4,7 @@ import { Header } from './Header';
 import { formatDateBn, toBengaliNumber } from '../utils/bengaliUtils';
 import { downloadBlob, renderPoster } from '../utils/canvasRenderer';
 import { SavedDesign } from '../types';
+import { generateSeoFilename, generateLocalFacebookPost } from '../utils/seoUtils';
 import {
   FolderHeart,
   Edit3,
@@ -48,13 +49,13 @@ export const SavedDesignsView: React.FC = () => {
     try {
       const canvas = document.createElement('canvas');
       await renderPoster(canvas, design.poster, brand);
-      const filename = `waz-media-${design.poster.size}-${Date.now()}.png`;
+      const filename = generateSeoFilename(design.poster, brand, 'png');
 
       canvas.toBlob((blob) => {
         if (blob) {
           downloadBlob(blob, filename);
           incrementStat('exports');
-          showToast('পোস্টার সফলভাবে ডাউনলোড হয়েছে');
+          showToast(`এসইও ফাইলনেমে (${filename}) সফলভাবে ডাউনলোড হয়েছে`);
         }
         setDownloadingId(null);
       }, 'image/png');
@@ -65,14 +66,9 @@ export const SavedDesignsView: React.FC = () => {
   };
 
   const handleCopyCaption = (design: SavedDesign) => {
-    const parts: string[] = [];
-    if (design.poster.showAr && design.poster.ar) parts.push(design.poster.ar);
-    if (design.poster.bn) parts.push(design.poster.bn);
-    if (design.poster.ref) parts.push(`— ${design.poster.ref}`);
-    parts.push(`\n#${brand.name.replace(/\s+/g, '')} #IslamicPost`);
-
-    navigator.clipboard.writeText(parts.join('\n\n'));
-    showToast('ক্যাপশন কপি করা হয়েছে');
+    const post = generateLocalFacebookPost(design.poster, brand);
+    navigator.clipboard.writeText(post.fbCaption);
+    showToast('এসইও ফেসবুক পোস্ট ক্লিপবোর্ডে কপি হয়েছে');
   };
 
   return (
