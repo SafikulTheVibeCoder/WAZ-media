@@ -135,6 +135,25 @@ export const CaptionsView: React.FC = () => {
     }
   };
 
+  // Quick jump to popular Ayah
+  const handleQuickAyahSelect = async (surahNum: number, ayahNum: number) => {
+    setSelectedSurahNumber(surahNum);
+    setInputAyahNumber(String(ayahNum));
+    setQuranViewMode('single');
+    setIsFetchingQuran(true);
+    try {
+      const res = await fetchAyahByNumber(surahNum, ayahNum);
+      if (res) {
+        setQuranAyahs([res]);
+        showToast(`${res.reference} লোড হয়েছে`);
+      }
+    } catch {
+      showToast('আয়াত লোড করা যায়নি');
+    } finally {
+      setIsFetchingQuran(false);
+    }
+  };
+
   // Handle Full Quran API Search by keyword
   const handlePerformApiSearch = async () => {
     if (!searchQuery.trim()) {
@@ -568,8 +587,48 @@ export const CaptionsView: React.FC = () => {
               </div>
             </form>
 
+            {/* Quick Popular Verses */}
+            <div className="pt-2 pb-1 border-t border-[#231a12] flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span className="text-[#877461]">জনপ্রিয় আয়াত:</span>
+              <button
+                type="button"
+                onClick={() => handleQuickAyahSelect(2, 153)}
+                className="px-2.5 py-1 rounded-lg bg-[#1a130d] hover:bg-[#281b12] border border-[#2d2117] hover:border-[#d4af37] text-[#c7b59e] transition"
+              >
+                ধৈর্য ও সালাত (২:১৫৩)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickAyahSelect(2, 255)}
+                className="px-2.5 py-1 rounded-lg bg-[#1a130d] hover:bg-[#281b12] border border-[#2d2117] hover:border-[#d4af37] text-[#c7b59e] transition"
+              >
+                আয়াতুল কুরসি (২:২৫৫)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickAyahSelect(94, 5)}
+                className="px-2.5 py-1 rounded-lg bg-[#1a130d] hover:bg-[#281b12] border border-[#2d2117] hover:border-[#d4af37] text-[#c7b59e] transition font-medium"
+              >
+                কষ্টের সাথে স্বস্তি (৯৪:৫)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickAyahSelect(94, 6)}
+                className="px-2.5 py-1 rounded-lg bg-[#1a130d] hover:bg-[#281b12] border border-[#2d2117] hover:border-[#d4af37] text-[#c7b59e] transition font-medium"
+              >
+                নিশ্চয় স্বস্তি (৯৪:৬)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickAyahSelect(112, 1)}
+                className="px-2.5 py-1 rounded-lg bg-[#1a130d] hover:bg-[#281b12] border border-[#2d2117] hover:border-[#d4af37] text-[#c7b59e] transition"
+              >
+                সূরা ইখলাস (১১২:১)
+              </button>
+            </div>
+
             {/* Keyword Search inside Quran API */}
-            <div className="pt-3 border-t border-[#231a12] flex flex-col sm:flex-row gap-2.5 items-center">
+            <div className="pt-2.5 border-t border-[#231a12] flex flex-col sm:flex-row gap-2.5 items-center">
               <div className="relative flex-1 w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#877461]" />
                 <input

@@ -69,6 +69,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (parsed.ref === 'সূরা আল-বাকারা ২:১৫৩') {
           parsed.ref = 'সূরা আল-বাকারা, আয়াত: ১৫৩';
         }
+        if (parsed.bn && parsed.bn.includes('নিশ্চয়ই কষ্টের সাথেই রয়েছে স্বস্তি। নিশ্চয়ই কষ্টের সাথেই রয়েছে স্বস্তি।')) {
+          parsed.bn = 'নিশ্চয়ই কষ্টের সাথেই রয়েছে স্বস্তি।';
+          parsed.ar = 'فَإِنَّ مَعَ الْعُسْرِ يُسْرًا ۝ إِنَّ مَعَ الْعُسْرِ يُسْرًا';
+          parsed.ref = 'সূরা আশ-শারহ, আয়াত: ৫-৬';
+        }
         return { ...DEFAULT_POSTER, ...parsed };
       }
       return DEFAULT_POSTER;

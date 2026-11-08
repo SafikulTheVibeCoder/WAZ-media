@@ -102,7 +102,7 @@ export const SURAH_LIST: SurahMeta[] = [
   { number: 91, banglaName: 'আশ-শামস', arabicName: 'الشمس', englishName: 'Ash-Shams', meaningBn: 'সূর্য', totalAyahs: 15, type: 'মাক্কী' },
   { number: 92, banglaName: 'আল-লাইল', arabicName: 'الليل', englishName: 'Al-Layl', meaningBn: 'রজনী', totalAyahs: 21, type: 'মাক্কী' },
   { number: 93, banglaName: 'আদ-দুহা', arabicName: 'الضحى', englishName: 'Ad-Duha', meaningBn: 'পূর্বাহ্ণ', totalAyahs: 11, type: 'মাক্কী' },
-  { number: 94, banglaName: 'আল-ইনশিরাহ', arabicName: 'الشرح', englishName: 'Ash-Sharh', meaningBn: 'বক্ষ প্রশস্তকরণ', totalAyahs: 8, type: 'মাক্কী' },
+  { number: 94, banglaName: 'আশ-শারহ (আল-ইনশিরাহ)', arabicName: 'الشرح', englishName: 'Ash-Sharh', meaningBn: 'বক্ষ প্রশস্তকরণ', totalAyahs: 8, type: 'মাক্কী' },
   { number: 95, banglaName: 'আত-তীন', arabicName: 'التين', englishName: 'At-Tin', meaningBn: 'ডুমুর ফল', totalAyahs: 8, type: 'মাক্কী' },
   { number: 96, banglaName: 'আল-আলাক্ব', arabicName: 'العلق', englishName: 'Al-\'Alaq', meaningBn: 'রক্তপিণ্ড', totalAyahs: 19, type: 'মাক্কী' },
   { number: 97, banglaName: 'আল-ক্বদর', arabicName: 'القدر', englishName: 'Al-Qadr', meaningBn: 'মহিমান্বিত রাত', totalAyahs: 5, type: 'মাক্কী' },

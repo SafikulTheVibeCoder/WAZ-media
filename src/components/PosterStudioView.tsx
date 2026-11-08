@@ -1556,6 +1556,7 @@ export const PosterStudioView: React.FC = () => {
                         { label: 'ধৈর্য ও সালাত (২:১৫৩)', surah: 2, ayah: 153 },
                         { label: 'আয়াতুল কুরসি (২:২৫৫)', surah: 2, ayah: 255 },
                         { label: 'কষ্টের সাথে স্বস্তি (৯৪:৫)', surah: 94, ayah: 5 },
+                        { label: 'নিশ্চয়ই স্বস্তি (৯৪:৬)', surah: 94, ayah: 6 },
                         { label: 'হতাশ হয়ো না (৩৯:৫৩)', surah: 39, ayah: 53 },
                         { label: 'সূরা ইখলাস (১১২:১)', surah: 112, ayah: 1 },
                         { label: 'সূরা ফালাক (১১৩:১)', surah: 113, ayah: 1 },
