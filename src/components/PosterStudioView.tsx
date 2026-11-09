@@ -4,6 +4,7 @@ import { renderPoster, generateThumbnail, downloadBlob } from '../utils/canvasRe
 import { THEME_PRESETS, ASPECT_RATIOS, INITIAL_QUOTES, CATEGORIES } from '../data/quotes';
 import { SURAH_LIST } from '../data/surahList';
 import { fetchAyahByNumber, searchQuranByKeyword, AyahResult } from '../services/quranApi';
+import { VERIFIED_HADITHS } from '../services/hadithApi';
 import { AspectRatio, BorderStyle, PatternStyle, ThemeId, BrandPosition } from '../types';
 import { toBengaliNumber } from '../utils/bengaliUtils';
 import { generateSeoFilename, generateLocalFacebookPost } from '../utils/seoUtils';
@@ -275,7 +276,7 @@ export const PosterStudioView: React.FC = () => {
   };
 
   const [showQuotePicker, setShowQuotePicker] = useState(false);
-  const [pickerTab, setPickerTab] = useState<'curated' | 'quran' | 'search'>('curated');
+  const [pickerTab, setPickerTab] = useState<'curated' | 'quran' | 'hadith' | 'search'>('curated');
   const [pickerSearch, setPickerSearch] = useState('');
   const [pickerCat, setPickerCat] = useState('সব');
 
@@ -1418,6 +1419,17 @@ export const PosterStudioView: React.FC = () => {
                 <span>সমগ্র কুরআন (১১৪ সূরা)</span>
               </button>
               <button
+                onClick={() => setPickerTab('hadith')}
+                className={`px-3 py-2 font-medium border-b-2 transition flex items-center gap-1.5 ${
+                  pickerTab === 'hadith'
+                    ? 'border-[#d4af37] text-[#d4af37]'
+                    : 'border-transparent text-[#9b8976] hover:text-[#f4eee2]'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>সহীহ হাদিস</span>
+              </button>
+              <button
                 onClick={() => setPickerTab('search')}
                 className={`px-3 py-2 font-medium border-b-2 transition flex items-center gap-1.5 ${
                   pickerTab === 'search'
@@ -1618,6 +1630,51 @@ export const PosterStudioView: React.FC = () => {
                     উপরের ড্রপডাউন থেকে সূরা এবং আয়াত নম্বর নির্বাচন করে "লোড" বাটনে ক্লিক করুন।
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Tab: Authentic Hadiths */}
+            {pickerTab === 'hadith' && (
+              <div className="p-4 overflow-y-auto space-y-3 flex-1">
+                <div className="space-y-2">
+                  <span className="text-[11px] text-[#877461]">
+                    সহীহ বুখারি, সহীহ মুসলিম, জামে আত-তিরমিযী থেকে সংকলিত:
+                  </span>
+                  <div className="space-y-2.5">
+                    {VERIFIED_HADITHS.map((h) => (
+                      <div
+                        key={h.id}
+                        onClick={() => {
+                          setPoster((prev) => ({
+                            ...prev,
+                            bn: h.bn,
+                            ar: h.ar,
+                            ref: h.ref,
+                            showAr: Boolean(h.ar),
+                          }));
+                          setShowQuotePicker(false);
+                          showToast('হাদিসটি ক্যানভাসে লোড হয়েছে');
+                        }}
+                        className="p-3.5 rounded-xl bg-[#1f1610] hover:bg-[#281b12] border border-[#2d2117] hover:border-[#d4af37] cursor-pointer transition group"
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[#2a1d13] text-[#d4af37]">
+                            {h.topic}
+                          </span>
+                          <span className="text-[11px] text-[#877461]">{h.ref}</span>
+                        </div>
+                        {h.ar && (
+                          <p dir="rtl" className="font-arabic text-sm text-[#f7df94] mb-1 line-clamp-1">
+                            {h.ar}
+                          </p>
+                        )}
+                        <p className="font-bengali text-xs text-[#e8dcbe] line-clamp-2">
+                          {h.bn}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 

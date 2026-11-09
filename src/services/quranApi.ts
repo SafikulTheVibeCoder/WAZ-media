@@ -127,3 +127,26 @@ export async function searchQuranByKeyword(keyword: string): Promise<AyahResult[
     return [];
   }
 }
+
+/**
+ * Fetch a batch of dynamic Quran ayahs across different Surahs
+ * to break the restriction of static quotes and provide hundreds of verses.
+ */
+export async function fetchDynamicQuranBatch(page = 1, pageSize = 20): Promise<AyahResult[]> {
+  try {
+    // Curated list of spiritually uplifting Surahs to rotate through
+    const targetSurahs = [1, 2, 3, 14, 18, 19, 21, 24, 25, 29, 31, 36, 39, 49, 55, 56, 59, 67, 73, 93, 94, 103, 112, 113, 114];
+    const surahNum = targetSurahs[(page - 1) % targetSurahs.length];
+    const fullSurah = await fetchFullSurah(surahNum);
+
+    if (fullSurah.length > 0) {
+      const startIndex = ((page - 1) * pageSize) % fullSurah.length;
+      const sliced = fullSurah.slice(startIndex, startIndex + pageSize);
+      return sliced.length > 0 ? sliced : fullSurah.slice(0, pageSize);
+    }
+    return [];
+  } catch (err) {
+    console.error('Error fetching dynamic quran batch:', err);
+    return [];
+  }
+}

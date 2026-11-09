@@ -3,7 +3,20 @@ import { useApp } from '../context/AppContext';
 import { Header } from './Header';
 import { INITIAL_QUOTES, CATEGORIES } from '../data/quotes';
 import { SURAH_LIST, SurahMeta } from '../data/surahList';
-import { fetchAyahByNumber, fetchFullSurah, searchQuranByKeyword, AyahResult } from '../services/quranApi';
+import {
+  fetchAyahByNumber,
+  fetchFullSurah,
+  searchQuranByKeyword,
+  fetchDynamicQuranBatch,
+  AyahResult,
+} from '../services/quranApi';
+import {
+  fetchHadithsByTopic,
+  fetchLiveHadithByNumber,
+  HadithItem,
+  HADITH_TOPICS,
+  HADITH_BOOKS,
+} from '../services/hadithApi';
 import { QuoteItem, ContentType } from '../types';
 import { toBengaliNumber } from '../utils/bengaliUtils';
 import { generateLocalFacebookPost } from '../utils/seoUtils';
@@ -23,40 +36,68 @@ import {
   FileText,
   ChevronDown,
   ArrowRight,
-  SlidersHorizontal
+  ChevronLeft,
+  ChevronRight,
+  BookMarked,
+  SlidersHorizontal,
+  PlusCircle,
+  ExternalLink,
+  ShieldCheck,
+  AlertCircle,
 } from 'lucide-react';
 
 export const CaptionsView: React.FC = () => {
-  const { loadQuoteToPoster, showToast, toggleFavorite, isFavorite, incrementStat, brand } = useApp();
+  const { loadQuoteToPoster, showToast, toggleFavorite, isFavorite, incrementStat, brand, activePresetId, presets } = useApp();
 
   // Mode: curated highlights vs full Quran browser vs Hadith explorer
   const [activeTabMode, setActiveTabMode] = useState<'curated' | 'quran' | 'hadith'>('curated');
 
-  // Search & Filter state
+  // ──────────────────────────────────────────────────────────
+  // 1. Curated & Dynamic Quotes State
+  // ──────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('সব');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [onlyFavorites, setOnlyFavorites] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Quran Browser State
+  // Dynamic Quran Ayahs appended to curated collection
+  const [extraCuratedAyahs, setExtraCuratedAyahs] = useState<QuoteItem[]>([]);
+  const [curatedBatchPage, setCuratedBatchPage] = useState(1);
+  const [isLoadingMoreCurated, setIsLoadingMoreCurated] = useState(false);
+
+  // ──────────────────────────────────────────────────────────
+  // 2. Quran API Browser State
+  // ──────────────────────────────────────────────────────────
   const [selectedSurahNumber, setSelectedSurahNumber] = useState<number>(2); // Default to Surah Al-Baqarah
   const [inputAyahNumber, setInputAyahNumber] = useState<string>('153'); // Default to Ayah 153
   const [quranAyahs, setQuranAyahs] = useState<AyahResult[]>([]);
   const [isFetchingQuran, setIsFetchingQuran] = useState(false);
   const [quranViewMode, setQuranViewMode] = useState<'single' | 'full'>('single');
+  const [surahPage, setSurahPage] = useState(1);
+  const ayahsPerPage = 15;
 
-  // Hadith Explorer State
-  const [hadithTopic, setHadithTopic] = useState('সবর ও শোকর');
-  const [dynamicHadiths, setDynamicHadiths] = useState<QuoteItem[]>([]);
-  const [isFetchingHadith, setIsFetchingHadith] = useState(false);
-
-  // API Search State
+  // API Live Search State
   const [apiSearchResults, setApiSearchResults] = useState<AyahResult[]>([]);
   const [isSearchingApi, setIsSearchingApi] = useState(false);
   const [hasSearchedApi, setHasSearchedApi] = useState(false);
 
-  // Initial load for default Ayah (Surah 2:153)
+  // ──────────────────────────────────────────────────────────
+  // 3. Hadith Explorer State
+  // ──────────────────────────────────────────────────────────
+  const [hadithTopic, setHadithTopic] = useState<string>('সবর ও শোকর');
+  const [selectedHadithBook, setSelectedHadithBook] = useState<string>('all');
+  const [hadithList, setHadithList] = useState<HadithItem[]>([]);
+  const [isFetchingHadith, setIsFetchingHadith] = useState(false);
+  const [hadithError, setHadithError] = useState<string | null>(null);
+  const [hadithSearch, setHadithSearch] = useState('');
+
+  // Direct Hadith lookup inputs
+  const [directBook, setDirectBook] = useState<'bukhari' | 'muslim' | 'tirmidhi' | 'nawawi'>('bukhari');
+  const [directNumber, setDirectNumber] = useState<string>('1');
+  const [isFetchingDirect, setIsFetchingDirect] = useState(false);
+
+  // Initial load for default Ayah (Surah 2:153) and default Hadiths
   useEffect(() => {
     let isMounted = true;
     fetchAyahByNumber(2, 153).then((res) => {
@@ -64,14 +105,27 @@ export const CaptionsView: React.FC = () => {
         setQuranAyahs([res]);
       }
     });
+
+    // Pre-populate Hadiths for default topic
+    fetchHadithsByTopic('সবর ও শোকর').then((items) => {
+      if (isMounted && items.length > 0) {
+        setHadithList(items);
+      }
+    });
+
     return () => {
       isMounted = false;
     };
   }, []);
 
-  // Filter curated quotes
+  // Combined curated + dynamically fetched quotes
+  const allCuratedQuotes = useMemo(() => {
+    return [...INITIAL_QUOTES, ...extraCuratedAyahs];
+  }, [extraCuratedAyahs]);
+
+  // Filtered curated quotes
   const filteredCuratedQuotes = useMemo(() => {
-    return INITIAL_QUOTES.filter((q) => {
+    return allCuratedQuotes.filter((q) => {
       if (onlyFavorites && !isFavorite(q.id)) return false;
       if (selectedCategory !== 'সব' && !q.cats.includes(selectedCategory)) return false;
       if (selectedType !== 'all' && q.type !== selectedType) return false;
@@ -86,9 +140,40 @@ export const CaptionsView: React.FC = () => {
       }
       return true;
     });
-  }, [searchQuery, selectedCategory, selectedType, onlyFavorites, isFavorite]);
+  }, [allCuratedQuotes, searchQuery, selectedCategory, selectedType, onlyFavorites, isFavorite]);
 
-  // Handle Fetching Specific Ayah
+  // Handle dynamically loading more Quran ayahs into the curated feed
+  const handleLoadMoreDynamicQuran = async () => {
+    setIsLoadingMoreCurated(true);
+    try {
+      const nextPage = curatedBatchPage + 1;
+      const batch = await fetchDynamicQuranBatch(nextPage, 20);
+      if (batch.length > 0) {
+        const newItems: QuoteItem[] = batch.map((item, idx) => ({
+          id: `dyn-q-${item.surahNumber}-${item.ayahNumber}-${Date.now()}-${idx}`,
+          type: 'quran',
+          ar: item.arabicText,
+          bn: item.bengaliText,
+          ref: item.reference,
+          topic: `${item.surahNameBn} আয়াত ${item.ayahNumber}`,
+          cats: ['কুরআন', 'কুরআন ও জ্ঞান'],
+        }));
+        setExtraCuratedAyahs((prev) => [...prev, ...newItems]);
+        setCuratedBatchPage(nextPage);
+        showToast(`কুরআন এপিআই থেকে আরও ${toBengaliNumber(newItems.length)}টি আয়াত লোড করা হয়েছে!`);
+      } else {
+        showToast('নতুন আয়াত লোড করতে সমস্যা হয়েছে');
+      }
+    } catch {
+      showToast('এপিআই সংযোগে সমস্যা হয়েছে');
+    } finally {
+      setIsLoadingMoreCurated(false);
+    }
+  };
+
+  // ──────────────────────────────────────────────────────────
+  // Quran Browser Handlers
+  // ──────────────────────────────────────────────────────────
   const handleFetchAyah = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const ayahNum = parseInt(inputAyahNumber, 10);
@@ -100,6 +185,7 @@ export const CaptionsView: React.FC = () => {
 
     setIsFetchingQuran(true);
     setQuranViewMode('single');
+    setHasSearchedApi(false);
     try {
       const res = await fetchAyahByNumber(selectedSurahNumber, ayahNum);
       if (res) {
@@ -115,10 +201,11 @@ export const CaptionsView: React.FC = () => {
     }
   };
 
-  // Handle Fetching Entire Surah (All verses)
   const handleFetchFullSurah = async () => {
     setIsFetchingQuran(true);
     setQuranViewMode('full');
+    setHasSearchedApi(false);
+    setSurahPage(1);
     try {
       const res = await fetchFullSurah(selectedSurahNumber);
       if (res && res.length > 0) {
@@ -135,11 +222,11 @@ export const CaptionsView: React.FC = () => {
     }
   };
 
-  // Quick jump to popular Ayah
   const handleQuickAyahSelect = async (surahNum: number, ayahNum: number) => {
     setSelectedSurahNumber(surahNum);
     setInputAyahNumber(String(ayahNum));
     setQuranViewMode('single');
+    setHasSearchedApi(false);
     setIsFetchingQuran(true);
     try {
       const res = await fetchAyahByNumber(surahNum, ayahNum);
@@ -154,7 +241,6 @@ export const CaptionsView: React.FC = () => {
     }
   };
 
-  // Handle Full Quran API Search by keyword
   const handlePerformApiSearch = async () => {
     if (!searchQuery.trim()) {
       showToast('অনুসন্ধান করার জন্য শব্দ লিখুন');
@@ -162,6 +248,7 @@ export const CaptionsView: React.FC = () => {
     }
     setIsSearchingApi(true);
     setHasSearchedApi(true);
+    setQuranViewMode('single');
     try {
       const results = await searchQuranByKeyword(searchQuery.trim());
       setApiSearchResults(results);
@@ -177,30 +264,102 @@ export const CaptionsView: React.FC = () => {
     }
   };
 
-  // Handle Generating / Fetching Dynamic Hadiths via API
-  const handleGenerateHadith = async (topicName: string) => {
+  // ──────────────────────────────────────────────────────────
+  // Hadith Explorer Handlers
+  // ──────────────────────────────────────────────────────────
+  const handleLoadHadiths = async (topicName: string, bookName: string = selectedHadithBook) => {
     setIsFetchingHadith(true);
+    setHadithError(null);
     setHadithTopic(topicName);
+    setSelectedHadithBook(bookName);
+
     try {
+      // 1. Immediately hydrate verified authentic collection to prevent blank screen
+      const localMatches = await fetchHadithsByTopic(topicName, bookName);
+      if (localMatches.length > 0) {
+        setHadithList(localMatches);
+      }
+
+      // 2. Query server endpoint for dynamic Hadith curation
       const res = await fetch('/api/hadith/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic: topicName, count: 6 }),
       });
+
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.items) && data.items.length > 0) {
-          setDynamicHadiths(data.items);
+          const formatted: HadithItem[] = data.items.map((it: any, idx: number) => ({
+            id: it.id || `h-${idx}-${Date.now()}`,
+            type: 'hadith',
+            book: (it.ref?.includes('বুখারি') ? 'bukhari' : it.ref?.includes('মুসলিম') ? 'muslim' : 'tirmidhi') as any,
+            bookNameBn: it.ref?.split(',')[0] || 'সহীহ হাদিস',
+            hadithNumber: idx + 1,
+            ar: it.ar || '',
+            bn: it.bn,
+            ref: it.ref,
+            topic: it.topic || topicName,
+            cats: it.cats || ['হাদিস', topicName],
+          }));
+          setHadithList(formatted);
           showToast(`"${topicName}" সম্পর্কিত হাদিস সংকলন প্রস্তুত!`);
         }
       }
-    } catch {
-      showToast('হাদিস এপিআই সংযোগে সমস্যা হয়েছে');
+    } catch (err: any) {
+      console.warn('Hadith API notice:', err);
+      // Fallback already populated via localMatches
+      if (hadithList.length === 0) {
+        const fallback = await fetchHadithsByTopic(topicName, bookName);
+        setHadithList(fallback);
+      }
     } finally {
       setIsFetchingHadith(false);
     }
   };
 
+  const handleDirectHadithLookup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const num = parseInt(directNumber, 10);
+    if (!num || num < 1) {
+      showToast('বৈধ হাদিস নম্বর লিখুন');
+      return;
+    }
+    setIsFetchingDirect(true);
+    try {
+      const item = await fetchLiveHadithByNumber(directBook, num);
+      if (item) {
+        setHadithList([item]);
+        showToast(`${item.ref} সফলভাবে লোড হয়েছে!`);
+      } else {
+        showToast('উক্ত নম্বরের হাদিস পাওয়া যায়নি।');
+      }
+    } catch {
+      showToast('হাদিস লোড করতে সমস্যা হয়েছে');
+    } finally {
+      setIsFetchingDirect(false);
+    }
+  };
+
+  const filteredHadithList = useMemo(() => {
+    return hadithList.filter((h) => {
+      if (selectedHadithBook !== 'all' && h.book !== selectedHadithBook) return false;
+      if (hadithSearch.trim()) {
+        const s = hadithSearch.toLowerCase();
+        return (
+          h.bn.toLowerCase().includes(s) ||
+          h.ar.includes(s) ||
+          h.ref.toLowerCase().includes(s) ||
+          h.topic.toLowerCase().includes(s)
+        );
+      }
+      return true;
+    });
+  }, [hadithList, selectedHadithBook, hadithSearch]);
+
+  // ──────────────────────────────────────────────────────────
+  // Common Poster Generator & Copy Handlers
+  // ──────────────────────────────────────────────────────────
   const handleCopyQuote = (quote: { bn: string; ar?: string; ref: string }) => {
     const post = generateLocalFacebookPost(
       {
@@ -217,11 +376,25 @@ export const CaptionsView: React.FC = () => {
     showToast('সম্পূর্ণ এসইও ফেসবুক পোস্ট কপি করা হয়েছে');
   };
 
-  const handleSendToPoster = (quote: { bn: string; ar?: string; ref: string; type?: ContentType }) => {
+  const handleSendToPoster = async (quote: { bn: string; ar?: string; ref: string; type?: ContentType; surahNumber?: number; ayahNumber?: number }) => {
+    let arabic = quote.ar || '';
+    // If arabic text is missing (e.g. from search), fetch it immediately
+    if (!arabic && quote.surahNumber && quote.ayahNumber) {
+      showToast('আরবি উসমানি পাঠ্য লোড হচ্ছে...');
+      try {
+        const full = await fetchAyahByNumber(quote.surahNumber, quote.ayahNumber);
+        if (full?.arabicText) {
+          arabic = full.arabicText;
+        }
+      } catch {
+        // Fallback without arabic
+      }
+    }
+
     loadQuoteToPoster({
       id: 'q-' + Date.now(),
       type: (quote.type || (quote.ref.includes('সূরা') ? 'quran' : 'hadith')) as ContentType,
-      ar: quote.ar || '',
+      ar: arabic,
       bn: quote.bn,
       ref: quote.ref,
       cats: ['কুরআন ও হাদিস'],
@@ -230,11 +403,20 @@ export const CaptionsView: React.FC = () => {
 
   const selectedSurahMeta = SURAH_LIST.find((s) => s.number === selectedSurahNumber) || SURAH_LIST[1];
 
+  // Pagination for full surah view
+  const paginatedQuranAyahs = useMemo(() => {
+    if (quranViewMode !== 'full') return quranAyahs;
+    const startIndex = (surahPage - 1) * ayahsPerPage;
+    return quranAyahs.slice(startIndex, startIndex + ayahsPerPage);
+  }, [quranAyahs, quranViewMode, surahPage]);
+
+  const totalSurahPages = Math.ceil(quranAyahs.length / ayahsPerPage);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <Header
         title="ইসলামিক বাণী ও কুরআন ডিজিটাল লাইব্রেরি"
-        subtitle="পবিত্র কুরআনুল কারীমের ১১৪টি সূরা, ৬,২৩৬টি আয়াত এবং সহীহ হাদিস ভাণ্ডার। এপিআই-এর মাধ্যমে যেকোনো আয়াত তৎক্ষণাৎ ক্যানভাসে ব্যবহার করুন।"
+        subtitle="পবিত্র কুরআনুল কারীমের ১১৪টি সূরা, ৬,২৩৬টি আয়াত এবং সহীহ হাদিস ভাণ্ডার। সরাসরি পোস্টার ক্যানভাসে ব্যবহার করুন।"
       />
 
       {/* Mode Switcher Tabs */}
@@ -248,7 +430,7 @@ export const CaptionsView: React.FC = () => {
           }`}
         >
           <Sparkles className="w-4 h-4 shrink-0" />
-          <span>নির্বাচিত বাণী ও হাদিস</span>
+          <span>নির্বাচিত বাণী ও হাদিস ({allCuratedQuotes.length})</span>
         </button>
 
         <button
@@ -266,8 +448,8 @@ export const CaptionsView: React.FC = () => {
         <button
           onClick={() => {
             setActiveTabMode('hadith');
-            if (dynamicHadiths.length === 0) {
-              handleGenerateHadith('সবর ও শোকর');
+            if (hadithList.length === 0) {
+              handleLoadHadiths('সবর ও শোকর');
             }
           }}
           className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-semibold transition ${
@@ -277,12 +459,12 @@ export const CaptionsView: React.FC = () => {
           }`}
         >
           <Layers className="w-4 h-4 shrink-0" />
-          <span>সহীহ হাদিস এক্সপ্লোরার (API)</span>
+          <span>সহীহ হাদিস এক্সপ্লোরার ও লাইব্রেরি</span>
         </button>
       </div>
 
       {/* ────────────────────────────────────────────────────────── */}
-      {/* 1. CURATED TAB */}
+      {/* 1. CURATED TAB (With Dynamic Expansion) */}
       {/* ────────────────────────────────────────────────────────── */}
       {activeTabMode === 'curated' && (
         <div className="space-y-6 animate-in fade-in duration-200">
@@ -295,7 +477,7 @@ export const CaptionsView: React.FC = () => {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="নির্বাচিত বাণীতে খুঁজুন (উদাঃ ধৈর্য, সালাত, ক্ষমা, বুখারি)..."
+                  placeholder="বাণীতে খুঁজুন (উদাঃ ধৈর্য, সালাত, ক্ষমা, জান্নাত, বুখারি)..."
                   className="w-full pl-10 pr-4 py-2.5 bg-[#120e0a] border border-[#2d2117] focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37] rounded-xl text-sm text-[#f4eee2] placeholder-[#7a6a58] outline-none transition"
                 />
                 {searchQuery && (
@@ -317,7 +499,7 @@ export const CaptionsView: React.FC = () => {
                       : 'bg-[#1f1610] text-[#a9947c] hover:bg-[#2a1d13]'
                   }`}
                 >
-                  সবগুলো
+                  সবগুলো ({toBengaliNumber(allCuratedQuotes.length)})
                 </button>
                 <button
                   onClick={() => setSelectedType('quran')}
@@ -353,24 +535,21 @@ export const CaptionsView: React.FC = () => {
               </div>
             </div>
 
-            {/* If user types a search, offer Quran Cloud API full-text search button */}
-            {searchQuery.trim().length > 1 && (
-              <div className="p-3 rounded-xl bg-[#221811] border border-[#d4af37]/30 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+            {/* If user selected "Quran", clarify that 6,236 Ayahs are available in Tab 2 */}
+            {selectedType === 'quran' && (
+              <div className="p-3 rounded-xl bg-[#241a12] border border-[#d4af37]/40 flex flex-col sm:flex-row items-center justify-between gap-2.5">
                 <div className="flex items-center gap-2 text-xs text-[#e8dcbe]">
                   <Globe className="w-4 h-4 text-[#d4af37] shrink-0" />
                   <span>
-                    সমগ্র কুরআনের ৬,২৩৬টি আয়াত থেকে <strong>"{searchQuery}"</strong> দিয়ে লাইভ সার্চ করতে চান?
+                    পবিত্র কুরআনের <strong>১১৪টি পূর্ণ সূরা ও ৬,২৩৬টি আয়াত</strong> ব্রাউজ ও সার্চ করতে চান?
                   </span>
                 </div>
                 <button
-                  onClick={() => {
-                    setActiveTabMode('quran');
-                    handlePerformApiSearch();
-                  }}
+                  onClick={() => setActiveTabMode('quran')}
                   className="px-3.5 py-1.5 rounded-lg bg-[#d4af37] hover:bg-[#e6c878] text-[#140e0a] font-bold text-xs transition shadow shrink-0 flex items-center gap-1.5"
                 >
-                  <Search className="w-3.5 h-3.5" />
-                  <span>কুরআন এপিআই-এ খুঁজুন</span>
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>সমগ্র কুরআন ব্রাউজারে যান</span>
                 </button>
               </div>
             )}
@@ -393,18 +572,35 @@ export const CaptionsView: React.FC = () => {
             </div>
           </div>
 
-          {/* Result count */}
-          <div className="flex items-center justify-between text-xs text-[#877461] px-1">
+          {/* Result count & Dynamic Quran Loader banner */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#877461] px-1">
             <span>
-              নির্বাচিত সংকলন: <strong className="text-[#f7df94]">{toBengaliNumber(filteredCuratedQuotes.length)}</strong> টি
+              প্রদর্শিত হচ্ছে: <strong className="text-[#f7df94]">{toBengaliNumber(filteredCuratedQuotes.length)}</strong> টি বাণী
+              {extraCuratedAyahs.length > 0 && (
+                <span className="text-[#d4af37] ml-1">
+                  (এপিআই থেকে +{toBengaliNumber(extraCuratedAyahs.length)}টি আয়াত যুক্ত)
+                </span>
+              )}
             </span>
-            <button
-              onClick={() => setActiveTabMode('quran')}
-              className="text-[#d4af37] hover:underline flex items-center gap-1"
-            >
-              <span>সকল ১১৪টি সূরায় যান</span>
-              <ArrowRight className="w-3 h-3" />
-            </button>
+
+            <div className="flex items-center gap-2">
+              <button
+                disabled={isLoadingMoreCurated}
+                onClick={handleLoadMoreDynamicQuran}
+                className="px-3 py-1.5 rounded-lg bg-[#271d15] hover:bg-[#382a1c] text-[#f7df94] border border-[#d4af37]/40 text-xs font-semibold transition flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isLoadingMoreCurated ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <PlusCircle className="w-3.5 h-3.5 text-[#d4af37]" />}
+                <span>কুরআন এপিআই থেকে আরও আয়াত লোড করুন</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTabMode('quran')}
+                className="text-[#d4af37] hover:underline flex items-center gap-1 font-medium"
+              >
+                <span>সকল ১১৪টি সূরায় যান</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            </div>
           </div>
 
           {/* Cards Grid */}
@@ -451,8 +647,8 @@ export const CaptionsView: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="pt-3 border-t border-[#231a12] flex items-center justify-between">
-                    <span className="text-xs font-medium text-[#c49b3a] truncate max-w-[50%]">
+                  <div className="pt-3 border-t border-[#231a12] flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-xs text-[#c49b3a] font-medium">
                       {item.ref}
                     </span>
 
@@ -460,28 +656,29 @@ export const CaptionsView: React.FC = () => {
                       <button
                         onClick={() => handleCopyQuote(item)}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#221811] hover:bg-[#2b1f16] text-[#e0d2bf] text-xs font-medium border border-[#3a2a1d] transition"
-                        title="সম্পূর্ণ এসইও ফেসবুক পোস্ট কপি"
+                        title="সম্পূর্ণ ফেসবুক পোস্ট কপি"
                       >
                         {copiedId === item.ref ? (
                           <>
                             <Check className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>কপি</span>
+                            <span>কপি হয়েছে</span>
                           </>
                         ) : (
                           <>
                             <Copy className="w-3.5 h-3.5 text-[#d4af37]" />
-                            <span>কপি</span>
+                            <span>ফেসবুক পোস্ট কপি</span>
                           </>
                         )}
                       </button>
 
+                      {/* Direct Poster Generator Button */}
                       <button
                         onClick={() => handleSendToPoster(item)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#d4af37] hover:bg-[#e6c878] text-[#140e0a] text-xs font-bold transition shadow"
-                        title="পোস্টার স্টুডিওতে ডিজাইন শুরু করুন"
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#e6c878] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] text-xs font-bold transition shadow-lg hover:scale-[1.02] active:scale-95"
+                        title="পোস্টার স্টুডিওতে সরাসরি ডিজাইন করুন"
                       >
-                        <Palette className="w-3.5 h-3.5" />
-                        <span>পোস্টার</span>
+                        <Sparkles className="w-3.5 h-3.5 text-[#140e0a]" />
+                        <span>পোস্টার তৈরি করুন</span>
                       </button>
                     </div>
                   </div>
@@ -493,44 +690,22 @@ export const CaptionsView: React.FC = () => {
       )}
 
       {/* ────────────────────────────────────────────────────────── */}
-      {/* 2. FULL QURAN BROWSER TAB (All 114 Surahs & 6236 Verses) */}
+      {/* 2. FULL QURAN API BROWSER (114 Surahs, 6,236 Ayahs) */}
       {/* ────────────────────────────────────────────────────────── */}
       {activeTabMode === 'quran' && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          {/* Surah & Ayah Picker Control Panel */}
-          <div className="bg-[#17110c] border border-[#3d2a1c] rounded-2xl p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#2d2117]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#281b10] flex items-center justify-center text-[#d4af37] border border-[#44301d]">
-                  <BookOpen className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm sm:text-base text-[#f4eee2]">
-                    আল-কুরআনুল কারীম এপিআই ব্রাউজার
-                  </h3>
-                  <p className="text-[11px] text-[#877461]">
-                    সকল ১১৪টি সূরা ও ৬,২৩৬টি আয়াত আরবি উসমানি ও সহীহ বাংলা অনুবাদ সহ সরাসরি লাইভ
-                  </p>
-                </div>
-              </div>
-
-              <span className="hidden sm:inline-flex text-xs px-3 py-1 rounded-full bg-[#20160f] text-[#d4af37] border border-[#3d2a1c] font-medium">
-                অনুবাদ: মুহিউদ্দীন খান
-              </span>
-            </div>
-
-            {/* Surah Selector & Ayah Jump Bar */}
+          <div className="bg-[#17110c] border border-[#2d2117] rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
+            {/* Surah & Ayah Controls */}
             <form onSubmit={handleFetchAyah} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-              {/* Surah dropdown (114 Surahs) */}
+              {/* Surah Selector */}
               <div className="sm:col-span-5 space-y-1.5">
                 <label className="text-xs font-semibold text-[#baa791]">
-                  সূরা নির্বাচন করুন (১১৪টি সূরা)
+                  সূরা নির্বাচন করুন (১-১১৪):
                 </label>
                 <select
                   value={selectedSurahNumber}
                   onChange={(e) => {
-                    const num = Number(e.target.value);
-                    setSelectedSurahNumber(num);
+                    setSelectedSurahNumber(Number(e.target.value));
                     setInputAyahNumber('1');
                   }}
                   className="w-full px-3.5 py-2.5 bg-[#120e0a] border border-[#2d2117] focus:border-[#d4af37] rounded-xl text-xs sm:text-sm text-[#f4eee2] outline-none"
@@ -620,6 +795,13 @@ export const CaptionsView: React.FC = () => {
               </button>
               <button
                 type="button"
+                onClick={() => handleQuickAyahSelect(39, 53)}
+                className="px-2.5 py-1 rounded-lg bg-[#1a130d] hover:bg-[#281b12] border border-[#2d2117] hover:border-[#d4af37] text-[#c7b59e] transition"
+              >
+                রহমতে হতাশ হয়ো না (৩৯:৫৩)
+              </button>
+              <button
+                type="button"
                 onClick={() => handleQuickAyahSelect(112, 1)}
                 className="px-2.5 py-1 rounded-lg bg-[#1a130d] hover:bg-[#281b12] border border-[#2d2117] hover:border-[#d4af37] text-[#c7b59e] transition"
               >
@@ -691,7 +873,7 @@ export const CaptionsView: React.FC = () => {
           {/* Verses Display Grid */}
           {!isFetchingQuran && !isSearchingApi && (
             <div className="space-y-4">
-              {(hasSearchedApi && apiSearchResults.length > 0 ? apiSearchResults : quranAyahs).map((ayah, idx) => (
+              {(hasSearchedApi && apiSearchResults.length > 0 ? apiSearchResults : paginatedQuranAyahs).map((ayah, idx) => (
                 <div
                   key={idx}
                   className="bg-[#17110c] border border-[#2d2117] hover:border-[#4d361c] rounded-2xl p-5 shadow-lg flex flex-col justify-between transition-all group"
@@ -764,6 +946,7 @@ export const CaptionsView: React.FC = () => {
                         )}
                       </button>
 
+                      {/* Prominent Direct Poster Generator Button */}
                       <button
                         onClick={() =>
                           handleSendToPoster({
@@ -771,22 +954,45 @@ export const CaptionsView: React.FC = () => {
                             ar: ayah.arabicText,
                             ref: ayah.reference,
                             type: 'quran',
+                            surahNumber: ayah.surahNumber,
+                            ayahNumber: ayah.ayahNumber,
                           })
                         }
-                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-[#d4af37] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] text-xs font-bold transition shadow"
-                        title="পোস্টার স্টুডিওতে নিয়ে যান"
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#e6c878] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] text-xs font-bold transition shadow-lg hover:scale-[1.02] active:scale-95"
+                        title="পোস্টার স্টুডিওতে সরাসরি ডিজাইন করুন"
                       >
-                        <Palette className="w-3.5 h-3.5" />
-                        <span>পোস্টার বানান</span>
+                        <Sparkles className="w-3.5 h-3.5 text-[#140e0a]" />
+                        <span>পোস্টার তৈরি করুন</span>
                       </button>
                     </div>
                   </div>
                 </div>
               ))}
 
-              {quranAyahs.length === 0 && !hasSearchedApi && (
-                <div className="py-12 text-center text-xs text-[#877461]">
-                  সূরা ও আয়াত নম্বর দিয়ে "আয়াত দেখুন" বাটনে চাপুন।
+              {/* Pagination for Full Surah View */}
+              {quranViewMode === 'full' && totalSurahPages > 1 && !hasSearchedApi && (
+                <div className="p-4 rounded-xl bg-[#17110c] border border-[#2d2117] flex items-center justify-between text-xs text-[#a9947c]">
+                  <span>
+                    পৃষ্ঠা <strong className="text-[#f7df94]">{toBengaliNumber(surahPage)}</strong> / {toBengaliNumber(totalSurahPages)}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      disabled={surahPage <= 1}
+                      onClick={() => setSurahPage((p) => Math.max(1, p - 1))}
+                      className="px-3 py-1.5 rounded-lg bg-[#241a12] hover:bg-[#322419] text-[#f4eee2] disabled:opacity-40 transition flex items-center gap-1"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                      <span>পূর্ববর্তী পৃষ্ঠা</span>
+                    </button>
+                    <button
+                      disabled={surahPage >= totalSurahPages}
+                      onClick={() => setSurahPage((p) => Math.min(totalSurahPages, p + 1))}
+                      className="px-3 py-1.5 rounded-lg bg-[#241a12] hover:bg-[#322419] text-[#f4eee2] disabled:opacity-40 transition flex items-center gap-1"
+                    >
+                      <span>পরবর্তী পৃষ্ঠা</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -795,34 +1001,53 @@ export const CaptionsView: React.FC = () => {
       )}
 
       {/* ────────────────────────────────────────────────────────── */}
-      {/* 3. HADITH EXPLORER TAB (Sahih Bukhari, Muslim, Tirmidhi) */}
+      {/* 3. HADITH EXPLORER & LIBRARY (Fixed & Enhanced) */}
       {/* ────────────────────────────────────────────────────────── */}
       {activeTabMode === 'hadith' && (
         <div className="space-y-6 animate-in fade-in duration-200">
           <div className="bg-[#17110c] border border-[#3d2a1c] rounded-2xl p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#2d2117]">
+            {/* Header & Controls */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[#2d2117]">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#281b10] flex items-center justify-center text-[#d4af37] border border-[#44301d]">
-                  <Layers className="w-4 h-4" />
+                <div className="w-9 h-9 rounded-xl bg-[#281b10] flex items-center justify-center text-[#d4af37] border border-[#44301d]">
+                  <Layers className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-bold text-sm sm:text-base text-[#f4eee2]">
                     সহীহ হাদিস এক্সপ্লোরার ও লাইব্রেরি
                   </h3>
                   <p className="text-[11px] text-[#877461]">
-                    সহীহ বুখারি, সহীহ মুসলিম ও জামে আত-তিরমিযি থেকে বিষয়ভিত্তিক সহীহ হাদিস ভাণ্ডার
+                    সহীহ বুখারি, সহীহ মুসলিম, জামে আত-তিরমিযী ও ৪০ হাদিস নববী থেকে বিষয়ভিত্তিক সহীহ হাদিস
                   </p>
                 </div>
               </div>
 
               <button
                 disabled={isFetchingHadith}
-                onClick={() => handleGenerateHadith(hadithTopic)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#281b10] hover:bg-[#382618] text-[#f7df94] border border-[#44301d] text-xs font-bold transition disabled:opacity-50"
+                onClick={() => handleLoadHadiths(hadithTopic, selectedHadithBook)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#281b10] hover:bg-[#382618] text-[#f7df94] border border-[#44301d] text-xs font-bold transition disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 text-[#d4af37] ${isFetchingHadith ? 'animate-spin' : ''}`} />
-                <span>নতুন হাদিস আনুন</span>
+                <span>হাদিস রিফ্রেশ করুন</span>
               </button>
+            </div>
+
+            {/* Book Filter Selector */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <span className="text-xs text-[#877461] whitespace-nowrap">গ্রন্থ:</span>
+              {HADITH_BOOKS.map((b) => (
+                <button
+                  key={b.id}
+                  onClick={() => handleLoadHadiths(hadithTopic, b.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition ${
+                    selectedHadithBook === b.id
+                      ? 'bg-[#d4af37] text-[#140e0a] font-bold shadow'
+                      : 'bg-[#1b140e] text-[#9b8976] hover:bg-[#281c13] hover:text-[#f4eee2] border border-[#2d2117]'
+                  }`}
+                >
+                  {b.nameBn}
+                </button>
+              ))}
             </div>
 
             {/* Hadith Topic Chips */}
@@ -831,21 +1056,10 @@ export const CaptionsView: React.FC = () => {
                 বিষয় নির্বাচন করুন:
               </label>
               <div className="flex flex-wrap gap-2">
-                {[
-                  'সবর ও শোকর',
-                  'সালাত ও জামাত',
-                  'নিয়ত ও সততা',
-                  'তাওবা ও ক্ষমা',
-                  'সদকা ও দান',
-                  'পিতা-মাতার খেদমত',
-                  'উত্তম চরিত্র ও ব্যবহার',
-                  'জ্ঞান ও কুরআন শিক্ষা',
-                  'রিজিক ও তাওয়াক্কুল',
-                  'মৃত্যু ও জান্নাত',
-                ].map((topic) => (
+                {HADITH_TOPICS.map((topic) => (
                   <button
                     key={topic}
-                    onClick={() => handleGenerateHadith(topic)}
+                    onClick={() => handleLoadHadiths(topic, selectedHadithBook)}
                     className={`px-3 py-1.5 rounded-full text-xs transition ${
                       hadithTopic === topic
                         ? 'bg-[#d4af37] text-[#140e0a] font-bold shadow'
@@ -857,80 +1071,153 @@ export const CaptionsView: React.FC = () => {
                 ))}
               </div>
             </div>
+
+            {/* Direct Number Lookup & Search */}
+            <div className="pt-3 border-t border-[#261c13] grid grid-cols-1 md:grid-cols-2 gap-3 items-center">
+              {/* Keyword Search in Hadiths */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#877461]" />
+                <input
+                  type="text"
+                  value={hadithSearch}
+                  onChange={(e) => setHadithSearch(e.target.value)}
+                  placeholder="হাদিসের বাংলা টেক্সট বা বিষয়ে অনুসন্ধান..."
+                  className="w-full pl-9 pr-3 py-2 bg-[#120e0a] border border-[#2d2117] focus:border-[#d4af37] rounded-xl text-xs text-[#f4eee2] outline-none"
+                />
+              </div>
+
+              {/* Direct Hadith Fetch Form */}
+              <form onSubmit={handleDirectHadithLookup} className="flex items-center gap-2">
+                <select
+                  value={directBook}
+                  onChange={(e) => setDirectBook(e.target.value as any)}
+                  className="px-2.5 py-2 bg-[#120e0a] border border-[#2d2117] focus:border-[#d4af37] rounded-xl text-xs text-[#f4eee2] outline-none"
+                >
+                  <option value="bukhari">বুখারি</option>
+                  <option value="muslim">মুসলিম</option>
+                  <option value="tirmidhi">তিরমিযী</option>
+                  <option value="nawawi">৪০ নববী</option>
+                </select>
+
+                <input
+                  type="number"
+                  min={1}
+                  value={directNumber}
+                  onChange={(e) => setDirectNumber(e.target.value)}
+                  placeholder="হাদিস নম্বর"
+                  className="w-24 px-2.5 py-2 bg-[#120e0a] border border-[#2d2117] focus:border-[#d4af37] rounded-xl text-xs text-[#f4eee2] text-center outline-none"
+                />
+
+                <button
+                  type="submit"
+                  disabled={isFetchingDirect}
+                  className="flex-1 px-3 py-2 bg-[#2a1e14] hover:bg-[#38281b] border border-[#4d361c] text-[#f7df94] text-xs font-bold rounded-xl transition flex items-center justify-center gap-1 disabled:opacity-50"
+                >
+                  {isFetchingDirect ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                  <span>হাদিস খুঁজুন</span>
+                </button>
+              </form>
+            </div>
           </div>
 
-          {/* Hadith Cards */}
+          {/* Loading state */}
           {isFetchingHadith ? (
-            <div className="py-16 text-center space-y-3">
+            <div className="py-16 text-center space-y-3 bg-[#17110c] border border-[#2d2117] rounded-2xl">
               <RefreshCw className="w-8 h-8 text-[#d4af37] animate-spin mx-auto" />
               <p className="text-sm text-[#f4eee2] font-semibold">
-                "{hadithTopic}" সম্পর্কিত সহীহ হাদিস এপিআই থেকে সংকলন হচ্ছে...
+                "{hadithTopic}" সম্পর্কিত সহীহ হাদিস লাইব্রেরি থেকে লোড হচ্ছে...
               </p>
+              <p className="text-xs text-[#877461]">বিশুদ্ধ আরবি পাঠ ও বাংলা তরজমা প্রস্তুত হচ্ছে</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {dynamicHadiths.map((item) => (
-                <div
-                  key={item.id}
-                  className="bg-[#17110c] border border-[#2d2117] hover:border-[#423122] rounded-2xl p-5 flex flex-col justify-between transition-all hover:shadow-lg group"
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#271d15] text-[#d4af37] border border-[#3f2f1d]">
-                        {item.topic || 'সহীহ হাদিস'}
-                      </span>
-                      <span className="text-xs text-[#c49b3a] font-medium">
-                        {item.ref}
-                      </span>
-                    </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredHadithList.map((item) => (
+                  <div
+                    key={item.id}
+                    className="bg-[#17110c] border border-[#2d2117] hover:border-[#423122] rounded-2xl p-5 flex flex-col justify-between transition-all hover:shadow-lg group"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#231a12]">
+                        <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#271d15] text-[#d4af37] border border-[#3f2f1d]">
+                          {item.topic || 'সহীহ হাদিস'}
+                        </span>
+                        <span className="text-xs text-[#f7df94] font-semibold">
+                          {item.ref}
+                        </span>
+                      </div>
 
-                    {item.ar && (
-                      <p dir="rtl" className="font-arabic text-xl text-[#f7df94] leading-loose mb-3 text-right">
-                        {item.ar}
+                      {item.narrator && (
+                        <p className="text-xs text-[#9b8976] mb-2 font-medium">
+                          বর্ণনাকারী: {item.narrator}
+                        </p>
+                      )}
+
+                      {item.ar && (
+                        <p dir="rtl" className="font-arabic text-xl text-[#f7df94] leading-loose mb-3 text-right">
+                          {item.ar}
+                        </p>
+                      )}
+
+                      <p className="font-bengali text-base text-[#f0e7d5] leading-relaxed mb-4">
+                        “{item.bn}”
                       </p>
-                    )}
+                    </div>
 
-                    <p className="font-bengali text-base text-[#f0e7d5] leading-relaxed mb-4">
-                      “{item.bn}”
-                    </p>
-                  </div>
+                    <div className="pt-3 border-t border-[#231a12] flex items-center justify-between flex-wrap gap-2">
+                      <span className="text-[11px] text-[#877461] flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>সহীহ সনদ</span>
+                      </span>
 
-                  <div className="pt-3 border-t border-[#231a12] flex items-center justify-between">
-                    <span className="text-[11px] text-[#877461]">
-                      সহীহ সনদযুক্ত
-                    </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleCopyQuote(item)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#221811] hover:bg-[#2b1f16] text-[#e0d2bf] text-xs font-medium border border-[#3a2a1d] transition"
+                          title="সম্পূর্ণ ফেসবুক পোস্ট কপি"
+                        >
+                          {copiedId === item.ref ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>কপি হয়েছে</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5 text-[#d4af37]" />
+                              <span>ফেসবুক পোস্ট কপি</span>
+                            </>
+                          )}
+                        </button>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleCopyQuote(item)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#221811] hover:bg-[#2b1f16] text-[#e0d2bf] text-xs font-medium border border-[#3a2a1d] transition"
-                        title="সম্পূর্ণ ফেসবুক পোস্ট কপি"
-                      >
-                        {copiedId === item.ref ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>কপি</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3.5 h-3.5 text-[#d4af37]" />
-                            <span>কপি</span>
-                          </>
-                        )}
-                      </button>
-
-                      <button
-                        onClick={() => handleSendToPoster({ ...item, type: 'hadith' })}
-                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#d4af37] hover:bg-[#e6c878] text-[#140e0a] text-xs font-bold transition shadow"
-                        title="পোস্টার স্টুডিওতে পোস্টার তৈরি করুন"
-                      >
-                        <Palette className="w-3.5 h-3.5" />
-                        <span>পোস্টার</span>
-                      </button>
+                        {/* Prominent Direct Poster Generator Button */}
+                        <button
+                          onClick={() => handleSendToPoster({ ...item, type: 'hadith' })}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#e6c878] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] text-xs font-bold transition shadow-lg hover:scale-[1.02] active:scale-95"
+                          title="পোস্টার স্টুডিওতে সরাসরি ডিজাইন করুন"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-[#140e0a]" />
+                          <span>পোস্টার তৈরি করুন</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
+                ))}
+              </div>
+
+              {filteredHadithList.length === 0 && (
+                <div className="py-16 text-center space-y-3 bg-[#17110c] border border-dashed border-[#2d2117] rounded-2xl">
+                  <AlertCircle className="w-8 h-8 text-[#d4af37] mx-auto opacity-70" />
+                  <p className="text-sm text-[#f4eee2]">
+                    এই বিষয়ে কোনো হাদিস মেলেনি
+                  </p>
+                  <button
+                    onClick={() => handleLoadHadiths('সবর ও শোকর', 'all')}
+                    className="px-4 py-2 rounded-xl bg-[#d4af37] text-black font-bold text-xs"
+                  >
+                    পুনরায় লোড করুন
+                  </button>
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>

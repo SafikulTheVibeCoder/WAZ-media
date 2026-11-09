@@ -261,43 +261,85 @@ Requirements:
 
   // Hadith explorer & generator endpoint
   app.post('/api/hadith/generate', async (req: Request, res: Response) => {
-    try {
-      const { topic, count = 5 } = req.body || {};
-      const queryTopic = topic || 'দৈনন্দিন জীবন ও নেক আমল';
+    const { topic, count = 5 } = req.body || {};
+    const queryTopic = topic || 'সবর ও শোকর';
 
+    // Comprehensive verified authentic fallback hadith database
+    const VERIFIED_COLLECTION: Record<string, any[]> = {
+      'সবর ও শোকর': [
+        {
+          id: 'hadith-muslim-2999',
+          type: 'hadith',
+          ar: 'عَجَبًا لأَمْرِ الْمُؤْمِنِ إِنَّ أَمْرَهُ كُلَّهُ خَيْرٌ وَلَيْسَ ذَاكَ لأَحَدٍ إِلاَّ لِلْمُؤْمِنِ إِنْ أَصَابَتْهُ سَرَّاءُ شَكَرَ فَكَانَ خَيْرًا لَهُ وَإِنْ أَصَابَتْهُ ضَرَّاءُ صَبَرَ فَكَانَ خَيْرًا لَهُ',
+          bn: 'মুমিনের অবস্থা সত্যিই আশ্চর্যজনক! তার সকল কাজই কল্যাণময়। যদি সে কোনো সুখ-শান্তি লাভ করে তবে সে কৃতজ্ঞতা প্রকাশ করে, যা তার জন্য কল্যাণকর। আর যদি সে দুঃখ-কষ্টে নিপতিত হয় তবে সে ধৈর্য ধারণ করে, ফলে তাও তার জন্য কল্যাণ বয়ে আনে।',
+          ref: 'সহীহ মুসলিম, হাদিস: ২৯৯৯',
+          topic: 'সবর ও শোকর',
+          cats: ['সবর', 'শোকর', 'ঈমান']
+        },
+        {
+          id: 'hadith-bukhari-1469',
+          type: 'hadith',
+          ar: 'وَمَنْ يَتَصَبَّرْ يُصَبِّرْهُ اللَّهُ، وَمَا أُعْطِيَ أَحَدٌ عَطَاءً خَيْرًا وَأَوْسَعَ مِنَ الصَّبْرِ',
+          bn: 'যে ব্যক্তি ধৈর্য ধারণের চেষ্টা করে, আল্লাহ তাকে ধৈর্যশীল বানিয়ে দেন। আর কাউকে ধৈর্যের চেয়ে উত্তম ও প্রশস্ত আর কোনো নিয়ামত দান করা হয়নি।',
+          ref: 'সহীহ বুখারি, হাদিস: ১৪৬৯',
+          topic: 'সবরের মর্যাদা',
+          cats: ['সবর', 'চরিত্র']
+        },
+        {
+          id: 'hadith-bukhari-5641',
+          type: 'hadith',
+          ar: 'مَا يُصِيبُ الْمُسْلِمَ مِنْ نَصَبٍ وَلاَ وَصَبٍ وَلاَ هَمٍّ وَلاَ حُزْنٍ وَلاَ أَذًى وَلاَ غَمٍّ حَتَّى الشَّوْكَةِ يُشَاكُهَا إِلاَّ كَفَّرَ اللَّهُ بِهَا مِنْ خَطَايَاهُ',
+          bn: 'মুসলিম ব্যক্তির ওপর যেসব ক্লান্তি, রোগ, দুশ্চিন্তা, শোক, কষ্ট ও উদ্বেগের আঘাত আসে—এমনকি একটি কাঁটাও যদি তার গায়ে বিঁধে—তার বিনিময়ে আল্লাহ তার গুনাহসমূহ মাফ করে দেন।',
+          ref: 'সহীহ বুখারি, হাদিস: ৫৬৪১',
+          topic: 'বিপদে গুনাহ মাফ',
+          cats: ['সবর', 'ক্ষমা']
+        },
+        {
+          id: 'hadith-bukhari-1302',
+          type: 'hadith',
+          ar: 'إِنَّمَا الصَّبْرُ عِنْدَ الصَّدْمَةِ الأُولَى',
+          bn: 'প্রকৃত ধৈর্য তো বিপদের প্রথম আঘাতেই প্রকাশ পায়।',
+          ref: 'সহীহ বুখারি, হাদিস: ১৩০২',
+          topic: 'বিপদের শুরুতে সবর',
+          cats: ['সবর', 'আখলাক']
+        }
+      ],
+      'নিয়ত ও ইখলাস': [
+        {
+          id: 'hadith-bukhari-1',
+          type: 'hadith',
+          ar: 'إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ، وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى',
+          bn: 'নিশ্চয়ই সমস্ত কাজের ফলাফল নিয়তের ওপর নির্ভরশীল। আর প্রত্যেক ব্যক্তি যা নিয়ত করবে তাই পাবে।',
+          ref: 'সহীহ বুখারি, হাদিস: ১',
+          topic: 'নিয়ত ও সততা',
+          cats: ['হাদিস', 'নিয়ত ও আমল']
+        },
+        {
+          id: 'hadith-muslim-2564',
+          type: 'hadith',
+          ar: 'إِنَّ اللَّهَ لاَ يَنْظُرُ إِلَى صُوَرِكُمْ وَأَمْوَالِكُمْ وَلَكِنْ يَنْظُرُ إِلَى قُلُوبِكُمْ وَأَعْمَالِكُمْ',
+          bn: 'নিশ্চয় আল্লাহ তোমাদের রূপ-চেহারা ও ধন-সম্পদের দিকে তাকান না, বরং তিনি তোমাদের অন্তর ও আমলের দিকে তাকান।',
+          ref: 'সহীহ মুসলিম, হাদিস: ২৫৬৪',
+          topic: 'অন্তরের পবিত্রতা',
+          cats: ['ইখলাস', 'অন্তর']
+        }
+      ]
+    };
+
+    const getFallback = () => {
+      const match = VERIFIED_COLLECTION[queryTopic];
+      if (match && match.length > 0) {
+        return { items: match };
+      }
+      // General fallbacks across all verified hadiths
+      const allItems = Object.values(VERIFIED_COLLECTION).flat();
+      return { items: allItems.slice(0, count) };
+    };
+
+    try {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
-        return res.json({
-          items: [
-            {
-              id: 'h-auto-1',
-              type: 'hadith',
-              ar: 'إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ، وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى',
-              bn: 'নিশ্চয়ই সমস্ত কাজের ফলাফল নিয়তের ওপর নির্ভরশীল। আর প্রত্যেক ব্যক্তি যা নিয়ত করবে তাই পাবে।',
-              ref: 'সহিহ বুখারি, হাদিস: ১',
-              topic: 'নিয়ত ও সততা',
-              cats: ['হাদিস', 'নিয়ত ও আমল']
-            },
-            {
-              id: 'h-auto-2',
-              type: 'hadith',
-              ar: 'خَيْرُكُمْ مَنْ تَعَلَّمَ الْقُرْآنَ وَعَلَّمَهُ',
-              bn: 'তোমাদের মধ্যে সর্বোত্তম ব্যক্তি সে, যে নিজে কুরআন শিখে এবং অপরকে শিক্ষা দেয়।',
-              ref: 'সহিহ বুখারি, হাদিস: ৫০২৭',
-              topic: 'কুরআন শিক্ষা',
-              cats: ['হাদিস', 'কুরআন ও জ্ঞান']
-            },
-            {
-              id: 'h-auto-3',
-              type: 'hadith',
-              ar: 'المُسْلِمُ مَنْ سَلِمَ المُسْلِمُونَ مِنْ لِسَانِهِ وَيَدِهِ',
-              bn: 'প্রকৃত মুসলিম সে-ই, যার জিহ্বা ও হাত থেকে অন্য মুসলিম নিরাপদ থাকে।',
-              ref: 'সহিহ বুখারি, হাদিস: ১০',
-              topic: 'মুসলিম চরিত্র',
-              cats: ['হাদিস', 'চরিত্র ও আদব']
-            }
-          ]
-        });
+        return res.json(getFallback());
       }
 
       const ai = new GoogleGenAI({
@@ -307,18 +349,23 @@ Requirements:
         },
       });
 
-      const prompt = `Return ${count} 100% authentic Hadiths (from Sahih al-Bukhari, Sahih Muslim, Jami at-Tirmidhi, Sunan Abi Dawood, or Sunan an-Nasa'i) related to the topic "${queryTopic}".
+      const prompt = `Return ${count} 100% authentic Hadiths (from Sahih al-Bukhari, Sahih Muslim, Jami at-Tirmidhi, Sunan Abi Dawood) related to the topic "${queryTopic}".
 Each hadith must include:
-- id: unique string (e.g. "hadith-bukhari-1")
+- id: unique string
 - type: "hadith"
 - ar: Full Arabic text of the Hadith
 - bn: Accurate, lucid Bengali translation
-- ref: Exact reference in Bengali (e.g. "সহিহ বুখারি, হাদিস: ১" or "সহিহ মুসলিম, হাদিস: ২৫৬")
+- ref: Exact reference in Bengali (e.g. "সহীহ বুখারি, হাদিস: ১")
 - topic: 2-4 word theme in Bengali
 - cats: array of 2-3 categories in Bengali`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+      // Set a 4-second timeout promise to prevent hanging
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('AI generation timeout')), 4500)
+      );
+
+      const generatePromise = ai.models.generateContent({
+        model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
           systemInstruction: 'You are an authentic Islamic Hadith scholar. Only return verified Hadiths with exact references.',
@@ -348,11 +395,47 @@ Each hadith must include:
         },
       });
 
+      const response: any = await Promise.race([generatePromise, timeoutPromise]);
       const parsed = JSON.parse(response.text || '{"items":[]}');
-      res.json(parsed);
+      if (Array.isArray(parsed.items) && parsed.items.length > 0) {
+        return res.json(parsed);
+      }
+      return res.json(getFallback());
     } catch (err: any) {
-      console.error('Hadith generate error:', err);
-      res.status(500).json({ error: 'Failed to generate hadiths' });
+      console.warn('Hadith generator fallback activated:', err.message);
+      // Graceful verified fallback - never fail with 500
+      return res.json(getFallback());
+    }
+  });
+
+  // Proxy endpoint for Fawaz Ahmed Hadith API
+  app.get('/api/hadith/book/:book/:number', async (req: Request, res: Response) => {
+    try {
+      const book = req.params.book;
+      const num = parseInt(req.params.number, 10);
+      if (isNaN(num)) return res.status(400).json({ error: 'Invalid number' });
+
+      const benUrl = `https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/ben-${book}/${num}.json`;
+      const araUrl = `https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/ara-${book}/${num}.json`;
+
+      const [benRes, araRes] = await Promise.all([
+        fetch(benUrl).catch(() => null),
+        fetch(araUrl).catch(() => null),
+      ]);
+
+      if (!benRes || !benRes.ok) {
+        return res.status(404).json({ error: 'Hadith not found' });
+      }
+
+      const benJson = await benRes.json();
+      const araJson = araRes && araRes.ok ? await araRes.json() : null;
+
+      res.json({
+        bengali: benJson?.hadiths?.[0] || null,
+        arabic: araJson?.hadiths?.[0] || null,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
     }
   });
 

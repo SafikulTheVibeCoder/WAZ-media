@@ -235,8 +235,35 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const loadQuoteToPoster = (quote: QuoteItem) => {
+    // If an active preset exists, automatically apply its design parameters
+    const activePreset = activePresetId ? presets.find((p) => p.id === activePresetId) : null;
+    const cfg = activePreset?.config;
+
     setPoster((prev) => ({
       ...prev,
+      ...(cfg
+        ? {
+            theme: cfg.theme,
+            size: cfg.size,
+            font: cfg.font,
+            fontSize: cfg.fontSize,
+            arabicSizeRatio: cfg.arabicSizeRatio,
+            lineHeight: cfg.lineHeight,
+            autoFit: cfg.autoFit,
+            textColor: cfg.textColor,
+            accentColor: cfg.accentColor,
+            arabicColor: cfg.arabicColor,
+            align: cfg.align,
+            refPos: cfg.refPos,
+            overlay: cfg.overlay,
+            bgType: cfg.bgType,
+            bgPattern: cfg.bgPattern,
+            borderStyle: cfg.borderStyle,
+            decorCorner: cfg.decorCorner,
+            decorDivider: cfg.decorDivider,
+            showBismillah: cfg.showBismillah,
+          }
+        : {}),
       bn: quote.bn,
       ar: quote.ar,
       ref: quote.ref,
@@ -244,7 +271,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
     setActiveEditingId(null);
     setCurrentView('poster');
-    showToast('ক্যাপশন পোস্টার স্টুডিওতে লোড করা হয়েছে');
+    showToast(
+      activePreset
+        ? `"${activePreset.name}" স্টাইলে পোস্টার তৈরি হয়েছে!`
+        : 'বাণীটি পোস্টার স্টুডিওতে সরাসরি লোড করা হয়েছে'
+    );
   };
 
   const saveCurrentDesign = (thumbDataUrl: string) => {
