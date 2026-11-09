@@ -7,6 +7,7 @@ import { PosterStudioView } from './components/PosterStudioView';
 import { BrandManagerView } from './components/BrandManagerView';
 import { SavedDesignsView } from './components/SavedDesignsView';
 import { Toast } from './components/Toast';
+import { AuthModal } from './components/AuthModal';
 
 const MainContent: React.FC = () => {
   const { currentView } = useApp();
@@ -29,6 +30,7 @@ export default function App() {
         <Sidebar />
         <MainContent />
         <Toast />
+        <AuthModal />
       </div>
     </AppProvider>
   );

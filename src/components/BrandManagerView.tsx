@@ -1,8 +1,9 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Header } from './Header';
 import { toBengaliNumber } from '../utils/bengaliUtils';
 import { BRAND_LOGO_PRESETS } from '../data/quotes';
+import { uploadBrandLogoToStorage } from '../services/firebaseDb';
 import { 
   BadgeCheck, 
   Upload, 
@@ -12,7 +13,9 @@ import {
   FileUp, 
   Sparkles,
   Eye,
-  Check
+  Check,
+  Cloud,
+  Loader2,
 } from 'lucide-react';
 
 export const BrandManagerView: React.FC = () => {
@@ -23,28 +26,47 @@ export const BrandManagerView: React.FC = () => {
     showToast,
     exportBackup,
     importBackup,
+    currentUser,
+    setIsAuthModalOpen,
   } = useApp();
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const backupInputRef = useRef<HTMLInputElement | null>(null);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      showToast('লোগো ফাইলের আকার ২ মেগাবাইটের কম হতে হবে');
+    if (file.size > 3 * 1024 * 1024) {
+      showToast('লোগো ফাইলের আকার ৩ মেগাবাইটের কম হতে হবে');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
-      updateBrandField('logo', result);
-      showToast('লোগো সফলভাবে আপলোড করা হয়েছে');
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
+    setIsUploadingLogo(true);
+    try {
+      if (currentUser) {
+        // Upload to Firebase Cloud Storage for permanent global URL
+        const downloadUrl = await uploadBrandLogoToStorage(currentUser.uid, file);
+        updateBrandField('logo', downloadUrl);
+        showToast('লোগো ফায়ারবেস ক্লাউড স্টোরেজে সফলভাবে আপলোড হয়েছে!');
+      } else {
+        // Fallback to local Data URL
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const result = event.target?.result as string;
+          updateBrandField('logo', result);
+          showToast('লোগো লোড হয়েছে। ক্লাউডে সেভ করতে সাইন-ইন করুন।');
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch (err) {
+      console.error('Logo upload error:', err);
+      showToast('লোগো আপলোড ব্যর্থ হয়েছে');
+    } finally {
+      setIsUploadingLogo(false);
+      e.target.value = '';
+    }
   };
 
   const handleBackupFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,13 +170,18 @@ export const BrandManagerView: React.FC = () => {
                 })}
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-[#221811] hover:bg-[#2e2016] text-[#f7df94] border border-[#3f2f1d] rounded-xl text-xs font-medium transition"
+                  disabled={isUploadingLogo}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-[#221811] hover:bg-[#2e2016] text-[#f7df94] border border-[#3f2f1d] rounded-xl text-xs font-medium transition disabled:opacity-50"
                 >
-                  <Upload className="w-4 h-4" />
-                  <span>নিজস্ব লোগো ফাইল আপলোড</span>
+                  {isUploadingLogo ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-[#d4af37]" />
+                  ) : (
+                    <Upload className="w-4 h-4" />
+                  )}
+                  <span>{isUploadingLogo ? 'ক্লাউড স্টোরেজে আপলোড হচ্ছে...' : 'নিজস্ব লোগো ফাইল আপলোড'}</span>
                 </button>
                 <input
                   ref={fileInputRef}
@@ -171,6 +198,13 @@ export const BrandManagerView: React.FC = () => {
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>রিসেট</span>
                 </button>
+
+                {Boolean(brand.logo?.startsWith('http')) && (
+                  <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-950/60 border border-emerald-800/40 text-[10px] text-emerald-400">
+                    <Cloud className="w-3 h-3" />
+                    ক্লাউড স্টোরেজ URL
+                  </span>
+                )}
               </div>
             </div>
 

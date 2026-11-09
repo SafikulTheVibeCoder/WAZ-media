@@ -1,0 +1,103 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account profile and role information",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "displayName": { "type": "string", "maxLength": 128 },
+        "photoURL": { "type": "string", "maxLength": 1024 },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "email"]
+    },
+    "SavedDesign": {
+      "title": "SavedDesign",
+      "description": "Cloud-synced Islamic poster design project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 256 },
+        "thumb": { "type": "string", "maxLength": 500000 },
+        "poster": { "type": "object" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "title", "poster"]
+    },
+    "PosterPreset": {
+      "title": "PosterPreset",
+      "description": "Custom reusable poster styling preset template",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "description": { "type": "string", "maxLength": 256 },
+        "category": { "type": "string", "maxLength": 64 },
+        "previewGradient": { "type": "string", "maxLength": 256 },
+        "config": { "type": "object" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "name", "config"]
+    },
+    "BrandSettings": {
+      "title": "BrandSettings",
+      "description": "User Islamic media brand settings and logo",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "tagline": { "type": "string", "maxLength": 256 },
+        "handle": { "type": "string", "maxLength": 128 },
+        "logo": { "type": "string", "maxLength": 500000 },
+        "pos": { "type": "string", "maxLength": 32 },
+        "logoSize": { "type": "number" },
+        "showLogo": { "type": "boolean" },
+        "showTag": { "type": "boolean" },
+        "showHandle": { "type": "boolean" },
+        "watermark": { "type": "boolean" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["userId", "name", "handle"]
+    },
+    "UserFavorites": {
+      "title": "UserFavorites",
+      "description": "User bookmarked Quran and Hadith quotes",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "quoteIds": { "type": "array" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["userId", "quoteIds"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile collection"
+    },
+    "/users/{userId}/designs/{designId}": {
+      "schema": "SavedDesign",
+      "description": "User saved poster designs"
+    },
+    "/users/{userId}/presets/{presetId}": {
+      "schema": "PosterPreset",
+      "description": "User saved custom poster design presets"
+    },
+    "/users/{userId}/brand/{brandDoc}": {
+      "schema": "BrandSettings",
+      "description": "User brand configuration and logo"
+    },
+    "/users/{userId}/favorites/{favDoc}": {
+      "schema": "UserFavorites",
+      "description": "User bookmarked favorites"
+    }
+  }
+}

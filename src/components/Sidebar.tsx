@@ -7,12 +7,22 @@ import {
   BadgeCheck, 
   FolderHeart,
   PlusCircle,
-  HelpCircle
+  Cloud,
+  ShieldCheck,
+  User as UserIcon,
 } from 'lucide-react';
 import { toBengaliNumber } from '../utils/bengaliUtils';
 
 export const Sidebar: React.FC = () => {
-  const { currentView, setCurrentView, brand, savedDesigns, startNewDesign } = useApp();
+  const {
+    currentView,
+    setCurrentView,
+    brand,
+    savedDesigns,
+    startNewDesign,
+    currentUser,
+    setIsAuthModalOpen,
+  } = useApp();
 
   const navItems = [
     { id: 'dashboard', label: 'ড্যাশবোর্ড', icon: LayoutDashboard },
@@ -92,18 +102,24 @@ export const Sidebar: React.FC = () => {
         </nav>
 
         {/* Bottom footer status */}
-        <div className="pt-4 border-t border-[#2d2117] text-xs text-[#7e6d5b] flex flex-col gap-2">
-          <div className="flex items-center justify-between px-2">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              অফলাইন রেডি
+        <div 
+          onClick={() => setIsAuthModalOpen(true)}
+          className="pt-3 border-t border-[#2d2117] text-xs text-[#7e6d5b] flex flex-col gap-2 cursor-pointer hover:bg-[#1a120b] p-2 rounded-xl transition border border-transparent hover:border-[#38281b]"
+          title="ক্লাউড সিঙ্ক সেটিংস খুলুন"
+        >
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1.5 font-medium text-[#baa791]">
+              <span className={`w-2 h-2 rounded-full ${currentUser ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
+              {currentUser ? 'ক্লাউড সিঙ্ক সক্রিয়' : 'অফলাইন মোড'}
             </span>
-            <span className="text-[10px] text-[#635547] bg-[#1a130e] px-2 py-0.5 rounded border border-[#2b2017]">
-              v2.0
+            <span className="text-[10px] text-[#635547] bg-[#1a130e] px-1.5 py-0.5 rounded border border-[#2b2017]">
+              {currentUser ? 'Asia' : 'লোকাল'}
             </span>
           </div>
-          <p className="text-[11px] leading-relaxed px-2 text-[#6e5f50]">
-            আপনার সকল ডিজাইন ও লোগো ব্রাউজারে সুরক্ষিত থাকে।
+          <p className="text-[11px] leading-relaxed text-[#7a6a59] line-clamp-2">
+            {currentUser 
+              ? `${currentUser.displayName || currentUser.email} হিসেবে সিঙ্কড` 
+              : 'ক্লাউডে সিঙ্ক ও যে কোনো ডিভাইস থেকে পেতে লগইন করুন।'}
           </p>
         </div>
       </aside>

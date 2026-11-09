@@ -2,6 +2,22 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { PosterConfig, BrandConfig, SavedDesign, UserStats, QuoteItem, PosterPreset, PosterPresetConfig } from '../types';
 import { DEFAULT_POSTER, DEFAULT_BRAND, DEFAULT_LOGO, INITIAL_QUOTES } from '../data/quotes';
 import { BUILTIN_PRESETS } from '../data/presets';
+import { auth } from '../services/firebase';
+import { onAuthStateChanged, User, signOut as firebaseSignOut } from 'firebase/auth';
+import {
+  syncUserProfile,
+  saveDesignToCloud,
+  loadUserDesigns,
+  deleteDesignFromCloud,
+  savePresetToCloud,
+  loadUserPresets,
+  deletePresetFromCloud,
+  saveBrandSettingsToCloud,
+  loadUserBrandSettings,
+  saveFavoritesToCloud,
+  loadUserFavorites,
+  migrateLocalStorageToCloud,
+} from '../services/firebaseDb';
 
 interface AppContextType {
   currentView: string;
@@ -38,6 +54,14 @@ interface AppContextType {
   deletePreset: (presetId: string) => void;
   updatePreset: (presetId: string, name: string, description?: string) => void;
   resetPresetsToDefault: () => void;
+  // Firebase Auth & Cloud Sync
+  currentUser: User | null;
+  isAuthLoading: boolean;
+  isAuthModalOpen: boolean;
+  setIsAuthModalOpen: (open: boolean) => void;
+  isCloudSyncing: boolean;
+  migrateLocalData: () => Promise<void>;
+  signOutUser: () => Promise<void>;
 }
 
 const STORAGE_KEYS = {
@@ -151,6 +175,68 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [toast, setToast] = useState<string | null>(null);
 
+  // Firebase Auth and Cloud Sync states
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isCloudSyncing, setIsCloudSyncing] = useState<boolean>(false);
+
+  // Auth observer and auto-hydration from Cloud Firestore
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setCurrentUser(user);
+      setIsAuthLoading(false);
+
+      if (user) {
+        try {
+          // Sync profile to users collection
+          await syncUserProfile(user);
+
+          // 1. Fetch user designs from Firestore
+          const cloudDesigns = await loadUserDesigns(user.uid);
+          if (cloudDesigns && cloudDesigns.length > 0) {
+            setSavedDesigns((prevLocal) => {
+              const map = new Map<string, SavedDesign>();
+              cloudDesigns.forEach((d) => map.set(d.id, d));
+              prevLocal.forEach((d) => {
+                if (!map.has(d.id)) map.set(d.id, d);
+              });
+              return Array.from(map.values());
+            });
+          }
+
+          // 2. Fetch custom presets from Firestore
+          const cloudPresets = await loadUserPresets(user.uid);
+          if (cloudPresets && cloudPresets.length > 0) {
+            setPresets((prev) => {
+              const map = new Map<string, PosterPreset>();
+              BUILTIN_PRESETS.forEach((p) => map.set(p.id, p));
+              prev.forEach((p) => map.set(p.id, p));
+              cloudPresets.forEach((p) => map.set(p.id, p));
+              return Array.from(map.values());
+            });
+          }
+
+          // 3. Fetch user brand settings from Firestore
+          const cloudBrand = await loadUserBrandSettings(user.uid);
+          if (cloudBrand) {
+            setBrand((prev) => ({ ...prev, ...cloudBrand }));
+          }
+
+          // 4. Fetch user favorites from Firestore
+          const cloudFavs = await loadUserFavorites(user.uid);
+          if (cloudFavs && cloudFavs.length > 0) {
+            setFavorites(cloudFavs);
+          }
+        } catch (err) {
+          console.warn('Initial cloud load warning:', err);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // Sync to local storage
   useEffect(() => {
     try {
@@ -224,7 +310,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const updateBrandField = <K extends keyof BrandConfig>(field: K, value: BrandConfig[K]) => {
-    setBrand((prev) => ({ ...prev, [field]: value }));
+    setBrand((prev) => {
+      const updated = { ...prev, [field]: value };
+      if (currentUser) {
+        saveBrandSettingsToCloud(currentUser.uid, updated).catch((err) =>
+          console.warn('Cloud brand save warning:', err)
+        );
+      }
+      return updated;
+    });
   };
 
   const incrementStat = (key: keyof UserStats) => {
@@ -284,13 +378,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     if (activeEditingId) {
       // Update existing
+      const updatedDesign: SavedDesign = {
+        id: activeEditingId,
+        title: poster.bn ? poster.bn.slice(0, 45) + '...' : 'আপডেটকৃত পোস্টার',
+        created: now,
+        updated: now,
+        poster: cleanConfig,
+        thumb: thumbDataUrl,
+      };
       setSavedDesigns((prev) =>
         prev.map((item) =>
-          item.id === activeEditingId
-            ? { ...item, updated: now, poster: cleanConfig, thumb: thumbDataUrl }
-            : item
+          item.id === activeEditingId ? updatedDesign : item
         )
       );
+      if (currentUser) {
+        saveDesignToCloud(currentUser.uid, updatedDesign).catch((e) =>
+          console.warn('Cloud design save warning:', e)
+        );
+      }
       showToast('ডিজাইন সফলভাবে আপডেট করা হয়েছে');
     } else {
       // Create new
@@ -307,6 +412,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setSavedDesigns((prev) => [newDesign, ...prev]);
       setActiveEditingId(newId);
       incrementStat('saved');
+      if (currentUser) {
+        saveDesignToCloud(currentUser.uid, newDesign).catch((e) =>
+          console.warn('Cloud design save warning:', e)
+        );
+      }
       showToast('ডিজাইন সফলভাবে সংরক্ষিত হয়েছে');
     }
   };
@@ -315,6 +425,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSavedDesigns((prev) => prev.filter((d) => d.id !== id));
     if (activeEditingId === id) {
       setActiveEditingId(null);
+    }
+    if (currentUser) {
+      deleteDesignFromCloud(currentUser.uid, id).catch((e) =>
+        console.warn('Cloud design delete warning:', e)
+      );
     }
     showToast('ডিজাইন মুছে ফেলা হয়েছে');
   };
@@ -331,6 +446,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       updated: now,
     };
     setSavedDesigns((prev) => [dup, ...prev]);
+    if (currentUser) {
+      saveDesignToCloud(currentUser.uid, dup).catch((e) =>
+        console.warn('Cloud design duplicate warning:', e)
+      );
+    }
     showToast('ডিজাইনের অনুলিপি তৈরি হয়েছে');
   };
 
@@ -349,18 +469,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const resetBrandDefaults = () => {
     setBrand({ ...DEFAULT_BRAND });
+    if (currentUser) {
+      saveBrandSettingsToCloud(currentUser.uid, DEFAULT_BRAND).catch((e) =>
+        console.warn('Cloud reset warning:', e)
+      );
+    }
     showToast('ব্র্যান্ড ডিফল্ট সেটিংসে ফিরিয়ে আনা হয়েছে');
   };
 
   const toggleFavorite = (id: string) => {
     setFavorites((prev) => {
+      let next: string[];
       if (prev.includes(id)) {
         showToast('পছন্দের তালিকা থেকে বাদ দেওয়া হয়েছে');
-        return prev.filter((item) => item !== id);
+        next = prev.filter((item) => item !== id);
       } else {
         showToast('পছন্দের তালিকায় যুক্ত হয়েছে');
-        return [...prev, id];
+        next = [...prev, id];
       }
+      if (currentUser) {
+        saveFavoritesToCloud(currentUser.uid, next).catch((e) =>
+          console.warn('Cloud favs save warning:', e)
+        );
+      }
+      return next;
     });
   };
 
@@ -413,6 +545,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     setPresets((prev) => [newPreset, ...prev]);
     setActivePresetId(id);
+    if (currentUser) {
+      savePresetToCloud(currentUser.uid, newPreset).catch((e) =>
+        console.warn('Cloud preset save warning:', e)
+      );
+    }
     showToast(`"${newPreset.name}" প্রিসেট সফলভাবে সংরক্ষিত হয়েছে!`);
     return newPreset;
   };
@@ -469,20 +606,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (activePresetId === presetId) {
       setActivePresetId(null);
     }
+    if (currentUser) {
+      deletePresetFromCloud(currentUser.uid, presetId).catch((e) =>
+        console.warn('Cloud preset delete warning:', e)
+      );
+    }
     showToast('প্রিসেট মুছে ফেলা হয়েছে');
   };
 
   const updatePreset = (presetId: string, name: string, description?: string) => {
     setPresets((prev) =>
-      prev.map((p) =>
-        p.id === presetId
-          ? {
-              ...p,
-              name: name.trim() || p.name,
-              description: description !== undefined ? description.trim() : p.description,
-            }
-          : p
-      )
+      prev.map((p) => {
+        if (p.id === presetId) {
+          const updated: PosterPreset = {
+            ...p,
+            name: name.trim() || p.name,
+            description: description !== undefined ? description.trim() : p.description,
+          };
+          if (currentUser && !p.isBuiltIn) {
+            savePresetToCloud(currentUser.uid, updated).catch((e) =>
+              console.warn('Cloud preset update warning:', e)
+            );
+          }
+          return updated;
+        }
+        return p;
+      })
     );
     showToast('প্রিসেট আপডেট সম্পন্ন হয়েছে');
   };
@@ -491,6 +640,48 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setPresets(BUILTIN_PRESETS);
     setActivePresetId('preset-golden-classic');
     showToast('ডিফল্ট প্রিসেটগুলো রিস্টোর করা হয়েছে');
+  };
+
+  // Migrate LocalStorage data to Firebase Cloud Firestore
+  const migrateLocalData = async () => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      showToast('মাইগ্রেশনের জন্য আগে সাইন-ইন করুন');
+      return;
+    }
+    setIsCloudSyncing(true);
+    try {
+      const res = await migrateLocalStorageToCloud(currentUser.uid);
+      const designs = await loadUserDesigns(currentUser.uid);
+      if (designs && designs.length > 0) setSavedDesigns(designs);
+      const userPresets = await loadUserPresets(currentUser.uid);
+      if (userPresets && userPresets.length > 0) {
+        setPresets(() => {
+          const map = new Map<string, PosterPreset>();
+          BUILTIN_PRESETS.forEach((p) => map.set(p.id, p));
+          userPresets.forEach((p) => map.set(p.id, p));
+          return Array.from(map.values());
+        });
+      }
+      showToast(`${res.designsCount} টি ডিজাইন ও ${res.presetsCount} টি প্রিসেট ক্লাউডে সিঙ্ক হয়েছে`);
+    } catch (err) {
+      console.error('Migration error:', err);
+      showToast('সিঙ্ক করার সময় সমস্যা হয়েছে');
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  };
+
+  // Sign out user
+  const signOutUser = async () => {
+    try {
+      await firebaseSignOut(auth);
+      showToast('একাউন্ট থেকে সফলভাবে সাইন আউট করা হয়েছে');
+      setIsAuthModalOpen(false);
+    } catch (err) {
+      console.error('Sign out error:', err);
+      showToast('সাইন আউট করতে সমস্যা হয়েছে');
+    }
   };
 
   const exportBackup = () => {
@@ -563,6 +754,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         deletePreset,
         updatePreset,
         resetPresetsToDefault,
+        currentUser,
+        isAuthLoading,
+        isAuthModalOpen,
+        setIsAuthModalOpen,
+        isCloudSyncing,
+        migrateLocalData,
+        signOutUser,
       }}
     >
       {children}
