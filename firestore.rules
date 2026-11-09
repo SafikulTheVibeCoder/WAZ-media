@@ -16,6 +16,15 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'realsafikul@gmail.com' ||
+        (request.auth.uid != null &&
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin')
+      );
+    }
+
     function isValidId(id) {
       return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -30,11 +39,12 @@ service cloud.firestore {
 
     // Validate User Profile
     function isValidUserProfile(data, userId) {
-      return data.userId == userId &&
+      return (data.userId == userId || data.uid == userId) &&
         data.email is string && data.email.size() <= 256 &&
         (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 128)) &&
         (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 1024)) &&
-        (!('role' in data) || data.role in ['user', 'admin']);
+        (!('role' in data) || data.role in ['super_admin', 'approved_user', 'basic_user']) &&
+        (!('status' in data) || data.status in ['active', 'pending']);
     }
 
     // Validate Design
@@ -73,42 +83,46 @@ service cloud.firestore {
 
     // User Profile Document
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow create: if isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming(), userId);
-      allow update: if isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming(), userId) &&
-        incoming().userId == existing().userId;
-      allow delete: if isOwner(userId);
+      allow get: if isOwner(userId) || isSuperAdmin();
+      allow list: if isSuperAdmin();
+      allow create: if (isOwner(userId) || isSuperAdmin()) && isValidId(userId) && isValidUserProfile(incoming(), userId);
+      allow update: if isSuperAdmin() || (
+        isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming(), userId) &&
+        (!('role' in incoming()) || incoming().role == existing().role) &&
+        (!('status' in incoming()) || incoming().status == existing().status)
+      );
+      allow delete: if isOwner(userId) || isSuperAdmin();
 
       // User Saved Designs subcollection
       match /designs/{designId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidId(designId) && isValidDesign(incoming(), userId);
-        allow update: if isOwner(userId) && isValidId(designId) && isValidDesign(incoming(), userId) &&
+        allow get, list: if isOwner(userId) || isSuperAdmin();
+        allow create: if (isOwner(userId) || isSuperAdmin()) && isValidId(designId) && isValidDesign(incoming(), userId);
+        allow update: if (isOwner(userId) || isSuperAdmin()) && isValidId(designId) && isValidDesign(incoming(), userId) &&
           incoming().userId == existing().userId && incoming().id == existing().id;
-        allow delete: if isOwner(userId) && isValidId(designId);
+        allow delete: if isOwner(userId) || isSuperAdmin();
       }
 
       // User Saved Presets subcollection
       match /presets/{presetId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidId(presetId) && isValidPreset(incoming(), userId);
-        allow update: if isOwner(userId) && isValidId(presetId) && isValidPreset(incoming(), userId) &&
+        allow get, list: if isOwner(userId) || isSuperAdmin();
+        allow create: if (isOwner(userId) || isSuperAdmin()) && isValidId(presetId) && isValidPreset(incoming(), userId);
+        allow update: if (isOwner(userId) || isSuperAdmin()) && isValidId(presetId) && isValidPreset(incoming(), userId) &&
           incoming().userId == existing().userId && incoming().id == existing().id;
-        allow delete: if isOwner(userId) && isValidId(presetId);
+        allow delete: if isOwner(userId) || isSuperAdmin();
       }
 
       // User Brand Settings
       match /brand/{brandDoc} {
-        allow get, list: if isOwner(userId);
-        allow create, update: if isOwner(userId) && isValidId(brandDoc) && isValidBrand(incoming(), userId);
-        allow delete: if isOwner(userId) && isValidId(brandDoc);
+        allow get, list: if isOwner(userId) || isSuperAdmin();
+        allow create, update: if (isOwner(userId) || isSuperAdmin()) && isValidId(brandDoc) && isValidBrand(incoming(), userId);
+        allow delete: if isOwner(userId) || isSuperAdmin();
       }
 
       // User Favorites
       match /favorites/{favDoc} {
-        allow get, list: if isOwner(userId);
-        allow create, update: if isOwner(userId) && isValidId(favDoc) && isValidFavorites(incoming(), userId);
-        allow delete: if isOwner(userId) && isValidId(favDoc);
+        allow get, list: if isOwner(userId) || isSuperAdmin();
+        allow create, update: if (isOwner(userId) || isSuperAdmin()) && isValidId(favDoc) && isValidFavorites(incoming(), userId);
+        allow delete: if isOwner(userId) || isSuperAdmin();
       }
     }
   }

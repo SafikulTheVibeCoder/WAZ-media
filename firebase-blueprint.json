@@ -2,18 +2,20 @@
   "entities": {
     "UserProfile": {
       "title": "UserProfile",
-      "description": "User account profile and role information",
+      "description": "User account profile and role-based access control information",
       "type": "object",
       "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
         "userId": { "type": "string", "maxLength": 128 },
         "email": { "type": "string", "maxLength": 256 },
         "displayName": { "type": "string", "maxLength": 128 },
         "photoURL": { "type": "string", "maxLength": 1024 },
-        "role": { "type": "string", "enum": ["user", "admin"] },
+        "role": { "type": "string", "enum": ["super_admin", "approved_user", "basic_user"] },
+        "status": { "type": "string", "enum": ["active", "pending"] },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
       },
-      "required": ["userId", "email"]
+      "required": ["uid", "userId", "email", "role", "status"]
     },
     "SavedDesign": {
       "title": "SavedDesign",

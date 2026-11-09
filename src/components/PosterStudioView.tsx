@@ -62,6 +62,11 @@ export const PosterStudioView: React.FC = () => {
     presets,
     activePresetId,
     applyPreset,
+    triggerAccessGuard,
+    isApproved,
+    isSuperAdmin,
+    currentUser,
+    setIsAccessDeniedModalOpen,
   } = useApp();
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -113,6 +118,9 @@ export const PosterStudioView: React.FC = () => {
   }, [poster, brand]);
 
   const handleDownload = async (format: 'png' | 'jpeg') => {
+    if (!triggerAccessGuard('পোস্টার ডাউনলোড ও এক্সপোর্ট')) {
+      return;
+    }
     if (!canvasRef.current) return;
     setIsExporting(true);
     try {
@@ -144,6 +152,9 @@ export const PosterStudioView: React.FC = () => {
   };
 
   const handleCopyImage = async () => {
+    if (!triggerAccessGuard('পোস্টার ছবি কপি')) {
+      return;
+    }
     if (!canvasRef.current) return;
     try {
       canvasRef.current.toBlob(async (blob) => {
@@ -402,6 +413,36 @@ export const PosterStudioView: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
+      {/* RBAC Pending Approval Banner */}
+      {currentUser && !isApproved && (
+        <div className="bg-amber-950/70 border border-amber-800/80 rounded-2xl p-3.5 sm:px-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-200 shadow-lg">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+            <span>
+              <strong>আপনার একাউন্টটি অনুমোদনের অপেক্ষায় রয়েছে (Pending Approval)।</strong> ডেমো প্রিভিউ দেখা যাবে, তবে এক্সপোর্ট ও সেভ করতে সুপার এডমিনের অনুমোদন প্রয়োজন।
+            </span>
+          </div>
+          <button
+            onClick={() => setIsAccessDeniedModalOpen(true)}
+            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold transition shrink-0"
+          >
+            অনুমোদনের অনুরোধ পাঠান
+          </button>
+        </div>
+      )}
+
+      {/* Super Admin Status Banner */}
+      {isSuperAdmin && (
+        <div className="bg-[#241a12] border border-[#d4af37]/40 rounded-2xl px-4 py-2 flex items-center justify-between text-xs text-[#f7df94] shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-sm">👑</span>
+            <span>
+              <strong>সুপার এডমিন মোড সক্রিয়:</strong> আপনার জন্য সম্পূর্ণ আনলিমিটেড পোস্টার তৈরি, এক্সপোর্ট ও ইউজার ম্যানেজমেন্ট এক্সেস চালু আছে।
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Top Banner if in editing mode */}
       {activeEditingId && (
         <div className="bg-[#241a12] border border-[#d4af37]/50 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-[#f7df94]">

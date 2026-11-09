@@ -148,3 +148,18 @@ export interface PosterPreset {
   previewGradient?: string;
   config: PosterPresetConfig;
 }
+
+export type UserRole = 'super_admin' | 'approved_user' | 'basic_user';
+export type UserStatus = 'active' | 'pending';
+
+export interface AppUserProfile {
+  uid: string;
+  userId: string;
+  email: string;
+  displayName: string;
+  photoURL?: string;
+  role: UserRole;
+  status: UserStatus;
+  createdAt: string;
+  updatedAt: string;
+}

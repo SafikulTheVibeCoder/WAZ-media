@@ -14,34 +14,136 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { SavedDesign, PosterPreset, BrandConfig } from '../types';
+import { SavedDesign, PosterPreset, BrandConfig, AppUserProfile, UserRole, UserStatus } from '../types';
 import { User } from 'firebase/auth';
 
+export const SUPER_ADMIN_EMAIL = 'realsafikul@gmail.com';
+
 /**
- * Sync user profile to Firestore
+ * Sync user profile to Firestore with RBAC role and status logic
  */
-export async function syncUserProfile(user: User): Promise<void> {
+export async function syncUserProfile(user: User): Promise<AppUserProfile> {
   const path = `users/${user.uid}`;
+  const now = new Date().toISOString();
+  const normalizedEmail = (user.email || '').toLowerCase().trim();
+  const isSuperAdminEmail = normalizedEmail === SUPER_ADMIN_EMAIL.toLowerCase();
+
   try {
     const userDocRef = doc(db, 'users', user.uid);
     const existing = await getDoc(userDocRef);
 
-    const data: Record<string, any> = {
-      userId: user.uid,
-      email: user.email || 'user@example.com',
-      displayName: user.displayName || 'ইসলামিক ক্যালিগ্রাফার',
-      photoURL: user.photoURL || '',
-      updatedAt: new Date().toISOString(),
-    };
+    let role: UserRole = isSuperAdminEmail ? 'super_admin' : 'basic_user';
+    let status: UserStatus = isSuperAdminEmail ? 'active' : 'pending';
+    let createdAt = now;
 
-    if (!existing.exists()) {
-      data.role = 'user';
-      data.createdAt = new Date().toISOString();
+    if (existing.exists()) {
+      const existingData = existing.data();
+      createdAt = existingData.createdAt || now;
+      if (isSuperAdminEmail) {
+        role = 'super_admin';
+        status = 'active';
+      } else {
+        // Keep existing role & status if already assigned by admin
+        role = (existingData.role as UserRole) || 'basic_user';
+        status = (existingData.status as UserStatus) || 'pending';
+      }
     }
 
-    await setDoc(userDocRef, data, { merge: true });
+    const profileData: AppUserProfile = {
+      uid: user.uid,
+      userId: user.uid,
+      email: user.email || 'user@example.com',
+      displayName: user.displayName || (isSuperAdminEmail ? 'সুপার এডমিন (শফিকুল)' : 'সম্মানিত ব্যবহারকারী'),
+      photoURL: user.photoURL || '',
+      role,
+      status,
+      createdAt,
+      updatedAt: now,
+    };
+
+    await setDoc(userDocRef, profileData, { merge: true });
+    return profileData;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+/**
+ * Fetch a single user profile from Firestore
+ */
+export async function fetchUserProfile(userId: string): Promise<AppUserProfile | null> {
+  const path = `users/${userId}`;
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    const snap = await getDoc(userDocRef);
+    if (snap.exists()) {
+      return snap.data() as AppUserProfile;
+    }
+    return null;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, path);
+  }
+}
+
+/**
+ * Fetch all registered users for Super Admin dashboard
+ */
+export async function fetchAllUsers(): Promise<AppUserProfile[]> {
+  const path = 'users';
+  try {
+    const usersColRef = collection(db, 'users');
+    const snap = await getDocs(usersColRef);
+    const list: AppUserProfile[] = [];
+    snap.forEach((docSnap) => {
+      list.push(docSnap.data() as AppUserProfile);
+    });
+    // Sort super_admin first, then by createdAt descending
+    list.sort((a, b) => {
+      if (a.role === 'super_admin') return -1;
+      if (b.role === 'super_admin') return 1;
+      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+    });
+    return list;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
+}
+
+/**
+ * Update user role and status (Super Admin only)
+ */
+export async function updateUserRoleAndStatus(
+  userId: string,
+  role: UserRole,
+  status: UserStatus
+): Promise<void> {
+  const path = `users/${userId}`;
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    await setDoc(
+      userDocRef,
+      {
+        role,
+        status,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+/**
+ * Delete a user account document (Super Admin only)
+ */
+export async function deleteUserAccount(userId: string): Promise<void> {
+  const path = `users/${userId}`;
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    await deleteDoc(userDocRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
 

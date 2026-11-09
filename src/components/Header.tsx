@@ -1,7 +1,7 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { getTodayHijriEstimate } from '../utils/bengaliUtils';
-import { Cloud, User as UserIcon, Check } from 'lucide-react';
+import { Cloud, User as UserIcon, Check, Crown } from 'lucide-react';
 
 interface HeaderProps {
   title: string;
@@ -10,7 +10,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ title, subtitle, actionButton }) => {
-  const { brand, currentUser, setIsAuthModalOpen } = useApp();
+  const { brand, currentUser, userProfile, isSuperAdmin, isApproved, setIsAuthModalOpen, setCurrentView } = useApp();
 
   return (
     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 mb-6 border-b border-[#2d2117]">
@@ -60,6 +60,18 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, actionButton })
           <span className="text-xs text-[#877461]">{getTodayHijriEstimate()}</span>
         </div>
 
+        {/* Super Admin Panel Shortcut Button (Only for Super Admin) */}
+        {isSuperAdmin && (
+          <button
+            onClick={() => setCurrentView('admin')}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-[#d4af37]/20 to-[#b38927]/20 hover:from-[#d4af37]/30 hover:to-[#b38927]/30 border border-[#d4af37]/50 text-xs font-bold text-[#f7df94] transition shadow-sm"
+            title="সুপার এডমিন কন্ট্রোল প্যানেল"
+          >
+            <Crown className="w-3.5 h-3.5 text-[#d4af37]" />
+            <span>এডমিন প্যানেল</span>
+          </button>
+        )}
+
         {/* Firebase Cloud Sync / Account Button */}
         <button
           onClick={() => setIsAuthModalOpen(true)}
@@ -79,9 +91,13 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, actionButton })
                 <span className="font-semibold text-[#f7df94] block truncate max-w-[100px]">
                   {currentUser.displayName || 'ব্যবহারকারী'}
                 </span>
-                <span className="text-[10px] text-emerald-400 flex items-center gap-1 leading-none">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  ক্লাউড সিঙ্ক
+                <span className={`text-[10px] flex items-center gap-1 leading-none ${
+                  isSuperAdmin ? 'text-[#f7df94]' : isApproved ? 'text-emerald-400' : 'text-amber-400'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    isSuperAdmin ? 'bg-[#d4af37]' : isApproved ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'
+                  }`}></span>
+                  {isSuperAdmin ? 'Super Admin' : isApproved ? 'Approved' : 'Pending'}
                 </span>
               </div>
             </>

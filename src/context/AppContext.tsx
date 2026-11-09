@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { PosterConfig, BrandConfig, SavedDesign, UserStats, QuoteItem, PosterPreset, PosterPresetConfig } from '../types';
+import { PosterConfig, BrandConfig, SavedDesign, UserStats, QuoteItem, PosterPreset, PosterPresetConfig, AppUserProfile } from '../types';
 import { DEFAULT_POSTER, DEFAULT_BRAND, DEFAULT_LOGO, INITIAL_QUOTES } from '../data/quotes';
 import { BUILTIN_PRESETS } from '../data/presets';
 import { auth } from '../services/firebase';
 import { onAuthStateChanged, User, signOut as firebaseSignOut } from 'firebase/auth';
 import {
   syncUserProfile,
+  fetchUserProfile,
   saveDesignToCloud,
   loadUserDesigns,
   deleteDesignFromCloud,
@@ -17,6 +18,7 @@ import {
   saveFavoritesToCloud,
   loadUserFavorites,
   migrateLocalStorageToCloud,
+  SUPER_ADMIN_EMAIL,
 } from '../services/firebaseDb';
 
 interface AppContextType {
@@ -62,6 +64,15 @@ interface AppContextType {
   isCloudSyncing: boolean;
   migrateLocalData: () => Promise<void>;
   signOutUser: () => Promise<void>;
+  // Role-Based Access Control (RBAC) & Super Admin
+  userProfile: AppUserProfile | null;
+  isSuperAdmin: boolean;
+  isApproved: boolean;
+  isAccessDeniedModalOpen: boolean;
+  setIsAccessDeniedModalOpen: (open: boolean) => void;
+  accessDeniedAction: string;
+  triggerAccessGuard: (actionName: string) => boolean;
+  refreshUserProfile: () => Promise<void>;
 }
 
 const STORAGE_KEYS = {
@@ -177,9 +188,52 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Firebase Auth and Cloud Sync states
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<AppUserProfile | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isCloudSyncing, setIsCloudSyncing] = useState<boolean>(false);
+  const [isAccessDeniedModalOpen, setIsAccessDeniedModalOpen] = useState<boolean>(false);
+  const [accessDeniedAction, setAccessDeniedAction] = useState<string>('পোস্টার তৈরি ও সংরক্ষণ');
+
+  // RBAC computed properties
+  const isSuperAdmin = Boolean(
+    (currentUser?.email && currentUser.email.toLowerCase().trim() === SUPER_ADMIN_EMAIL.toLowerCase()) ||
+    userProfile?.role === 'super_admin'
+  );
+
+  const isApproved = Boolean(
+    isSuperAdmin || (userProfile?.role === 'approved_user' && userProfile?.status === 'active')
+  );
+
+  const refreshUserProfile = async () => {
+    if (!currentUser) {
+      setUserProfile(null);
+      return;
+    }
+    try {
+      const profile = await fetchUserProfile(currentUser.uid);
+      if (profile) {
+        setUserProfile(profile);
+      }
+    } catch (e) {
+      console.warn('Could not refresh profile:', e);
+    }
+  };
+
+  const triggerAccessGuard = (actionName: string): boolean => {
+    if (!currentUser) {
+      setAccessDeniedAction(actionName);
+      setIsAuthModalOpen(true);
+      showToast('এই ফিচারের জন্য প্রথমে সাইন-ইন করুন');
+      return false;
+    }
+    if (!isApproved) {
+      setAccessDeniedAction(actionName);
+      setIsAccessDeniedModalOpen(true);
+      return false;
+    }
+    return true;
+  };
 
   // Auth observer and auto-hydration from Cloud Firestore
   useEffect(() => {
@@ -189,8 +243,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       if (user) {
         try {
-          // Sync profile to users collection
-          await syncUserProfile(user);
+          // Sync profile to users collection with super_admin logic
+          const profile = await syncUserProfile(user);
+          setUserProfile(profile);
 
           // 1. Fetch user designs from Firestore
           const cloudDesigns = await loadUserDesigns(user.uid);
@@ -231,6 +286,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         } catch (err) {
           console.warn('Initial cloud load warning:', err);
         }
+      } else {
+        setUserProfile(null);
       }
     });
 
@@ -329,6 +386,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const loadQuoteToPoster = (quote: QuoteItem) => {
+    if (!triggerAccessGuard('পোস্টার তৈরি ও ক্যানভাস এডিটিং')) {
+      return;
+    }
+
     // If an active preset exists, automatically apply its design parameters
     const activePreset = activePresetId ? presets.find((p) => p.id === activePresetId) : null;
     const cfg = activePreset?.config;
@@ -373,6 +434,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const saveCurrentDesign = (thumbDataUrl: string) => {
+    if (!triggerAccessGuard('পোস্টার ডিজাইন সংরক্ষণ')) {
+      return;
+    }
+
     const now = Date.now();
     const cleanConfig = { ...poster };
 
@@ -500,6 +565,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // --- PRESETS IMPLEMENTATION ---
   const saveCurrentAsPreset = (name: string, description?: string, category?: string): PosterPreset => {
+    if (!triggerAccessGuard('কাস্টম স্টাইল প্রিসেট সংরক্ষণ')) {
+      return presets[0] || BUILTIN_PRESETS[0];
+    }
+
     const now = Date.now();
     const id = 'preset-user-' + now.toString(36) + Math.random().toString(36).substring(2, 6);
 
@@ -761,6 +830,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         isCloudSyncing,
         migrateLocalData,
         signOutUser,
+        userProfile,
+        isSuperAdmin,
+        isApproved,
+        isAccessDeniedModalOpen,
+        setIsAccessDeniedModalOpen,
+        accessDeniedAction,
+        triggerAccessGuard,
+        refreshUserProfile,
       }}
     >
       {children}

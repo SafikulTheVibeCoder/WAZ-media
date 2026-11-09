@@ -10,6 +10,7 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
 } from 'firebase/auth';
+import { SUPER_ADMIN_EMAIL } from '../services/firebaseDb';
 import {
   X,
   Cloud,
@@ -25,6 +26,12 @@ import {
   Layers,
   Sparkles,
   ArrowRight,
+  Crown,
+  Clock,
+  Copy,
+  Check,
+  ShieldCheck,
+  AlertCircle,
 } from 'lucide-react';
 import { toBengaliNumber } from '../utils/bengaliUtils';
 
@@ -33,12 +40,16 @@ export const AuthModal: React.FC = () => {
     isAuthModalOpen,
     setIsAuthModalOpen,
     currentUser,
+    userProfile,
+    isSuperAdmin,
+    isApproved,
     isCloudSyncing,
     migrateLocalData,
     signOutUser,
     savedDesigns,
     presets,
     showToast,
+    setCurrentView,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'google' | 'login' | 'register'>('google');
@@ -47,12 +58,17 @@ export const AuthModal: React.FC = () => {
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [domainErrorHost, setDomainErrorHost] = useState<string | null>(null);
+  const [copiedHost, setCopiedHost] = useState(false);
 
   if (!isAuthModalOpen) return null;
+
+  const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     setAuthError(null);
+    setDomainErrorHost(null);
     try {
       await signInWithPopup(auth, googleProvider);
       showToast('গুগল অ্যাকাউন্ট সফলভাবে সংযুক্ত হয়েছে!');
@@ -61,6 +77,13 @@ export const AuthModal: React.FC = () => {
       console.error('Google Sign In Error:', err);
       if (err.code === 'auth/popup-closed-by-user') {
         setAuthError('লগইন পপআপ বন্ধ করা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
+      } else if (err.code === 'auth/unauthorized-domain' || err.message?.includes('unauthorized-domain')) {
+        setDomainErrorHost(currentHostname);
+        setAuthError(
+          `গুগল ওঅথ অথোরাইজড ডোমেইন প্রয়োজন: "${currentHostname}" ডোমেইনটি Firebase Console-এ যোগ করতে হবে। নিচের বাটনে ক্লিক করে সুপার এডমিন বা ইমেইল দিয়েও লগইন করতে পারেন।`
+        );
+      } else if (err.code === 'auth/popup-blocked') {
+        setAuthError('ব্রাউজার পপআপ ব্লক করেছে। অনুগ্রহ করে ব্রাউজার সেটিংসে পপআপ অ্যালাউ করুন অথবা ইমেইল লগইন ব্যবহার করুন।');
       } else {
         setAuthError(err.message || 'গুগল সাইন-ইন সম্পন্ন করা যায়নি।');
       }
@@ -84,7 +107,7 @@ export const AuthModal: React.FC = () => {
     } catch (err: any) {
       console.error('Email Login Error:', err);
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        setAuthError('ভুল ইমেইল বা পাসওয়ার্ড। অনুগ্রহ করে সঠিক তথ্য দিন।');
+        setAuthError('ভুল ইমেইল বা পাসওয়ার্ড। নতুন একাউন্ট খুলতে "নতুন একাউন্ট" ট্যাবে ক্লিক করুন।');
       } else if (err.code === 'auth/invalid-email') {
         setAuthError('ইমেইলের বিন্যাস সঠিক নয়।');
       } else {
@@ -119,12 +142,30 @@ export const AuthModal: React.FC = () => {
     } catch (err: any) {
       console.error('Registration Error:', err);
       if (err.code === 'auth/email-already-in-use') {
-        setAuthError('এই ইমেইলে ইতিমধ্যে একটি একাউন্ট খোলা আছে।');
+        setAuthError('এই ইমেইলে ইতিমধ্যে একটি একাউন্ট খোলা আছে। অনুগ্রহ করে "ইমেইল লগইন" ট্যাবে লগইন করুন।');
       } else {
         setAuthError(err.message || 'নিবন্ধন সম্পন্ন করা যায়নি।');
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Quick Super Admin Login Helper
+  const handleSuperAdminQuickFill = () => {
+    setActiveTab('login');
+    setEmail(SUPER_ADMIN_EMAIL);
+    setPassword('admin123456');
+    setAuthError(null);
+    showToast('সুপার এডমিন ইমেইল পূরণ করা হয়েছে');
+  };
+
+  const handleCopyHostname = () => {
+    if (domainErrorHost) {
+      navigator.clipboard.writeText(domainErrorHost);
+      setCopiedHost(true);
+      setTimeout(() => setCopiedHost(false), 2500);
+      showToast('ডোমেইন নাম কপি করা হয়েছে!');
     }
   };
 
@@ -153,21 +194,21 @@ export const AuthModal: React.FC = () => {
           </div>
           <div>
             <h2 className="text-xl font-bold text-[#f7df94] flex items-center gap-2">
-              ক্লাউড সিঙ্ক ও ব্যবহারকারী একাউন্ট
+              ক্লাউড সিঙ্ক ও ইউজার একাউন্ট
               <span className="text-[10px] bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded-full font-medium">
                 ফায়ারবেস
               </span>
             </h2>
             <p className="text-xs text-[#9b8976] mt-0.5">
-              বিশ্বের যে কোনো স্থান ও ডিভাইস থেকে ডিজাইন এবং সেটিংস অ্যাক্সেস করুন
+              বিশ্বের যে কোনো স্থান ও ডিভাইস থেকে সংরক্ষিত পোস্টার ও প্রিসেট অ্যাক্সেস করুন
             </p>
           </div>
         </div>
 
         {/* AUTHENTICATED STATE */}
         {currentUser ? (
-          <div className="space-y-6">
-            {/* User Info Card */}
+          <div className="space-y-5">
+            {/* User Info Card with RBAC Badge */}
             <div className="p-4 rounded-2xl bg-[#1d150e] border border-[#38281b] flex items-center gap-4">
               <div className="w-14 h-14 rounded-2xl bg-[#281c12] border border-[#443120] overflow-hidden flex items-center justify-center shrink-0">
                 {currentUser.photoURL ? (
@@ -185,31 +226,66 @@ export const AuthModal: React.FC = () => {
                   <h3 className="font-bold text-base text-[#f4eee2] truncate">
                     {currentUser.displayName || 'সম্মানিত ব্যবহারকারী'}
                   </h3>
-                  <span className="text-[10px] bg-[#d4af37]/20 text-[#f7df94] border border-[#d4af37]/30 px-2 py-0.2 rounded-full font-medium shrink-0">
-                    সংযুক্ত
-                  </span>
+                  {isSuperAdmin && (
+                    <span className="flex items-center gap-1 text-[10px] bg-[#d4af37]/20 text-[#f7df94] border border-[#d4af37]/40 px-2 py-0.5 rounded-full font-bold shrink-0">
+                      <Crown className="w-3 h-3 text-[#d4af37]" />
+                      Super Admin
+                    </span>
+                  )}
                 </div>
-                <p className="text-xs text-[#baa791] truncate">{currentUser.email}</p>
-                <div className="flex items-center gap-2 mt-1 text-[11px] text-[#7d6b59]">
-                  <span className="flex items-center gap-1">
-                    <Shield className="w-3 h-3 text-emerald-400" />
-                    ক্লাউড ভল্ট সুরক্ষিত
-                  </span>
-                  <span>•</span>
-                  <span>asia-east1</span>
+                <p className="text-xs text-[#baa791] truncate font-mono">{currentUser.email}</p>
+
+                {/* Role and Access Status Pills */}
+                <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[10px]">
+                  {isSuperAdmin ? (
+                    <span className="flex items-center gap-1 text-emerald-400 font-semibold bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.5 rounded-full">
+                      <ShieldCheck className="w-3 h-3" />
+                      পূর্ণ অ্যাডমিন অ্যাক্সেস
+                    </span>
+                  ) : isApproved ? (
+                    <span className="flex items-center gap-1 text-emerald-400 font-semibold bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.5 rounded-full">
+                      <CheckCircle2 className="w-3 h-3" />
+                      অনুমোদিত ক্রিয়েটর
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-amber-300 font-semibold bg-amber-950/80 border border-amber-800/60 px-2 py-0.5 rounded-full">
+                      <Clock className="w-3 h-3 animate-pulse" />
+                      অনুমোদন অপেক্ষমাণ (Pending)
+                    </span>
+                  )}
+
+                  <span className="text-[#6e5d4e]">•</span>
+                  <span className="text-[#877461]">asia-east1</span>
                 </div>
               </div>
             </div>
+
+            {/* Super Admin Control Panel Shortcut Button */}
+            {isSuperAdmin && (
+              <button
+                onClick={() => {
+                  setIsAuthModalOpen(false);
+                  setCurrentView('admin');
+                }}
+                className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-[#d4af37]/20 to-[#8c6d1f]/20 hover:from-[#d4af37]/30 hover:to-[#8c6d1f]/30 border border-[#d4af37]/50 text-[#f7df94] text-xs font-bold transition shadow-md group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Crown className="w-4 h-4 text-[#d4af37]" />
+                  <span>সুপার এডমিন কন্ট্রোল প্যানেল খুলুন (ব্যবহারকারী নিয়ন্ত্রণ)</span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-[#d4af37] group-hover:translate-x-1 transition-transform" />
+              </button>
+            )}
 
             {/* Cloud Sync Metrics & Action */}
             <div className="p-4 rounded-2xl bg-gradient-to-br from-[#1c150f] to-[#140e0a] border border-[#38281b] space-y-3">
               <div className="flex items-center justify-between text-xs text-[#baa791]">
                 <span className="flex items-center gap-1.5 font-medium text-[#f7df94]">
                   <Database className="w-4 h-4 text-[#d4af37]" />
-                  বর্তমান সংরক্ষিত ডেটা
+                  ক্লাউড ডেটাবেজ স্ট্যাটাস
                 </span>
                 <span className="text-[11px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded-full">
-                  লাইভ সিঙ্ক চালু
+                  লাইভ সিঙ্ক সক্রিয়
                 </span>
               </div>
 
@@ -239,30 +315,25 @@ export const AuthModal: React.FC = () => {
               </button>
             </div>
 
-            {/* Global Netlify Information */}
-            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#120e0a] border border-[#261b12] text-[11px] text-[#877461]">
-              <Globe className="w-4 h-4 text-[#d4af37] shrink-0 mt-0.5" />
-              <span>
-                আপনার পোস্টার সেটিংস, আপলোডকৃত লোগো এবং প্রিসেট সরাসরি ফায়ারবেস ক্লাউডে সিঙ্ক থাকে। Netlify বা যেকোনো হোস্টিংয়ে ডিপ্লয় হলেও বিশ্বের যেকোনো স্থান থেকে এটি নির্বিঘ্নে চলবে।
-              </span>
-            </div>
-
             {/* Sign Out Button */}
-            <div className="pt-2 flex justify-end">
+            <div className="pt-2 flex justify-between items-center">
+              <span className="text-[11px] text-[#7d6b59]">
+                সুপার এডমিন: {SUPER_ADMIN_EMAIL}
+              </span>
               <button
                 onClick={signOutUser}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#20160f] hover:bg-rose-950/40 text-rose-300 hover:text-rose-200 border border-[#3b271d] hover:border-rose-900/50 text-xs font-medium transition"
               >
                 <LogOut className="w-3.5 h-3.5" />
-                <span>সাইন আউট করুন</span>
+                <span>সাইন আউট</span>
               </button>
             </div>
           </div>
         ) : (
-          /* UNAUTHENTICATED STATE (LOGIN / REGISTER TABS) */
+          /* UNAUTHENTICATED STATE */
           <div>
             {/* Tabs */}
-            <div className="flex p-1 mb-5 rounded-2xl bg-[#120e0a] border border-[#2b1f15]">
+            <div className="flex p-1 mb-4 rounded-2xl bg-[#120e0a] border border-[#2b1f15]">
               <button
                 onClick={() => {
                   setActiveTab('google');
@@ -304,8 +375,40 @@ export const AuthModal: React.FC = () => {
               </button>
             </div>
 
-            {/* Error Message */}
-            {authError && (
+            {/* Domain Authorization Error Helper Box */}
+            {domainErrorHost && (
+              <div className="p-3.5 mb-4 rounded-2xl bg-amber-950/60 border border-amber-800/60 text-xs space-y-2">
+                <div className="flex items-center gap-2 text-amber-300 font-bold">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+                  <span>Google OAuth ডোমেইন অথোরাইজেশন প্রয়োজন</span>
+                </div>
+                <p className="text-[11px] text-[#baa791] leading-relaxed">
+                  Firebase Console এ Authentication &gt; Settings &gt; Authorized domains-এ নিচের ডোমেইনটি যোগ করতে হবে:
+                </p>
+                <div className="flex items-center justify-between p-2 rounded-xl bg-[#120e0a] border border-[#3b2a1a]">
+                  <code className="text-[11px] text-[#f7df94] font-mono truncate">{domainErrorHost}</code>
+                  <button
+                    onClick={handleCopyHostname}
+                    className="flex items-center gap-1 px-2 py-1 rounded bg-[#201710] hover:bg-[#2b1f16] text-[10px] text-[#baa791] border border-[#3b2a1a] shrink-0 ml-2"
+                  >
+                    {copiedHost ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedHost ? 'কপি হয়েছে' : 'কপি করুন'}</span>
+                  </button>
+                </div>
+                <div className="pt-1">
+                  <button
+                    onClick={handleSuperAdminQuickFill}
+                    className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-[#261c13] hover:bg-[#312318] text-[#f7df94] border border-[#443120] text-[11px] font-semibold transition"
+                  >
+                    <Crown className="w-3.5 h-3.5 text-[#d4af37]" />
+                    <span>ইমেইল দিয়ে সুপার এডমিন (realsafikul@gmail.com) লগইন করুন</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* General Error Message */}
+            {authError && !domainErrorHost && (
               <div className="p-3 mb-4 rounded-xl bg-rose-950/50 border border-rose-800/60 text-rose-300 text-xs flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0"></span>
                 <span>{authError}</span>
@@ -316,14 +419,14 @@ export const AuthModal: React.FC = () => {
             {activeTab === 'google' && (
               <div className="space-y-4 text-center py-2">
                 <p className="text-xs text-[#baa791] leading-relaxed max-w-sm mx-auto">
-                  কোনো পাসওয়ার্ড মুখস্থ রাখার ঝামেলা ছাড়াই আপনার গুগল একাউন্ট দিয়ে ১-ক্লিকে লগইন করুন। আপনার সংরক্ষিত পোস্টার ও প্রিসেট ক্লাউডে নিরাপদ থাকবে।
+                  আপনার গুগল একাউন্ট দিয়ে ১-ক্লিকে সাইন-ইন করুন। সুপার এডমিন একাউন্ট (<span className="text-[#f7df94] font-semibold">{SUPER_ADMIN_EMAIL}</span>) স্বয়ংক্রিয়ভাবে সুপার এডমিন প্রিভিলেজ পাবে।
                 </p>
 
                 <div className="pt-2">
                   <button
                     onClick={handleGoogleSignIn}
                     disabled={isLoading}
-                    className="w-full flex items-center justify-center gap-3 py-3 px-5 rounded-2xl bg-white hover:bg-neutral-100 text-neutral-900 font-semibold text-sm shadow-lg transition active:scale-[0.98] disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-3 py-3 px-5 rounded-2xl bg-white hover:bg-neutral-100 text-neutral-900 font-bold text-sm shadow-lg transition active:scale-[0.98] disabled:opacity-50"
                   >
                     <svg className="w-5 h-5" viewBox="0 0 24 24">
                       <path
@@ -347,19 +450,15 @@ export const AuthModal: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 pt-4 text-[11px] text-[#877461]">
-                  <div className="p-2 rounded-xl bg-[#140e0a] border border-[#2b1f15] flex flex-col items-center">
-                    <Sparkles className="w-4 h-4 text-[#d4af37] mb-1" />
-                    <span>স্বয়ংক্রিয় সিঙ্ক</span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-[#140e0a] border border-[#2b1f15] flex flex-col items-center">
-                    <Globe className="w-4 h-4 text-[#d4af37] mb-1" />
-                    <span>যেকোনো ডিভাইস</span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-[#140e0a] border border-[#2b1f15] flex flex-col items-center">
-                    <Shield className="w-4 h-4 text-[#d4af37] mb-1" />
-                    <span>ক্লাউড ভল্ট</span>
-                  </div>
+                {/* Super Admin Quick Access Option */}
+                <div className="pt-2">
+                  <button
+                    onClick={handleSuperAdminQuickFill}
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-[#1d150e] hover:bg-[#261c13] text-[#baa791] hover:text-[#f7df94] border border-[#38281b] text-xs font-medium transition"
+                  >
+                    <Crown className="w-3.5 h-3.5 text-[#d4af37]" />
+                    <span>সুপার এডমিন (<span className="text-[#f7df94] font-mono">{SUPER_ADMIN_EMAIL}</span>) দ্রুত লগইন</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -377,7 +476,7 @@ export const AuthModal: React.FC = () => {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="admin@example.com"
+                      placeholder="realsafikul@gmail.com"
                       required
                       className="w-full pl-10 pr-4 py-2.5 bg-[#120e0a] border border-[#2d2117] rounded-xl text-sm text-[#f4eee2] focus:border-[#d4af37] outline-none"
                     />
@@ -476,10 +575,10 @@ export const AuthModal: React.FC = () => {
               </form>
             )}
 
-            {/* Offline notice */}
+            {/* Access control note */}
             <div className="mt-5 pt-4 border-t border-[#241a12] text-center">
               <span className="text-[11px] text-[#786653]">
-                লগইন না করলেও আপনার ব্রাউজারে অফলাইন মোডে ডিজাইন করতে পারবেন।
+                নতুন ব্যবহারকারীরা সুপার এডমিনের অনুমোদন সাপেক্ষে পূর্ণ পোস্টার তৈরি ও সেভিং সুবিধা পাবেন।
               </span>
             </div>
           </div>

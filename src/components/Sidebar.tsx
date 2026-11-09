@@ -10,6 +10,7 @@ import {
   Cloud,
   ShieldCheck,
   User as UserIcon,
+  Crown,
 } from 'lucide-react';
 import { toBengaliNumber } from '../utils/bengaliUtils';
 
@@ -21,6 +22,9 @@ export const Sidebar: React.FC = () => {
     savedDesigns,
     startNewDesign,
     currentUser,
+    userProfile,
+    isSuperAdmin,
+    isApproved,
     setIsAuthModalOpen,
   } = useApp();
 
@@ -30,6 +34,10 @@ export const Sidebar: React.FC = () => {
     { id: 'poster', label: 'পোস্টার স্টুডিও', icon: Sparkles },
     { id: 'brand', label: 'ব্র্যান্ডিং', icon: BadgeCheck },
     { id: 'saved', label: 'সংরক্ষিত গ্যালারি', icon: FolderHeart, badge: savedDesigns.length },
+    { id: 'landing', label: 'SaaS ল্যান্ডিং ও ডেমো', icon: Sparkles },
+    ...(isSuperAdmin
+      ? [{ id: 'admin', label: 'সুপার এডমিন', icon: Crown, badge: 'Master', isSpecial: true }]
+      : []),
   ];
 
   return (
@@ -91,9 +99,13 @@ export const Sidebar: React.FC = () => {
                   <Icon className={`w-4 h-4 ${isActive ? 'text-[#d4af37]' : 'text-[#877461]'}`} />
                   <span>{item.label}</span>
                 </div>
-                {item.badge !== undefined && item.badge > 0 && (
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#d4af37]/20 text-[#f7df94] border border-[#d4af37]/30">
-                    {toBengaliNumber(item.badge)}
+                {item.badge !== undefined && (
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    item.id === 'admin'
+                      ? 'bg-[#d4af37] text-[#140e0a] border-[#edd390]'
+                      : 'bg-[#d4af37]/20 text-[#f7df94] border-[#d4af37]/30'
+                  }`}>
+                    {typeof item.badge === 'number' ? toBengaliNumber(item.badge) : item.badge}
                   </span>
                 )}
               </button>
@@ -105,27 +117,41 @@ export const Sidebar: React.FC = () => {
         <div 
           onClick={() => setIsAuthModalOpen(true)}
           className="pt-3 border-t border-[#2d2117] text-xs text-[#7e6d5b] flex flex-col gap-2 cursor-pointer hover:bg-[#1a120b] p-2 rounded-xl transition border border-transparent hover:border-[#38281b]"
-          title="ক্লাউড সিঙ্ক সেটিংস খুলুন"
+          title="ক্লাউড ও পারমিশন সেটিংস খুলুন"
         >
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-1.5 font-medium text-[#baa791]">
-              <span className={`w-2 h-2 rounded-full ${currentUser ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
-              {currentUser ? 'ক্লাউড সিঙ্ক সক্রিয়' : 'অফলাইন মোড'}
+              <span className={`w-2 h-2 rounded-full ${
+                isSuperAdmin
+                  ? 'bg-amber-400 animate-pulse'
+                  : isApproved
+                  ? 'bg-emerald-400 animate-pulse'
+                  : currentUser
+                  ? 'bg-amber-500'
+                  : 'bg-neutral-500'
+              }`}></span>
+              {isSuperAdmin
+                ? 'সুপার এডমিন সক্রিয়'
+                : isApproved
+                ? 'অনুমোদিত ক্রিয়েটর'
+                : currentUser
+                ? 'অনুমোদন অপেক্ষমাণ'
+                : 'অফলাইন ডেমো'}
             </span>
             <span className="text-[10px] text-[#635547] bg-[#1a130e] px-1.5 py-0.5 rounded border border-[#2b2017]">
-              {currentUser ? 'Asia' : 'লোকাল'}
+              {isSuperAdmin ? 'Admin' : isApproved ? 'Active' : currentUser ? 'Pending' : 'Guest'}
             </span>
           </div>
           <p className="text-[11px] leading-relaxed text-[#7a6a59] line-clamp-2">
             {currentUser 
-              ? `${currentUser.displayName || currentUser.email} হিসেবে সিঙ্কড` 
+              ? `${currentUser.displayName || currentUser.email}` 
               : 'ক্লাউডে সিঙ্ক ও যে কোনো ডিভাইস থেকে পেতে লগইন করুন।'}
           </p>
         </div>
       </aside>
 
       {/* Mobile Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#140e0a]/95 backdrop-blur-md border-t border-[#2d2117] flex justify-around items-center px-1 py-1.5 shadow-2xl">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#140e0a]/95 backdrop-blur-md border-t border-[#2d2117] flex justify-around items-center px-1 py-1.5 shadow-2xl overflow-x-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentView === item.id;
@@ -133,21 +159,21 @@ export const Sidebar: React.FC = () => {
             <button
               key={item.id}
               onClick={() => setCurrentView(item.id)}
-              className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-[10px] font-medium transition ${
+              className={`flex flex-col items-center justify-center py-1 px-2 rounded-lg text-[10px] font-medium transition shrink-0 ${
                 isActive
                   ? 'text-[#f7df94] font-semibold'
                   : 'text-[#877461] hover:text-[#d3c2ad]'
               }`}
             >
               <div className="relative">
-                <Icon className={`w-5 h-5 mb-0.5 ${isActive ? 'text-[#d4af37]' : 'text-[#877461]'}`} />
-                {item.badge !== undefined && item.badge > 0 && (
-                  <span className="absolute -top-1 -right-2 bg-[#d4af37] text-[#140e0a] text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                    {toBengaliNumber(item.badge)}
+                <Icon className={`w-4 h-4 mb-0.5 ${isActive ? 'text-[#d4af37]' : 'text-[#877461]'}`} />
+                {item.badge !== undefined && (
+                  <span className="absolute -top-1 -right-2 bg-[#d4af37] text-[#140e0a] text-[8px] font-bold rounded-full min-w-3.5 h-3.5 px-0.5 flex items-center justify-center">
+                    {typeof item.badge === 'number' ? toBengaliNumber(item.badge) : '★'}
                   </span>
                 )}
               </div>
-              <span>{item.label}</span>
+              <span className="truncate max-w-[60px]">{item.label}</span>
             </button>
           );
         })}
