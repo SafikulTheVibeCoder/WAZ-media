@@ -11,6 +11,7 @@ import { AdminDashboardView } from './components/AdminDashboardView';
 import { Toast } from './components/Toast';
 import { AuthModal } from './components/AuthModal';
 import { AccessDeniedModal } from './components/AccessDeniedModal';
+import { PricingUpgradeModal } from './components/PricingUpgradeModal';
 
 const MainContent: React.FC = () => {
   const { currentView } = useApp();
@@ -37,7 +38,9 @@ export default function App() {
         <Toast />
         <AuthModal />
         <AccessDeniedModal />
+        <PricingUpgradeModal />
       </div>
     </AppProvider>
   );
 }
+

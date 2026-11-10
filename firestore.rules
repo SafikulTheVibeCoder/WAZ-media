@@ -44,7 +44,25 @@ service cloud.firestore {
         (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 128)) &&
         (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 1024)) &&
         (!('role' in data) || data.role in ['super_admin', 'approved_user', 'basic_user']) &&
-        (!('status' in data) || data.status in ['active', 'pending']);
+        (!('status' in data) || data.status in ['active', 'pending']) &&
+        (!('plan' in data) || data.plan in ['free', 'pro', 'enterprise']) &&
+        (!('planExpiresAt' in data) || (data.planExpiresAt is string && data.planExpiresAt.size() <= 64)) &&
+        (!('todayPosterCount' in data) || data.todayPosterCount is number) &&
+        (!('lastPosterDate' in data) || (data.lastPosterDate is string && data.lastPosterDate.size() <= 32));
+    }
+
+    // Validate Upgrade Request
+    function isValidUpgradeRequest(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+        data.userId == request.auth.uid &&
+        data.userEmail is string && data.userEmail.size() <= 256 &&
+        data.targetPlan in ['pro', 'enterprise'] &&
+        data.amount is number && data.amount > 0 &&
+        data.senderPhone is string && data.senderPhone.size() <= 32 &&
+        data.transactionId is string && data.transactionId.size() <= 64 &&
+        (!('screenshotUrl' in data) || (data.screenshotUrl is string && data.screenshotUrl.size() <= 500000)) &&
+        data.status in ['pending', 'approved', 'rejected'] &&
+        data.createdAt is string;
     }
 
     // Validate Design
@@ -89,7 +107,8 @@ service cloud.firestore {
       allow update: if isSuperAdmin() || (
         isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming(), userId) &&
         (!('role' in incoming()) || incoming().role == existing().role) &&
-        (!('status' in incoming()) || incoming().status == existing().status)
+        (!('status' in incoming()) || incoming().status == existing().status) &&
+        (!('plan' in incoming()) || incoming().plan == existing().plan)
       );
       allow delete: if isOwner(userId) || isSuperAdmin();
 
@@ -125,5 +144,15 @@ service cloud.firestore {
         allow delete: if isOwner(userId) || isSuperAdmin();
       }
     }
+
+    // Payment Upgrade Requests (bKash manual payments)
+    match /upgradeRequests/{requestId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
+      allow list: if isSuperAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && isValidId(requestId) && isValidUpgradeRequest(incoming());
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
   }
 }
+

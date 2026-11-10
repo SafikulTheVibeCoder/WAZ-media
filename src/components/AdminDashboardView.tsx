@@ -3,12 +3,16 @@ import { useApp } from '../context/AppContext';
 import { Header } from './Header';
 import {
   fetchAllUsers,
+  updateUserRoleAndPlan,
   updateUserRoleAndStatus,
   deleteUserAccount,
+  fetchAllUpgradeRequests,
+  processPaymentUpgradeRequest,
   SUPER_ADMIN_EMAIL,
 } from '../services/firebaseDb';
-import { AppUserProfile, UserRole, UserStatus } from '../types';
+import { AppUserProfile, UserRole, UserStatus, SubscriptionPlan, PaymentUpgradeRequest } from '../types';
 import { toBengaliNumber } from '../utils/bengaliUtils';
+import { PRICING_PLANS, BKASH_CONFIG } from '../data/pricingPlans';
 import {
   ShieldCheck,
   Users,
@@ -26,24 +30,36 @@ import {
   Mail,
   Calendar,
   ExternalLink,
+  CreditCard,
+  FileCheck,
+  XCircle,
+  Phone,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 export const AdminDashboardView: React.FC = () => {
   const { isSuperAdmin, currentUser, showToast } = useApp();
   const [users, setUsers] = useState<AppUserProfile[]>([]);
+  const [upgradeRequests, setUpgradeRequests] = useState<PaymentUpgradeRequest[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [activeAdminTab, setActiveAdminTab] = useState<'requests' | 'users'>('requests');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'active' | 'approved'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'active' | 'pro' | 'enterprise'>('all');
   const [updatingUid, setUpdatingUid] = useState<string | null>(null);
+  const [selectedScreenshot, setSelectedScreenshot] = useState<string | null>(null);
 
-  const loadUsers = async () => {
+  const loadData = async () => {
     setIsLoading(true);
     try {
-      const data = await fetchAllUsers();
-      setUsers(data);
+      const [userData, reqData] = await Promise.all([
+        fetchAllUsers(),
+        fetchAllUpgradeRequests(),
+      ]);
+      setUsers(userData);
+      setUpgradeRequests(reqData);
     } catch (err) {
-      console.error('Failed to load users:', err);
-      showToast('ইউজার তালিকা লোড করা যায়নি');
+      console.error('Failed to load admin data:', err);
+      showToast('অ্যাডমিন তথ্য লোড করা যায়নি');
     } finally {
       setIsLoading(false);
     }
@@ -51,7 +67,7 @@ export const AdminDashboardView: React.FC = () => {
 
   useEffect(() => {
     if (isSuperAdmin) {
-      loadUsers();
+      loadData();
     }
   }, [isSuperAdmin]);
 
@@ -67,55 +83,68 @@ export const AdminDashboardView: React.FC = () => {
     );
   }
 
-  const handleRoleChange = async (userId: string, newRole: UserRole, currentStatus: UserStatus) => {
+  // Handle plan and status change for a user
+  const handlePlanChange = async (
+    userId: string,
+    newPlan: SubscriptionPlan,
+    currentRole: UserRole,
+    currentStatus: UserStatus
+  ) => {
     setUpdatingUid(userId);
     try {
-      // If promoting to approved_user or super_admin, also ensure active status
-      const nextStatus = newRole === 'approved_user' || newRole === 'super_admin' ? 'active' : currentStatus;
-      await updateUserRoleAndStatus(userId, newRole, nextStatus);
-      setUsers((prev) =>
-        prev.map((u) => (u.userId === userId || u.uid === userId ? { ...u, role: newRole, status: nextStatus } : u))
-      );
-      showToast('ইউজার রোল সফলভাবে আপডেট হয়েছে');
-    } catch (err) {
-      console.error('Role update error:', err);
-      showToast('রোল আপডেট ব্যর্থ হয়েছে');
-    } finally {
-      setUpdatingUid(null);
-    }
-  };
-
-  const handleStatusToggle = async (userId: string, currentRole: UserRole, newStatus: UserStatus) => {
-    setUpdatingUid(userId);
-    try {
-      await updateUserRoleAndStatus(userId, currentRole, newStatus);
-      setUsers((prev) =>
-        prev.map((u) => (u.userId === userId || u.uid === userId ? { ...u, status: newStatus } : u))
-      );
-      showToast(`ইউজার স্ট্যাটাস "${newStatus === 'active' ? 'সক্রিয়' : 'অপেক্ষমাণ'}" করা হয়েছে`);
-    } catch (err) {
-      console.error('Status toggle error:', err);
-      showToast('স্ট্যাটাস পরিবর্তন ব্যর্থ হয়েছে');
-    } finally {
-      setUpdatingUid(null);
-    }
-  };
-
-  const handleQuickApprove = async (user: AppUserProfile) => {
-    setUpdatingUid(user.uid || user.userId);
-    try {
-      await updateUserRoleAndStatus(user.uid || user.userId, 'approved_user', 'active');
+      const nextRole: UserRole = newPlan !== 'free' ? 'approved_user' : currentRole;
+      const nextStatus: UserStatus = newPlan !== 'free' ? 'active' : currentStatus;
+      await updateUserRoleAndPlan(userId, nextRole, nextStatus, newPlan, 30);
       setUsers((prev) =>
         prev.map((u) =>
-          u.userId === user.userId || u.uid === user.uid
-            ? { ...u, role: 'approved_user', status: 'active' }
+          u.userId === userId || u.uid === userId
+            ? { ...u, plan: newPlan, role: nextRole, status: nextStatus }
             : u
         )
       );
-      showToast(`${user.displayName || user.email} কে পূর্ণ অ্যাক্সেস অনুমোদন দেওয়া হয়েছে!`);
+      showToast(`ইউজারের প্যাকেজ "${newPlan.toUpperCase()}" এ আপগ্রেড হয়েছে (১ মাস মেয়াদ)`);
     } catch (err) {
-      console.error('Quick approve error:', err);
-      showToast('অনুমোদন প্রদান ব্যর্থ হয়েছে');
+      console.error('Plan update error:', err);
+      showToast('প্যাকেজ পরিবর্তন ব্যর্থ হয়েছে');
+    } finally {
+      setUpdatingUid(null);
+    }
+  };
+
+  // Process manual bKash upgrade request
+  const handleProcessRequest = async (
+    request: PaymentUpgradeRequest,
+    status: 'approved' | 'rejected'
+  ) => {
+    setUpdatingUid(request.id);
+    try {
+      await processPaymentUpgradeRequest(
+        request.id,
+        request.userId,
+        request.targetPlan,
+        status,
+        currentUser?.email || SUPER_ADMIN_EMAIL
+      );
+
+      setUpgradeRequests((prev) =>
+        prev.map((r) => (r.id === request.id ? { ...r, status } : r))
+      );
+
+      if (status === 'approved') {
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.userId === request.userId || u.uid === request.userId
+              ? { ...u, plan: request.targetPlan, role: 'approved_user', status: 'active' }
+              : u
+          )
+        );
+        showToast(`বিকাশ পেমেন্ট যাচাই করে ${request.userName} কে ${request.targetPlan.toUpperCase()} প্যাকেজে ১ মাসের জন্য আপগ্রেড করা হয়েছে!`);
+      } else {
+        showToast(`পেমেন্ট রিকোয়েস্ট বাতিল করা হয়েছে`);
+      }
+    } catch (err) {
+      console.error('Process request error:', err);
+      showToast('রিকোয়েস্ট প্রসেস ব্যর্থ হয়েছে');
     } finally {
       setUpdatingUid(null);
     }
@@ -144,7 +173,13 @@ export const AdminDashboardView: React.FC = () => {
     }
   };
 
-  // Filtered list
+  // Metrics
+  const totalUsers = users.length;
+  const pendingRequests = upgradeRequests.filter((r) => r.status === 'pending').length;
+  const proUsers = users.filter((u) => u.plan === 'pro').length;
+  const enterpriseUsers = users.filter((u) => u.plan === 'enterprise' || u.role === 'super_admin').length;
+
+  // Filtered users
   const filteredUsers = users.filter((u) => {
     const matchesSearch =
       u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -154,38 +189,51 @@ export const AdminDashboardView: React.FC = () => {
 
     if (statusFilter === 'pending') return u.status === 'pending';
     if (statusFilter === 'active') return u.status === 'active';
-    if (statusFilter === 'approved') return u.role === 'approved_user';
+    if (statusFilter === 'pro') return u.plan === 'pro';
+    if (statusFilter === 'enterprise') return u.plan === 'enterprise';
 
     return true;
   });
 
-  const totalUsers = users.length;
-  const pendingUsers = users.filter((u) => u.status === 'pending').length;
-  const approvedUsers = users.filter((u) => u.role === 'approved_user' || u.role === 'super_admin').length;
-
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6">
       <Header
         title="সুপার এডমিন কন্ট্রোল প্যানেল"
-        subtitle="ব্যবহারকারীদের রোল ও অ্যাক্সেস নিয়ন্ত্রণ: নতুন নিবন্ধন অনুমোদন করুন অথবা পূর্ণ অধিকার প্রদান করুন।"
+        subtitle={`বিকাশ পেমেন্ট ভেরিফিকেশন (নম্বর: ${BKASH_CONFIG.number}), ১ মাসের প্যাকেজ আপগ্রেড ও ব্যবহারকারী নিয়ন্ত্রণ`}
         actionButton={
           <button
-            onClick={loadUsers}
+            onClick={loadData}
             disabled={isLoading}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#201710] hover:bg-[#2b1f16] border border-[#3b2a1a] text-xs text-[#f7df94] transition disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#201710] hover:bg-[#2b1f16] text-[#e0d2bf] border border-[#38281b] text-xs font-semibold transition"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-[#d4af37]' : ''}`} />
-            <span>রিফ্রেশ</span>
+            <RefreshCw className={`w-3.5 h-3.5 text-[#d4af37] ${isLoading ? 'animate-spin' : ''}`} />
+            <span>রিফ্রেশ করুন</span>
           </button>
         }
       />
 
-      {/* Top Metrics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+      {/* Metrics Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Pending bKash Upgrades */}
+        <div className="p-5 rounded-2xl bg-gradient-to-br from-[#26150b] to-[#170e08] border border-pink-700/50 flex items-center justify-between shadow-xl">
+          <div>
+            <span className="text-xs text-pink-400 block mb-1 font-bold">
+              বিকাশ পেমেন্ট রিকোয়েস্ট (Pending)
+            </span>
+            <div className="text-2xl font-extrabold text-pink-300">
+              {toBengaliNumber(pendingRequests)} <span className="text-xs font-normal text-pink-500">টি</span>
+            </div>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-pink-950/80 border border-pink-600/50 flex items-center justify-center text-pink-400">
+            <CreditCard className="w-6 h-6 animate-pulse" />
+          </div>
+        </div>
+
         {/* Total Users */}
         <div className="p-5 rounded-2xl bg-[#17110c] border border-[#2d2117] flex items-center justify-between shadow-lg">
           <div>
-            <span className="text-xs text-[#877461] block mb-1 font-medium">মোট নিবন্ধিত ব্যবহারকারী</span>
+            <span className="text-xs text-[#a9947c] block mb-1 font-medium">মোট নিবন্ধিত ইউজার</span>
             <div className="text-2xl font-bold text-[#f7df94]">
               {toBengaliNumber(totalUsers)} <span className="text-xs font-normal text-[#9b8976]">জন</span>
             </div>
@@ -195,248 +243,384 @@ export const AdminDashboardView: React.FC = () => {
           </div>
         </div>
 
-        {/* Pending Approvals */}
+        {/* Pro Users (199 Tk) */}
         <div className="p-5 rounded-2xl bg-[#17110c] border border-amber-900/40 flex items-center justify-between shadow-lg">
           <div>
-            <span className="text-xs text-amber-400 block mb-1 font-medium">অনুমোদনের অপেক্ষায় (Pending)</span>
+            <span className="text-xs text-amber-400 block mb-1 font-medium">প্রো ক্রিয়েটর (১৯৯ ৳ / ৫০টি/দিন)</span>
             <div className="text-2xl font-bold text-amber-300">
-              {toBengaliNumber(pendingUsers)} <span className="text-xs font-normal text-amber-500">জন</span>
+              {toBengaliNumber(proUsers)} <span className="text-xs font-normal text-amber-500">জন</span>
             </div>
           </div>
           <div className="w-12 h-12 rounded-xl bg-amber-950/60 border border-amber-700/50 flex items-center justify-center text-amber-400">
-            <Clock className="w-6 h-6 animate-pulse" />
+            <Sparkles className="w-6 h-6" />
           </div>
         </div>
 
-        {/* Approved Creators */}
+        {/* Enterprise Users (499 Tk) */}
         <div className="p-5 rounded-2xl bg-[#17110c] border border-emerald-900/40 flex items-center justify-between shadow-lg">
           <div>
-            <span className="text-xs text-emerald-400 block mb-1 font-medium">অনুমোদিত ক্রিয়েটর (Full Access)</span>
+            <span className="text-xs text-emerald-400 block mb-1 font-medium">এন্টারপ্রাইজ (৪৯৯ ৳ / আনলিমিটেড)</span>
             <div className="text-2xl font-bold text-emerald-300">
-              {toBengaliNumber(approvedUsers)} <span className="text-xs font-normal text-emerald-500">জন</span>
+              {toBengaliNumber(enterpriseUsers)} <span className="text-xs font-normal text-emerald-500">জন</span>
             </div>
           </div>
           <div className="w-12 h-12 rounded-xl bg-emerald-950/60 border border-emerald-700/50 flex items-center justify-center text-emerald-400">
-            <CheckCircle2 className="w-6 h-6" />
+            <Crown className="w-6 h-6" />
           </div>
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="p-4 rounded-2xl bg-[#17110c] border border-[#2d2117] flex flex-col md:flex-row items-center justify-between gap-4">
-        {/* Search */}
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 text-[#877461] absolute left-3.5 top-3" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="নাম বা ইমেইল দিয়ে খুঁজুন..."
-            className="w-full pl-10 pr-4 py-2 bg-[#120e0a] border border-[#2d2117] rounded-xl text-xs text-[#f4eee2] focus:border-[#d4af37] outline-none"
-          />
-        </div>
+      {/* Tabs Switcher: Payment Requests vs All Users */}
+      <div className="flex border-b border-[#2d2117] gap-2">
+        <button
+          onClick={() => setActiveAdminTab('requests')}
+          className={`pb-3 px-4 text-xs font-bold transition flex items-center gap-2 border-b-2 ${
+            activeAdminTab === 'requests'
+              ? 'border-[#d4af37] text-[#f7df94]'
+              : 'border-transparent text-[#877461] hover:text-[#d4af37]'
+          }`}
+        >
+          <CreditCard className="w-4 h-4 text-[#d4af37]" />
+          <span>বিকাশ পেমেন্ট রিকোয়েস্ট ও স্ক্রিনশট</span>
+          {pendingRequests > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-pink-950 text-pink-300 font-extrabold border border-pink-700">
+              {toBengaliNumber(pendingRequests)} নতুন
+            </span>
+          )}
+        </button>
 
-        {/* Status Filter Buttons */}
-        <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-          <button
-            onClick={() => setStatusFilter('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition ${
-              statusFilter === 'all'
-                ? 'bg-[#d4af37] text-[#140e0a]'
-                : 'bg-[#201710] text-[#baa791] hover:text-[#f4eee2]'
-            }`}
-          >
-            সব ({toBengaliNumber(totalUsers)})
-          </button>
-          <button
-            onClick={() => setStatusFilter('pending')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 ${
-              statusFilter === 'pending'
-                ? 'bg-amber-500 text-[#140e0a]'
-                : 'bg-[#201710] text-amber-400 hover:bg-amber-950/40'
-            }`}
-          >
-            <Clock className="w-3 h-3" />
-            <span>অপেক্ষমাণ ({toBengaliNumber(pendingUsers)})</span>
-          </button>
-          <button
-            onClick={() => setStatusFilter('approved')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 ${
-              statusFilter === 'approved'
-                ? 'bg-emerald-500 text-[#140e0a]'
-                : 'bg-[#201710] text-emerald-400 hover:bg-emerald-950/40'
-            }`}
-          >
-            <CheckCircle2 className="w-3 h-3" />
-            <span>অনুমোদিত ({toBengaliNumber(approvedUsers)})</span>
-          </button>
-        </div>
+        <button
+          onClick={() => setActiveAdminTab('users')}
+          className={`pb-3 px-4 text-xs font-bold transition flex items-center gap-2 border-b-2 ${
+            activeAdminTab === 'users'
+              ? 'border-[#d4af37] text-[#f7df94]'
+              : 'border-transparent text-[#877461] hover:text-[#d4af37]'
+          }`}
+        >
+          <Users className="w-4 h-4 text-[#d4af37]" />
+          <span>ব্যবহারকারী তালিকা ও প্যাকেজ নিয়ন্ত্রণ ({toBengaliNumber(totalUsers)})</span>
+        </button>
       </div>
 
-      {/* Users Table */}
-      <div className="bg-[#17110c] border border-[#2d2117] rounded-2xl overflow-hidden shadow-xl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#120e0a] text-[#baa791] border-b border-[#2d2117] uppercase tracking-wider text-[11px]">
-              <tr>
-                <th className="py-3.5 px-4 font-semibold">ব্যবহারকারী (User)</th>
-                <th className="py-3.5 px-4 font-semibold">ইমেইল ও আইডি</th>
-                <th className="py-3.5 px-4 font-semibold">রোল (Role)</th>
-                <th className="py-3.5 px-4 font-semibold">স্ট্যাটাস (Status)</th>
-                <th className="py-3.5 px-4 font-semibold">তারিখ</th>
-                <th className="py-3.5 px-4 font-semibold text-right">পদক্ষেপ (Actions)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#261b12]">
-              {filteredUsers.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-[#877461]">
-                    {isLoading ? 'ইউজার ডাটা লোড হচ্ছে...' : 'কোনো ব্যবহারকারী পাওয়া যায়নি'}
-                  </td>
-                </tr>
-              ) : (
-                filteredUsers.map((user) => {
-                  const isTargetSuperAdmin = user.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
-                  const isRowUpdating = updatingUid === (user.uid || user.userId);
+      {/* TAB 1: BKASH PAYMENT UPGRADE REQUESTS */}
+      {activeAdminTab === 'requests' && (
+        <div className="space-y-4">
+          {upgradeRequests.length === 0 ? (
+            <div className="p-12 text-center bg-[#17110c] border border-[#2d2117] rounded-3xl text-[#9b8976]">
+              <CreditCard className="w-12 h-12 text-[#5c4a3b] mx-auto mb-3" />
+              <p className="text-sm">এখনো কোনো বিকাশ পেমেন্ট রিকোয়েস্ট জমা পড়েনি।</p>
+              <p className="text-xs text-[#6e5b4c] mt-1">ব্যবহারকারীরা টাকা পাঠিয়ে TrxID সাবমিট করলে এখানে দেখতে পাবেন।</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {upgradeRequests.map((req) => {
+                const isPending = req.status === 'pending';
+                const isApproved = req.status === 'approved';
+                const isRejected = req.status === 'rejected';
+                const isRowUpdating = updatingUid === req.id;
 
-                  return (
-                    <tr
-                      key={user.uid || user.userId}
-                      className="hover:bg-[#1f1610]/60 transition"
-                    >
+                return (
+                  <div
+                    key={req.id}
+                    className={`p-5 rounded-3xl border flex flex-col justify-between space-y-4 shadow-xl transition-all ${
+                      isPending
+                        ? 'bg-[#1b120a] border-amber-700/60 shadow-amber-950/20'
+                        : isApproved
+                        ? 'bg-[#14120e] border-emerald-800/40 opacity-90'
+                        : 'bg-[#14100c] border-rose-900/40 opacity-75'
+                    }`}
+                  >
+                    <div>
+                      {/* Top badges */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-pink-400 flex items-center gap-1.5">
+                          <span>বিকাশ সেন্ড মানি</span>
+                          <span className="text-[10px] bg-pink-950 text-pink-300 border border-pink-800 px-2 py-0.5 rounded-full">
+                            ৳ {toBengaliNumber(req.amount)}
+                          </span>
+                        </span>
+
+                        <span
+                          className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                            isPending
+                              ? 'bg-amber-950/80 text-amber-300 border-amber-800 animate-pulse'
+                              : isApproved
+                              ? 'bg-emerald-950 text-emerald-400 border-emerald-800'
+                              : 'bg-rose-950 text-rose-300 border-rose-800'
+                          }`}
+                        >
+                          {isPending ? 'অপেক্ষমাণ (Pending)' : isApproved ? 'অনুমোদিত ও সক্রিয়' : 'বাতিল (Rejected)'}
+                        </span>
+                      </div>
+
                       {/* User Info */}
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-xl bg-[#221811] border border-[#3b2a1a] flex items-center justify-center overflow-hidden shrink-0">
-                            {user.photoURL ? (
-                              <img src={user.photoURL} alt={user.displayName} className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="text-xs font-bold text-[#d4af37]">
-                                {user.displayName?.charAt(0) || user.email.charAt(0).toUpperCase()}
-                              </span>
-                            )}
-                          </div>
-                          <div>
-                            <span className="font-semibold text-[#f4eee2] block">
-                              {user.displayName}
-                            </span>
-                            {isTargetSuperAdmin && (
-                              <span className="inline-flex items-center gap-1 text-[10px] text-[#f7df94] font-medium">
-                                <Crown className="w-3 h-3 text-[#d4af37]" />
-                                সুপার এডমিন
-                              </span>
-                            )}
+                      <div className="mt-3">
+                        <h4 className="text-base font-bold text-[#f7df94]">{req.userName}</h4>
+                        <p className="text-xs text-[#baa791] font-mono">{req.userEmail}</p>
+                      </div>
+
+                      {/* Transaction and Phone Details */}
+                      <div className="grid grid-cols-2 gap-2 mt-4 p-3 rounded-2xl bg-[#120d09] border border-[#2b1e15] text-xs">
+                        <div>
+                          <span className="text-[#7d6b59] block text-[10px]">প্রেরক বিকাশ নম্বর</span>
+                          <span className="font-mono text-[#f4eee2] font-semibold">{req.senderPhone}</span>
+                        </div>
+                        <div>
+                          <span className="text-[#7d6b59] block text-[10px]">TrxID (ট্রানজেকশন আইডি)</span>
+                          <span className="font-mono text-[#f7df94] font-bold tracking-wider">{req.transactionId}</span>
+                        </div>
+                        <div className="col-span-2 pt-1 border-t border-[#241a12] flex items-center justify-between text-[11px]">
+                          <span className="text-[#7d6b59]">আবেদনকৃত প্ল্যান:</span>
+                          <span className="text-emerald-400 font-bold">
+                            {req.targetPlan === 'enterprise' ? '৪৯৯ ৳ (এন্টারপ্রাইজ আনলিমিটেড)' : '১৯৯ ৳ (প্রো ক্রিয়েটর)'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Screenshot Preview */}
+                      {req.screenshotUrl && (
+                        <div className="mt-3">
+                          <span className="text-[10px] text-[#877461] block mb-1">পেমেন্ট স্ক্রিনশট:</span>
+                          <div
+                            onClick={() => setSelectedScreenshot(req.screenshotUrl || null)}
+                            className="relative group cursor-pointer rounded-xl overflow-hidden border border-[#3b2a1a] max-h-36 bg-black"
+                          >
+                            <img
+                              src={req.screenshotUrl}
+                              alt="Payment Screenshot"
+                              className="w-full h-36 object-contain group-hover:scale-105 transition"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-xs font-semibold text-[#f7df94]">
+                              বড় করে দেখুন
+                            </div>
                           </div>
                         </div>
-                      </td>
+                      )}
+                    </div>
 
-                      {/* Email & UID */}
-                      <td className="py-3 px-4">
-                        <span className="text-[#baa791] font-mono block">{user.email}</span>
-                        <span className="text-[10px] text-[#6e5d4e] font-mono truncate max-w-[140px] block">
-                          UID: {user.uid || user.userId}
-                        </span>
-                      </td>
+                    {/* Actions */}
+                    <div className="pt-3 border-t border-[#291e16] flex items-center justify-between">
+                      <span className="text-[10px] text-[#7d6b59]">
+                        {new Date(req.createdAt).toLocaleString('bn-BD')}
+                      </span>
 
-                      {/* Role Selector */}
-                      <td className="py-3 px-4">
-                        {isTargetSuperAdmin ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#d4af37]/20 text-[#f7df94] border border-[#d4af37]/40 text-[10px] font-bold">
-                            <Crown className="w-3 h-3 text-[#d4af37]" />
-                            super_admin
-                          </span>
-                        ) : (
-                          <select
-                            value={user.role}
-                            disabled={isRowUpdating}
-                            onChange={(e) =>
-                              handleRoleChange(user.uid || user.userId, e.target.value as UserRole, user.status)
-                            }
-                            className="px-2.5 py-1 rounded-lg bg-[#140e0a] border border-[#38281b] text-[11px] text-[#f4eee2] focus:border-[#d4af37] outline-none disabled:opacity-50 font-medium"
-                          >
-                            <option value="basic_user">basic_user (ভিউ ও ডেমো)</option>
-                            <option value="approved_user">approved_user (পূর্ণ অধিকার)</option>
-                            <option value="super_admin">super_admin (অ্যাডমিন)</option>
-                          </select>
-                        )}
-                      </td>
-
-                      {/* Status Toggle */}
-                      <td className="py-3 px-4">
-                        {isTargetSuperAdmin ? (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
-                            Active
-                          </span>
-                        ) : (
+                      {isPending ? (
+                        <div className="flex items-center gap-2">
                           <button
-                            onClick={() =>
-                              handleStatusToggle(
-                                user.uid || user.userId,
-                                user.role,
-                                user.status === 'active' ? 'pending' : 'active'
-                              )
-                            }
+                            onClick={() => handleProcessRequest(req, 'rejected')}
                             disabled={isRowUpdating}
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition ${
-                              user.status === 'active'
-                                ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800 hover:bg-rose-950 hover:text-rose-300'
-                                : 'bg-amber-950/80 text-amber-300 border-amber-800 hover:bg-emerald-950 hover:text-emerald-300'
-                            }`}
-                            title="স্ট্যাটাস পরিবর্তন করতে ক্লিক করুন"
+                            className="px-3 py-1.5 rounded-xl bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-800 text-xs font-semibold transition disabled:opacity-50"
                           >
-                            {user.status === 'active' ? 'সক্রিয় (Active)' : 'অপেক্ষমাণ (Pending)'}
+                            বাতিল
                           </button>
-                        )}
-                      </td>
+                          <button
+                            onClick={() => handleProcessRequest(req, 'approved')}
+                            disabled={isRowUpdating}
+                            className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white text-xs font-bold transition shadow-md disabled:opacity-50 flex items-center gap-1.5"
+                          >
+                            <UserCheck className="w-3.5 h-3.5" />
+                            <span>১ মাসের জন্য আপগ্রেড দিন</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-[#a6927d]">
+                          {req.reviewedBy ? `যাচাইকারী: ${req.reviewedBy}` : 'প্রসেসড'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
-                      {/* Created Date */}
-                      <td className="py-3 px-4 text-[#877461] text-[11px]">
-                        {user.createdAt
-                          ? new Date(user.createdAt).toLocaleDateString('bn-BD', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                            })
-                          : 'অজ্ঞাত'}
-                      </td>
+      {/* TAB 2: USER DIRECTORY & PACKAGE ASSIGNMENT */}
+      {activeAdminTab === 'users' && (
+        <div className="space-y-4">
+          {/* Filter and Search Bar */}
+          <div className="p-4 rounded-2xl bg-[#17110c] border border-[#2d2117] flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="relative w-full md:w-80">
+              <Search className="w-4 h-4 text-[#877461] absolute left-3.5 top-3" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="নাম বা ইমেইল দিয়ে খুঁজুন..."
+                className="w-full pl-10 pr-4 py-2 bg-[#120e0a] border border-[#2d2117] rounded-xl text-xs text-[#f4eee2] focus:border-[#d4af37] outline-none"
+              />
+            </div>
 
-                      {/* Action Buttons */}
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* Quick Approve Button for Pending Users */}
-                          {user.status === 'pending' && !isTargetSuperAdmin && (
-                            <button
-                              onClick={() => handleQuickApprove(user)}
+            <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+              <button
+                onClick={() => setStatusFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium transition ${
+                  statusFilter === 'all'
+                    ? 'bg-[#d4af37] text-[#140e0a]'
+                    : 'bg-[#201710] text-[#baa791] hover:text-[#f4eee2]'
+                }`}
+              >
+                সব ({toBengaliNumber(totalUsers)})
+              </button>
+              <button
+                onClick={() => setStatusFilter('pro')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium transition ${
+                  statusFilter === 'pro'
+                    ? 'bg-[#d4af37] text-[#140e0a]'
+                    : 'bg-[#201710] text-amber-300 hover:text-[#f4eee2]'
+                }`}
+              >
+                প্রো ({toBengaliNumber(proUsers)})
+              </button>
+              <button
+                onClick={() => setStatusFilter('enterprise')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium transition ${
+                  statusFilter === 'enterprise'
+                    ? 'bg-[#d4af37] text-[#140e0a]'
+                    : 'bg-[#201710] text-emerald-300 hover:text-[#f4eee2]'
+                }`}
+              >
+                এন্টারপ্রাইজ ({toBengaliNumber(enterpriseUsers)})
+              </button>
+            </div>
+          </div>
+
+          {/* User Table */}
+          <div className="bg-[#17110c] border border-[#2d2117] rounded-3xl overflow-hidden shadow-xl">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-[#2d2117] bg-[#1d150e] text-[#a9947c] font-semibold">
+                    <th className="py-3.5 px-4">ব্যবহারকারী</th>
+                    <th className="py-3.5 px-4">প্যাকেজ প্ল্যান</th>
+                    <th className="py-3.5 px-4">দৈনিক ব্যবহার</th>
+                    <th className="py-3.5 px-4">রোল ও স্ট্যাটাস</th>
+                    <th className="py-3.5 px-4 text-right">একশন</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#221811]">
+                  {filteredUsers.map((user) => {
+                    const isTargetSuperAdmin =
+                      user.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase() ||
+                      user.role === 'super_admin';
+                    const isRowUpdating = updatingUid === (user.uid || user.userId);
+                    const userPlan = isTargetSuperAdmin ? 'enterprise' : (user.plan || 'free');
+
+                    return (
+                      <tr key={user.uid || user.userId} className="hover:bg-[#1f1610] transition">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-[#281c12] border border-[#3d2b1b] flex items-center justify-center font-bold text-[#d4af37] shrink-0">
+                              {user.displayName?.charAt(0) || user.email.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="overflow-hidden">
+                              <div className="font-bold text-[#f4eee2] truncate flex items-center gap-1.5">
+                                <span>{user.displayName || 'সম্মানিত ইউজার'}</span>
+                                {isTargetSuperAdmin && (
+                                  <Crown className="w-3.5 h-3.5 text-[#d4af37]" />
+                                )}
+                              </div>
+                              <span className="text-[11px] text-[#877461] font-mono block truncate">
+                                {user.email}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Package Selection */}
+                        <td className="py-3 px-4">
+                          {isTargetSuperAdmin ? (
+                            <span className="text-xs font-bold text-amber-300">ফুল এন্টারপ্রাইজ</span>
+                          ) : (
+                            <select
+                              value={userPlan}
                               disabled={isRowUpdating}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold transition shadow-sm disabled:opacity-50"
-                              title="১-ক্লিকে অনুমোদন দিন"
+                              onChange={(e) =>
+                                handlePlanChange(
+                                  user.uid || user.userId,
+                                  e.target.value as SubscriptionPlan,
+                                  user.role,
+                                  user.status
+                                )
+                              }
+                              className="px-2.5 py-1 rounded-lg bg-[#140e0a] border border-[#38281b] text-xs text-[#f7df94] focus:border-[#d4af37] outline-none font-semibold"
                             >
-                              <UserCheck className="w-3.5 h-3.5" />
-                              <span>অনুমোদন</span>
-                            </button>
+                              <option value="free">ফ্রি প্যাকেজ (৫ টি/দিন)</option>
+                              <option value="pro">প্রো ক্রিয়েটর (৫০ টি/দিন - ১৯৯৳)</option>
+                              <option value="enterprise">এন্টারপ্রাইজ (আনলিমিটেড - ৪৯৯৳)</option>
+                            </select>
                           )}
+                        </td>
 
-                          {/* Delete Account Button */}
+                        {/* Daily Poster Usage */}
+                        <td className="py-3 px-4 text-[#baa791]">
+                          <span className="font-bold text-[#f7df94]">
+                            {toBengaliNumber(user.todayPosterCount || 0)}
+                          </span>
+                          <span className="text-[#7d6b59]">
+                            {' '}
+                            / {userPlan === 'enterprise' || isTargetSuperAdmin ? '∞' : userPlan === 'pro' ? '৫০' : '৫'}
+                          </span>
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-3 px-4">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                              user.status === 'active'
+                                ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800'
+                                : 'bg-amber-950/80 text-amber-300 border-amber-800'
+                            }`}
+                          >
+                            {user.status === 'active' ? 'Active' : 'Pending'}
+                          </span>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3 px-4 text-right">
                           {!isTargetSuperAdmin && (
                             <button
                               onClick={() => handleDeleteUser(user.uid || user.userId, user.email)}
                               disabled={isRowUpdating}
-                              className="p-1.5 rounded-lg bg-[#221811] hover:bg-rose-950/60 text-[#877461] hover:text-rose-400 border border-[#38281b] hover:border-rose-900/60 transition disabled:opacity-50"
+                              className="p-1.5 rounded-lg bg-[#221811] hover:bg-rose-950 text-[#877461] hover:text-rose-400 border border-[#38281b] transition"
                               title="ইউজার অ্যাকাউন্ট মুছুন"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Screenshot Lightbox Modal */}
+      {selectedScreenshot && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md"
+          onClick={() => setSelectedScreenshot(null)}
+        >
+          <div className="relative max-w-3xl max-h-[90vh] bg-[#16100b] border border-[#3b2a1a] rounded-2xl p-2 overflow-hidden shadow-2xl">
+            <button
+              onClick={() => setSelectedScreenshot(null)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black transition"
+            >
+              ✕
+            </button>
+            <img
+              src={selectedScreenshot}
+              alt="Full Screenshot"
+              className="max-h-[82vh] w-auto object-contain rounded-xl"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

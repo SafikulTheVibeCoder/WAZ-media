@@ -5,6 +5,7 @@ import { BUILTIN_PRESETS } from '../data/presets';
 import { renderPoster, downloadBlob } from '../utils/canvasRenderer';
 import { ThemeConfig, PosterConfig, BrandConfig, PosterPreset, AspectRatio, BorderStyle } from '../types';
 import { toBengaliNumber } from '../utils/bengaliUtils';
+import { PRICING_PLANS, BKASH_CONFIG } from '../data/pricingPlans';
 import {
   Sparkles,
   Layers,
@@ -162,7 +163,10 @@ export const LandingPageView: React.FC = () => {
     showToast,
     triggerAccessGuard,
     brand,
+    setIsPricingModalOpen,
+    setSelectedUpgradePlan,
   } = useApp();
+
 
   // Active navigation tab in demo showcase
   const [activeTab, setActiveTab] = useState<'poster' | 'presets' | 'library' | 'rbac'>('poster');
@@ -1338,102 +1342,152 @@ export const LandingPageView: React.FC = () => {
       </section>
 
       {/* ────────────────────────────────────────────────────────── */}
-      {/* SUBSCRIPTION / ACCESS TIERS PREVIEW */}
+      {/* SUBSCRIPTION / ACCESS TIERS & PRICING LIST */}
       {/* ────────────────────────────────────────────────────────── */}
       <section className="space-y-6 pt-6">
         <div className="text-center max-w-xl mx-auto">
           <span className="text-xs font-semibold text-[#d4af37] tracking-wider uppercase">
-            প্ল্যান ও অ্যাক্সেস মডেল
+            প্রাইসিং ও মেম্বারশিপ প্ল্যান
           </span>
           <h2 className="text-2xl sm:text-3xl font-bold text-[#f4eee2] mt-1">
-            ভবিষ্যৎ সাবস্ক্রিপশন ও অ্যাক্সেস টিয়ার
+            বিকাশ পেমেন্টে ১ মাসের পূর্ণ এক্সেস
           </h2>
+          <p className="text-xs text-[#baa791] mt-2 leading-relaxed">
+            দৈনিক পোস্টার লিমিট, ফুল এইচডি এক্সপোর্ট এবং কাস্টম স্টাইল প্রিসেট আনলক করতে আপনার পছন্দের প্যাকেজ বেছে নিন
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Tier 1 */}
-          <div className="p-6 rounded-3xl bg-[#140e0a] border border-[#2d2117] flex flex-col justify-between space-y-6 shadow-xl">
-            <div>
-              <span className="text-xs font-semibold text-[#877461] uppercase tracking-wider block">ফ্রি ট্রায়াল</span>
-              <h3 className="text-xl font-bold text-[#f4eee2] mt-1">বেসিক ডেমো</h3>
-              <p className="text-xs text-[#877461] mt-2">নতুন ব্যবহারকারী ও পরীক্ষামূলক অনবোর্ডিং</p>
-              <div className="text-2xl font-extrabold text-[#f7df94] mt-4">৳ ০ <span className="text-xs font-normal text-[#877461]">/ আজীবন</span></div>
+          {PRICING_PLANS.map((plan) => {
+            const isPro = plan.id === 'pro';
+            const isEnterprise = plan.id === 'enterprise';
 
-              <ul className="space-y-2.5 mt-6 text-xs text-[#baa791]">
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> হাদিস ও কুরআন ব্রাউজার ভিউ</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> ইন্টারেক্টিভ ডেমো ও প্রিভিউ</li>
-                <li className="flex items-center gap-2 text-[#736353]"><Clock className="w-3.5 h-3.5 text-amber-400" /> পোস্টার সেভিং এডমিন অনুমোদন সাপেক্ষ</li>
-              </ul>
+            return (
+              <div
+                key={plan.id}
+                className={`relative p-6 rounded-3xl flex flex-col justify-between space-y-6 shadow-xl transition-all ${
+                  plan.recommended
+                    ? 'bg-gradient-to-b from-[#22170f] to-[#150f0a] border-2 border-[#d4af37] shadow-2xl shadow-[#d4af37]/10'
+                    : 'bg-[#140e0a] border border-[#2d2117] hover:border-[#3d2b1f]'
+                }`}
+              >
+                {plan.recommended && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-to-r from-[#d4af37] to-[#b38927] text-[#140e0a] font-bold text-[10px] uppercase tracking-wider shadow">
+                    সবচেয়ে জনপ্রিয়
+                  </span>
+                )}
+
+                <div>
+                  <span className="text-xs font-semibold text-[#877461] uppercase tracking-wider block">
+                    {plan.nameEn}
+                  </span>
+                  <h3 className="text-xl font-bold text-[#f4eee2] mt-1">{plan.name}</h3>
+                  <div className="text-3xl font-extrabold text-[#f7df94] mt-4">
+                    ৳ {toBengaliNumber(plan.price)}{' '}
+                    <span className="text-xs font-normal text-[#877461]">
+                      {plan.price === 0 ? '/ আজীবন ফ্রি' : '/ ১ মাস মেয়াদের জন্য'}
+                    </span>
+                  </div>
+
+                  {/* Quota highlight */}
+                  <div className="mt-3 p-2.5 rounded-xl bg-[#1b130c] border border-[#332215] text-xs font-semibold text-emerald-400 flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-[#d4af37] shrink-0" />
+                    <span>
+                      {plan.dailyPosterLimit === -1
+                        ? 'কোনো লিমিট নেই (আনলিমিটেড)'
+                        : `প্রতিদিন ${toBengaliNumber(plan.dailyPosterLimit)} টি পোস্টার`}
+                    </span>
+                  </div>
+
+                  <ul className="space-y-2.5 mt-5 text-xs text-[#baa791]">
+                    {plan.features.map((feat, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#d4af37] shrink-0 mt-0.5" />
+                        <span>{feat}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  {plan.id === 'free' ? (
+                    <button
+                      onClick={() => {
+                        if (currentUser) {
+                          setCurrentView('dashboard');
+                        } else {
+                          setIsAuthModalOpen(true);
+                        }
+                      }}
+                      className="w-full py-2.5 px-4 rounded-xl bg-[#201710] hover:bg-[#2b1f16] text-[#baa791] hover:text-[#f4eee2] border border-[#38281b] text-xs font-semibold transition"
+                    >
+                      {currentUser ? 'ড্যাশবোর্ডে প্রবেশ করুন' : 'সাইন-আপ করে শুরু করুন'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setSelectedUpgradePlan(plan.id as 'pro' | 'enterprise');
+                        setIsPricingModalOpen(true);
+                      }}
+                      className={`w-full py-3 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition shadow-md ${
+                        plan.recommended
+                          ? 'bg-gradient-to-r from-[#d4af37] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a]'
+                          : 'bg-[#241a12] hover:bg-[#312318] text-[#f7df94] border border-[#d4af37]/40'
+                      }`}
+                    >
+                      <Crown className="w-3.5 h-3.5" />
+                      <span>
+                        {plan.id === 'pro'
+                          ? '১৯৯ টাকায় বিকাশ পেমেন্ট ও আপগ্রেড'
+                          : '৪৯৯ টাকায় আনলিমিটেড প্যাক নিন'}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* bKash Payment Banner */}
+        <div className="p-5 rounded-3xl bg-gradient-to-r from-[#21140d] via-[#1a1009] to-[#21140d] border border-[#d4af37]/30 flex flex-col md:flex-row items-center justify-between gap-4 text-xs shadow-xl">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-pink-950/80 border border-pink-700/60 flex items-center justify-center text-pink-400 font-extrabold text-base shrink-0 shadow">
+              বিকাশ
             </div>
-
-            <button
-              onClick={() => {
-                if (currentUser) {
-                  setCurrentView('dashboard');
-                } else {
-                  setIsAuthModalOpen(true);
-                }
-              }}
-              className="w-full py-2.5 px-4 rounded-xl bg-[#201710] hover:bg-[#2b1f16] text-[#baa791] hover:text-[#f4eee2] border border-[#38281b] text-xs font-semibold transition"
-            >
-              {currentUser ? 'ড্যাশবোর্ডে প্রবেশ করুন' : 'সাইন-ইন করুন'}
-            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="font-bold text-[#f7df94] text-sm">
+                  বিকাশ পার্সোনাল সেন্ড মানি নম্বর: <span className="font-mono text-pink-300">{BKASH_CONFIG.number}</span>
+                </h4>
+                <span className="text-[10px] bg-pink-950 text-pink-300 px-2 py-0.5 rounded-full border border-pink-800">
+                  Send Money
+                </span>
+              </div>
+              <p className="text-[#a89582] mt-0.5 leading-relaxed">
+                উক্ত নম্বরে সেন্ড মানি করে ট্রানজেকশন আইডি ও স্ক্রিনশট সাবমিট করলে সুপার এডমিন অবিলম্বে আপনার একাউন্ট ১ মাসের জন্য আপগ্রেড করে দেবেন।
+              </p>
+            </div>
           </div>
 
-          {/* Tier 2 (Featured) */}
-          <div className="relative p-6 rounded-3xl bg-gradient-to-b from-[#201710] to-[#16100b] border-2 border-[#d4af37] flex flex-col justify-between space-y-6 shadow-2xl">
-            <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-to-r from-[#d4af37] to-[#b38927] text-[#140e0a] font-bold text-[10px] uppercase tracking-wider shadow">
-              সবচেয়ে জনপ্রিয়
-            </span>
-
-            <div>
-              <span className="text-xs font-semibold text-[#d4af37] uppercase tracking-wider block">অনুমোদিত ক্রিয়েটর</span>
-              <h3 className="text-xl font-bold text-[#f7df94] mt-1">প্রো ক্রিয়েটর স্টুডিও</h3>
-              <p className="text-xs text-[#baa791] mt-2">ইসলামিক সোশ্যাল মিডিয়া কনটেন্ট ক্রিয়েটরদের জন্য</p>
-              <div className="text-2xl font-extrabold text-[#f7df94] mt-4">অনুমোদিত <span className="text-xs font-normal text-emerald-400">অ্যাক্সেস</span></div>
-
-              <ul className="space-y-2.5 mt-6 text-xs text-[#f4eee2]">
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-[#d4af37]" /> আনলিমিটেড পোস্টার তৈরি ও সম্পাদনা</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-[#d4af37]" /> স্টাইল প্রিসেট সংরক্ষণ ও অটো-অ্যাপ্লাই</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-[#d4af37]" /> এইচডি পিএনজি ও জেপেগ এক্সপোর্ট</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-[#d4af37]" /> কাস্টম ব্র্যান্ড লোগো ক্লাউড স্টোরেজ</li>
-              </ul>
-            </div>
-
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => {
-                if (currentUser) {
-                  setCurrentView('dashboard');
-                } else {
-                  setIsAuthModalOpen(true);
-                }
+                navigator.clipboard.writeText(BKASH_CONFIG.number);
+                showToast('বিকাশ নম্বর কপি হয়েছে: ' + BKASH_CONFIG.number);
               }}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] font-bold text-xs shadow-md transition"
+              className="px-3.5 py-2 rounded-xl bg-[#2b1d13] hover:bg-[#382619] text-[#f7df94] border border-[#4d361c] font-semibold text-xs transition"
             >
-              {currentUser ? 'ড্যাশবোর্ডে প্রবেশ করুন' : 'সাইন-আপ করে শুরু করুন'}
+              নম্বর কপি করুন
             </button>
-          </div>
-
-          {/* Tier 3 */}
-          <div className="p-6 rounded-3xl bg-[#140e0a] border border-[#2d2117] flex flex-col justify-between space-y-6 shadow-xl">
-            <div>
-              <span className="text-xs font-semibold text-[#877461] uppercase tracking-wider block">প্রতিষ্ঠান / ব্র্যান্ড</span>
-              <h3 className="text-xl font-bold text-[#f4eee2] mt-1">এন্টারপ্রাইজ / মিডিয়া</h3>
-              <p className="text-xs text-[#877461] mt-2">বৃহৎ ইসলামিক পেইজ ও দাতব্য প্রতিষ্ঠানের জন্য</p>
-              <div className="text-2xl font-extrabold text-[#f7df94] mt-4">কাস্টম <span className="text-xs font-normal text-[#877461]">সাপোর্ট</span></div>
-
-              <ul className="space-y-2.5 mt-6 text-xs text-[#baa791]">
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> মাল্টি-ইউজার পারমিশন ম্যানেজমেন্ট</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> প্রাইভেট ক্লাউড ডেটাবেজ ব্যাকআপ</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> ডেডিকেটেড সুপার এডমিন সাপোর্ট</li>
-              </ul>
-            </div>
-
             <button
-              onClick={() => setIsAuthModalOpen(true)}
-              className="w-full py-2.5 px-4 rounded-xl bg-[#201710] hover:bg-[#2b1f16] text-[#baa791] hover:text-[#f4eee2] border border-[#38281b] text-xs font-semibold transition"
+              onClick={() => {
+                setSelectedUpgradePlan('pro');
+                setIsPricingModalOpen(true);
+              }}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b38927] text-[#140e0a] font-bold text-xs transition shadow"
             >
-              যোগাযোগ করুন
+              স্ক্রিনশট জমা দিন
             </button>
           </div>
         </div>
@@ -1441,3 +1495,4 @@ export const LandingPageView: React.FC = () => {
     </div>
   );
 };
+

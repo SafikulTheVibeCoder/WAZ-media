@@ -19,6 +19,7 @@ import {
   loadUserFavorites,
   migrateLocalStorageToCloud,
   SUPER_ADMIN_EMAIL,
+  recordUserPosterGeneration,
 } from '../services/firebaseDb';
 
 interface AppContextType {
@@ -64,14 +65,23 @@ interface AppContextType {
   isCloudSyncing: boolean;
   migrateLocalData: () => Promise<void>;
   signOutUser: () => Promise<void>;
-  // Role-Based Access Control (RBAC) & Super Admin
+  // Role-Based Access Control (RBAC), Plans & Super Admin
   userProfile: AppUserProfile | null;
   isSuperAdmin: boolean;
   isApproved: boolean;
+  currentPlan: 'free' | 'pro' | 'enterprise';
+  dailyPosterLimit: number; // 5, 50, or -1 (unlimited)
+  todayPosterCount: number;
+  remainingDailyPosters: number; // -1 for unlimited
+  isPricingModalOpen: boolean;
+  setIsPricingModalOpen: (open: boolean) => void;
+  selectedUpgradePlan: 'pro' | 'enterprise';
+  setSelectedUpgradePlan: (plan: 'pro' | 'enterprise') => void;
   isAccessDeniedModalOpen: boolean;
   setIsAccessDeniedModalOpen: (open: boolean) => void;
   accessDeniedAction: string;
   triggerAccessGuard: (actionName: string) => boolean;
+  checkAndConsumePosterQuota: () => boolean;
   refreshUserProfile: () => Promise<void>;
 }
 
@@ -195,6 +205,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isAccessDeniedModalOpen, setIsAccessDeniedModalOpen] = useState<boolean>(false);
   const [accessDeniedAction, setAccessDeniedAction] = useState<string>('পোস্টার তৈরি ও সংরক্ষণ');
 
+  // Pricing & Subscription state
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState<boolean>(false);
+  const [selectedUpgradePlan, setSelectedUpgradePlan] = useState<'pro' | 'enterprise'>('pro');
+  const [todayPosterCount, setTodayPosterCount] = useState<number>(0);
+
   // RBAC computed properties
   const isSuperAdmin = Boolean(
     (currentUser?.email && currentUser.email.toLowerCase().trim() === SUPER_ADMIN_EMAIL.toLowerCase()) ||
@@ -205,6 +220,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     isSuperAdmin || (userProfile?.role === 'approved_user' && userProfile?.status === 'active')
   );
 
+  // Subscription Plan & Limit Calculation
+  const currentPlan = isSuperAdmin ? 'enterprise' : (userProfile?.plan || 'free');
+
+  // Limits: free = 5/day, pro = 50/day, enterprise = unlimited (-1)
+  const dailyPosterLimit = isSuperAdmin
+    ? -1
+    : currentPlan === 'enterprise'
+    ? -1
+    : currentPlan === 'pro'
+    ? 50
+    : 5;
+
+  const remainingDailyPosters =
+    dailyPosterLimit === -1 ? -1 : Math.max(0, dailyPosterLimit - todayPosterCount);
+
   const refreshUserProfile = async () => {
     if (!currentUser) {
       setUserProfile(null);
@@ -214,6 +244,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const profile = await fetchUserProfile(currentUser.uid);
       if (profile) {
         setUserProfile(profile);
+        const todayDateStr = new Date().toISOString().split('T')[0];
+        if (profile.lastPosterDate === todayDateStr) {
+          setTodayPosterCount(profile.todayPosterCount || 0);
+        } else {
+          setTodayPosterCount(0);
+        }
       }
     } catch (e) {
       console.warn('Could not refresh profile:', e);
@@ -232,6 +268,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsAccessDeniedModalOpen(true);
       return false;
     }
+    return true;
+  };
+
+  /**
+   * Check if user is within their plan's daily poster limit and consume quota
+   */
+  const checkAndConsumePosterQuota = (): boolean => {
+    if (!triggerAccessGuard('পোস্টার তৈরি ও এক্সপোর্ট')) {
+      return false;
+    }
+
+    if (isSuperAdmin || currentPlan === 'enterprise') {
+      return true;
+    }
+
+    if (dailyPosterLimit !== -1 && todayPosterCount >= dailyPosterLimit) {
+      setIsPricingModalOpen(true);
+      showToast(`আজকের দৈনিক লিমিট (${dailyPosterLimit}টি) পূর্ণ হয়েছে। আনলিমিটেড করতে আপগ্রেড করুন!`);
+      return false;
+    }
+
+    // Increment local and sync to cloud
+    setTodayPosterCount((prev) => prev + 1);
+    if (currentUser) {
+      recordUserPosterGeneration(currentUser.uid).catch(console.error);
+    }
+
     return true;
   };
 
@@ -836,15 +899,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         userProfile,
         isSuperAdmin,
         isApproved,
+        currentPlan,
+        dailyPosterLimit,
+        todayPosterCount,
+        remainingDailyPosters,
+        isPricingModalOpen,
+        setIsPricingModalOpen,
+        selectedUpgradePlan,
+        setSelectedUpgradePlan,
         isAccessDeniedModalOpen,
         setIsAccessDeniedModalOpen,
         accessDeniedAction,
         triggerAccessGuard,
+        checkAndConsumePosterQuota,
         refreshUserProfile,
       }}
     >
       {children}
     </AppContext.Provider>
+
   );
 };
 

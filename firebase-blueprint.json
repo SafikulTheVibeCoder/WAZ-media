@@ -78,6 +78,27 @@
         "updatedAt": { "type": "number" }
       },
       "required": ["userId", "quoteIds"]
+    },
+    "PaymentUpgradeRequest": {
+      "title": "PaymentUpgradeRequest",
+      "description": "User bKash payment upgrade request submitted for 1-month Pro or Enterprise activation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userEmail": { "type": "string", "maxLength": 256 },
+        "userName": { "type": "string", "maxLength": 128 },
+        "targetPlan": { "type": "string", "enum": ["pro", "enterprise"] },
+        "amount": { "type": "number" },
+        "senderPhone": { "type": "string", "maxLength": 32 },
+        "transactionId": { "type": "string", "maxLength": 64 },
+        "screenshotUrl": { "type": "string", "maxLength": 500000 },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string" },
+        "reviewedAt": { "type": "string" },
+        "reviewedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "userId", "userEmail", "targetPlan", "amount", "senderPhone", "transactionId", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -100,6 +121,11 @@
     "/users/{userId}/favorites/{favDoc}": {
       "schema": "UserFavorites",
       "description": "User bookmarked favorites"
+    },
+    "/upgradeRequests/{requestId}": {
+      "schema": "PaymentUpgradeRequest",
+      "description": "Payment verification requests submitted by users"
     }
   }
 }
+

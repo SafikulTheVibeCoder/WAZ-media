@@ -151,6 +151,18 @@ export interface PosterPreset {
 
 export type UserRole = 'super_admin' | 'approved_user' | 'basic_user';
 export type UserStatus = 'active' | 'pending';
+export type SubscriptionPlan = 'free' | 'pro' | 'enterprise';
+
+export interface PlanLimitInfo {
+  id: SubscriptionPlan;
+  name: string;
+  nameEn: string;
+  price: number;
+  period: string;
+  dailyPosterLimit: number; // 5 for free, 50 for pro, -1 for unlimited
+  features: string[];
+  recommended?: boolean;
+}
 
 export interface AppUserProfile {
   uid: string;
@@ -160,6 +172,26 @@ export interface AppUserProfile {
   photoURL?: string;
   role: UserRole;
   status: UserStatus;
+  plan?: SubscriptionPlan;
+  planExpiresAt?: string;
+  todayPosterCount?: number;
+  lastPosterDate?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PaymentUpgradeRequest {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  targetPlan: 'pro' | 'enterprise';
+  amount: number;
+  senderPhone: string;
+  transactionId: string;
+  screenshotUrl?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
 }

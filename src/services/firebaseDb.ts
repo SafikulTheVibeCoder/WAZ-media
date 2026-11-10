@@ -14,17 +14,27 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { SavedDesign, PosterPreset, BrandConfig, AppUserProfile, UserRole, UserStatus } from '../types';
+import {
+  SavedDesign,
+  PosterPreset,
+  BrandConfig,
+  AppUserProfile,
+  UserRole,
+  UserStatus,
+  SubscriptionPlan,
+  PaymentUpgradeRequest,
+} from '../types';
 import { User } from 'firebase/auth';
 
 export const SUPER_ADMIN_EMAIL = 'realsafikul@gmail.com';
 
 /**
- * Sync user profile to Firestore with RBAC role and status logic
+ * Sync user profile to Firestore with RBAC role, plan, and status logic
  */
 export async function syncUserProfile(user: User): Promise<AppUserProfile> {
   const path = `users/${user.uid}`;
   const now = new Date().toISOString();
+  const todayDateStr = new Date().toISOString().split('T')[0];
   const normalizedEmail = (user.email || '').toLowerCase().trim();
   const isSuperAdminEmail = normalizedEmail === SUPER_ADMIN_EMAIL.toLowerCase();
 
@@ -34,6 +44,10 @@ export async function syncUserProfile(user: User): Promise<AppUserProfile> {
 
     let role: UserRole = isSuperAdminEmail ? 'super_admin' : 'basic_user';
     let status: UserStatus = isSuperAdminEmail ? 'active' : 'pending';
+    let plan: SubscriptionPlan = isSuperAdminEmail ? 'enterprise' : 'free';
+    let planExpiresAt: string | undefined = undefined;
+    let todayPosterCount = 0;
+    let lastPosterDate = todayDateStr;
     let createdAt = now;
 
     if (existing.exists()) {
@@ -42,10 +56,21 @@ export async function syncUserProfile(user: User): Promise<AppUserProfile> {
       if (isSuperAdminEmail) {
         role = 'super_admin';
         status = 'active';
+        plan = 'enterprise';
       } else {
-        // Keep existing role & status if already assigned by admin
+        // Keep existing role, status & plan if assigned
         role = (existingData.role as UserRole) || 'basic_user';
         status = (existingData.status as UserStatus) || 'pending';
+        plan = (existingData.plan as SubscriptionPlan) || 'free';
+        planExpiresAt = existingData.planExpiresAt;
+        
+        // Reset daily count if date has changed
+        if (existingData.lastPosterDate === todayDateStr) {
+          todayPosterCount = existingData.todayPosterCount || 0;
+        } else {
+          todayPosterCount = 0;
+          lastPosterDate = todayDateStr;
+        }
       }
     }
 
@@ -57,6 +82,10 @@ export async function syncUserProfile(user: User): Promise<AppUserProfile> {
       photoURL: user.photoURL || '',
       role,
       status,
+      plan,
+      planExpiresAt,
+      todayPosterCount,
+      lastPosterDate,
       createdAt,
       updatedAt: now,
     };
@@ -110,7 +139,43 @@ export async function fetchAllUsers(): Promise<AppUserProfile[]> {
 }
 
 /**
- * Update user role and status (Super Admin only)
+ * Update user role, status, and subscription plan (Super Admin only)
+ */
+export async function updateUserRoleAndPlan(
+  userId: string,
+  role: UserRole,
+  status: UserStatus,
+  plan: SubscriptionPlan,
+  daysValid: number = 30
+): Promise<void> {
+  const path = `users/${userId}`;
+  const now = new Date();
+  const expires = new Date();
+  expires.setDate(now.getDate() + daysValid);
+
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    const updatePayload: Partial<AppUserProfile> = {
+      role,
+      status,
+      plan,
+      updatedAt: now.toISOString(),
+    };
+
+    if (plan !== 'free') {
+      updatePayload.planExpiresAt = expires.toISOString();
+    } else {
+      updatePayload.planExpiresAt = undefined;
+    }
+
+    await setDoc(userDocRef, updatePayload, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+/**
+ * Legacy alias for backwards compatibility
  */
 export async function updateUserRoleAndStatus(
   userId: string,
@@ -135,6 +200,123 @@ export async function updateUserRoleAndStatus(
 }
 
 /**
+ * Record a poster generation for the user (tracks daily quota)
+ */
+export async function recordUserPosterGeneration(userId: string): Promise<{ todayCount: number }> {
+  const path = `users/${userId}`;
+  const todayDateStr = new Date().toISOString().split('T')[0];
+
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    const snap = await getDoc(userDocRef);
+    let todayCount = 1;
+
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.lastPosterDate === todayDateStr) {
+        todayCount = (data.todayPosterCount || 0) + 1;
+      } else {
+        todayCount = 1;
+      }
+    }
+
+    await setDoc(
+      userDocRef,
+      {
+        todayPosterCount: todayCount,
+        lastPosterDate: todayDateStr,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+
+    return { todayCount };
+  } catch (error) {
+    // Non-fatal, return 1
+    return { todayCount: 1 };
+  }
+}
+
+/**
+ * Submit a bKash payment upgrade request
+ */
+export async function submitPaymentUpgradeRequest(
+  request: Omit<PaymentUpgradeRequest, 'id' | 'createdAt' | 'status'>
+): Promise<string> {
+  const requestId = `pay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const path = `upgradeRequests/${requestId}`;
+
+  const payload: PaymentUpgradeRequest = {
+    ...request,
+    id: requestId,
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+  };
+
+  try {
+    const reqRef = doc(db, 'upgradeRequests', requestId);
+    await setDoc(reqRef, payload);
+    return requestId;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+/**
+ * Fetch all upgrade requests (Super Admin)
+ */
+export async function fetchAllUpgradeRequests(): Promise<PaymentUpgradeRequest[]> {
+  const path = 'upgradeRequests';
+  try {
+    const colRef = collection(db, 'upgradeRequests');
+    const snap = await getDocs(colRef);
+    const list: PaymentUpgradeRequest[] = [];
+    snap.forEach((docSnap) => {
+      list.push(docSnap.data() as PaymentUpgradeRequest);
+    });
+    // Newest first
+    list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return list;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
+}
+
+/**
+ * Approve or Reject an upgrade request (Super Admin only)
+ */
+export async function processPaymentUpgradeRequest(
+  requestId: string,
+  targetUserId: string,
+  targetPlan: 'pro' | 'enterprise',
+  status: 'approved' | 'rejected',
+  adminEmail: string
+): Promise<void> {
+  const path = `upgradeRequests/${requestId}`;
+  const now = new Date().toISOString();
+
+  try {
+    const reqRef = doc(db, 'upgradeRequests', requestId);
+    await setDoc(
+      reqRef,
+      {
+        status,
+        reviewedAt: now,
+        reviewedBy: adminEmail,
+      },
+      { merge: true }
+    );
+
+    if (status === 'approved') {
+      // Upgrade user's plan to pro or enterprise for 30 days and approve their status
+      await updateUserRoleAndPlan(targetUserId, 'approved_user', 'active', targetPlan, 30);
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+/**
  * Delete a user account document (Super Admin only)
  */
 export async function deleteUserAccount(userId: string): Promise<void> {
@@ -143,6 +325,7 @@ export async function deleteUserAccount(userId: string): Promise<void> {
     const userDocRef = doc(db, 'users', userId);
     await deleteDoc(userDocRef);
   } catch (error) {
+
     handleFirestoreError(error, OperationType.DELETE, path);
   }
 }

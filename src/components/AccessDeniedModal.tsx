@@ -20,7 +20,9 @@ export const AccessDeniedModal: React.FC = () => {
     currentUser,
     userProfile,
     setCurrentView,
+    setIsPricingModalOpen,
   } = useApp();
+
 
   if (!isAccessDeniedModalOpen) return null;
 
@@ -92,12 +94,23 @@ export const AccessDeniedModal: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="mt-6 space-y-2.5">
+          <button
+            onClick={() => {
+              setIsAccessDeniedModalOpen(false);
+              setIsPricingModalOpen(true);
+            }}
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] font-bold text-xs shadow-md transition"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>বিকাশ দিয়ে প্যাকেজ আপগ্রেড করুন (১৯৯৳ বা ৪৯৯৳)</span>
+          </button>
+
           <a
             href={`mailto:${SUPER_ADMIN_EMAIL}?subject=Waz%20Media%20Account%20Approval%20Request%20(${encodeURIComponent(currentUser?.email || '')})&body=Hello%20Super%20Admin,%0A%0APlease%20approve%20my%20account%20access%20for%20Waz%20Media%20Studio.%0A%0AEmail:%20${encodeURIComponent(currentUser?.email || '')}%0AName:%20${encodeURIComponent(currentUser?.displayName || '')}`}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] font-bold text-xs shadow-md transition"
+            className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-[#201710] hover:bg-[#2b1f16] text-[#baa791] border border-[#38281b] text-xs font-semibold transition"
           >
-            <Mail className="w-4 h-4" />
-            <span>সুপার এডমিনকে অনুমোদনের অনুরোধ পাঠান</span>
+            <Mail className="w-3.5 h-3.5" />
+            <span>সুপার এডমিনকে ফ্রি অনুমোদনের অনুরোধ পাঠান</span>
           </a>
 
           <button
@@ -105,9 +118,8 @@ export const AccessDeniedModal: React.FC = () => {
               setIsAccessDeniedModalOpen(false);
               setCurrentView('landing');
             }}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#221811] hover:bg-[#2b1f16] text-[#e0d2bf] border border-[#3b2a1a] text-xs font-medium transition"
+            className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-[#17100b] hover:bg-[#221811] text-[#877461] hover:text-[#d4af37] text-xs font-medium transition"
           >
-            <Sparkles className="w-3.5 h-3.5 text-[#d4af37]" />
             <span>ডেমো ও ল্যান্ডিং পেজ দেখুন</span>
           </button>
         </div>
@@ -115,3 +127,4 @@ export const AccessDeniedModal: React.FC = () => {
     </div>
   );
 };
+

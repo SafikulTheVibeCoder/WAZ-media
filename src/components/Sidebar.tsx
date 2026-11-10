@@ -26,7 +26,11 @@ export const Sidebar: React.FC = () => {
     isSuperAdmin,
     isApproved,
     setIsAuthModalOpen,
+    currentPlan,
+    dailyPosterLimit,
+    setIsPricingModalOpen,
   } = useApp();
+
 
   const navItems = [
     { id: 'landing', label: 'হোম ও ল্যান্ডিং', icon: Sparkles },
@@ -113,6 +117,31 @@ export const Sidebar: React.FC = () => {
           })}
         </nav>
 
+        {/* Upgrade / Pricing Banner in Sidebar */}
+        <div className="my-2 p-3 rounded-2xl bg-gradient-to-br from-[#24170d] to-[#160f09] border border-[#d4af37]/30 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="flex items-center gap-1.5 font-bold text-[#f7df94]">
+              <Crown className="w-3.5 h-3.5 text-[#d4af37]" />
+              {currentPlan === 'enterprise'
+                ? 'এন্টারপ্রাইজ'
+                : currentPlan === 'pro'
+                ? 'প্রো ক্রিয়েটর'
+                : 'ফ্রি প্যাকেজ'}
+            </span>
+            <span className="text-[10px] text-emerald-400 font-semibold">
+              {dailyPosterLimit === -1 ? 'আনলিমিটেড' : `${toBengaliNumber(dailyPosterLimit)}টি/দিন`}
+            </span>
+          </div>
+
+          <button
+            onClick={() => setIsPricingModalOpen(true)}
+            className="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] text-xs font-bold transition shadow flex items-center justify-center gap-1.5"
+          >
+            <Sparkles className="w-3 h-3" />
+            <span>প্রাইসিং ও আপগ্রেড</span>
+          </button>
+        </div>
+
         {/* Bottom footer status */}
         <div 
           onClick={() => setIsAuthModalOpen(true)}
@@ -142,6 +171,7 @@ export const Sidebar: React.FC = () => {
               {isSuperAdmin ? 'Admin' : isApproved ? 'Active' : currentUser ? 'Pending' : 'Guest'}
             </span>
           </div>
+
           <p className="text-[11px] leading-relaxed text-[#7a6a59] line-clamp-2">
             {currentUser 
               ? `${currentUser.displayName || currentUser.email}` 

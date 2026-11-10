@@ -42,8 +42,10 @@ import {
   Bookmark,
   Layers,
   Wand2,
-  ChevronRight
+  ChevronRight,
+  Crown,
 } from 'lucide-react';
+
 import { SavePresetModal } from './SavePresetModal';
 import { PresetBrowserModal } from './PresetBrowserModal';
 
@@ -67,7 +69,13 @@ export const PosterStudioView: React.FC = () => {
     isSuperAdmin,
     currentUser,
     setIsAccessDeniedModalOpen,
+    checkAndConsumePosterQuota,
+    currentPlan,
+    dailyPosterLimit,
+    remainingDailyPosters,
+    setIsPricingModalOpen,
   } = useApp();
+
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [zoomLevel, setZoomLevel] = useState<'fit' | '100'>('fit');
@@ -118,7 +126,7 @@ export const PosterStudioView: React.FC = () => {
   }, [poster, brand]);
 
   const handleDownload = async (format: 'png' | 'jpeg') => {
-    if (!triggerAccessGuard('পোস্টার ডাউনলোড ও এক্সপোর্ট')) {
+    if (!checkAndConsumePosterQuota()) {
       return;
     }
     if (!canvasRef.current) return;
@@ -556,8 +564,35 @@ export const PosterStudioView: React.FC = () => {
               </div>
             </div>
 
+            {/* Plan Quota Status Banner */}
+            <div className="w-full flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-[#1c140d] via-[#16100a] to-[#1c140d] border border-[#3b2a1a] text-xs">
+              <div className="flex items-center gap-2">
+                <Crown className="w-4 h-4 text-[#d4af37]" />
+                <span className="text-[#baa791]">
+                  প্যাকেজ: <strong className="text-[#f7df94]">{currentPlan === 'enterprise' ? 'এন্টারপ্রাইজ' : currentPlan === 'pro' ? 'প্রো ক্রিয়েটর' : 'ফ্রি'}</strong>
+                </span>
+                <span className="text-[#6d5b4a]">•</span>
+                <span className="text-emerald-400 font-semibold">
+                  {dailyPosterLimit === -1
+                    ? 'আজকের লিমিট: আনলিমিটেড'
+                    : `আজকের বাকি: ${toBengaliNumber(remainingDailyPosters)} / ${toBengaliNumber(dailyPosterLimit)} টি`}
+                </span>
+              </div>
+
+              {currentPlan !== 'enterprise' && (
+                <button
+                  onClick={() => setIsPricingModalOpen(true)}
+                  className="px-2.5 py-1 rounded-lg bg-[#2a1d13] hover:bg-[#382619] text-[#f7df94] border border-[#d4af37]/40 text-[11px] font-bold transition flex items-center gap-1 shrink-0"
+                >
+                  <Sparkles className="w-3 h-3 text-[#d4af37]" />
+                  <span>আপগ্রেড করুন</span>
+                </button>
+              )}
+            </div>
+
             {/* Quick Export & Preset Actions Bar below Canvas */}
-            <div className="w-full grid grid-cols-2 sm:grid-cols-5 gap-2 mt-5">
+            <div className="w-full grid grid-cols-2 sm:grid-cols-5 gap-2 mt-3">
+
               <button
                 disabled={isExporting}
                 onClick={() => handleDownload('png')}
