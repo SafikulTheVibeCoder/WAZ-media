@@ -58,12 +58,13 @@ service cloud.firestore {
         data.userEmail is string && data.userEmail.size() <= 256 &&
         data.targetPlan in ['pro', 'enterprise'] &&
         data.amount is number && data.amount > 0 &&
-        data.senderPhone is string && data.senderPhone.size() <= 32 &&
-        data.transactionId is string && data.transactionId.size() <= 64 &&
-        (!('screenshotUrl' in data) || (data.screenshotUrl is string && data.screenshotUrl.size() <= 500000)) &&
+        data.senderPhone is string && data.senderPhone.size() <= 64 &&
+        data.transactionId is string && data.transactionId.size() <= 128 &&
+        (!('screenshotUrl' in data) || (data.screenshotUrl is string && data.screenshotUrl.size() <= 1048576)) &&
         data.status in ['pending', 'approved', 'rejected'] &&
         data.createdAt is string;
     }
+
 
     // Validate Design
     function isValidDesign(data, userId) {

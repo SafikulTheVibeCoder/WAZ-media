@@ -51,19 +51,24 @@ export const AdminDashboardView: React.FC = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [userData, reqData] = await Promise.all([
-        fetchAllUsers(),
-        fetchAllUpgradeRequests(),
-      ]);
-      setUsers(userData);
-      setUpgradeRequests(reqData);
-    } catch (err) {
-      console.error('Failed to load admin data:', err);
-      showToast('অ্যাডমিন তথ্য লোড করা যায়নি');
+      try {
+        const reqData = await fetchAllUpgradeRequests();
+        setUpgradeRequests(reqData);
+      } catch (err) {
+        console.warn('Error fetching upgrade requests:', err);
+      }
+
+      try {
+        const userData = await fetchAllUsers();
+        setUsers(userData);
+      } catch (err) {
+        console.warn('Error fetching users:', err);
+      }
     } finally {
       setIsLoading(false);
     }
   };
+
 
   useEffect(() => {
     if (isSuperAdmin) {

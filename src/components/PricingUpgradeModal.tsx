@@ -19,8 +19,10 @@ import {
   PhoneCall,
   FileCheck,
 } from 'lucide-react';
+import { compressScreenshot } from '../utils/imageCompressor';
 
 export const PricingUpgradeModal: React.FC = () => {
+
   const {
     isPricingModalOpen,
     setIsPricingModalOpen,
@@ -37,6 +39,7 @@ export const PricingUpgradeModal: React.FC = () => {
   const [senderPhone, setSenderPhone] = useState('');
   const [transactionId, setTransactionId] = useState('');
   const [screenshotDataUrl, setScreenshotDataUrl] = useState<string | null>(null);
+  const [isCompressingScreenshot, setIsCompressingScreenshot] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copiedNumber, setCopiedNumber] = useState(false);
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
@@ -52,22 +55,29 @@ export const PricingUpgradeModal: React.FC = () => {
     showToast('বিকাশ নম্বর কপি করা হয়েছে: ' + BKASH_CONFIG.number);
   };
 
-  const handleScreenshotUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleScreenshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      showToast('স্ক্রিনশটের সাইজ সর্বোচ্চ ২ মেগাবাইট হতে পারবে');
-      return;
+    setIsCompressingScreenshot(true);
+    try {
+      // Compress and optimize screenshot to ensure fast transfer and strict Firestore limits
+      const optimized = await compressScreenshot(file, 900, 0.7);
+      setScreenshotDataUrl(optimized);
+      showToast('পেমেন্ট স্ক্রিনশট অপটিমাইজ করে যুক্ত করা হয়েছে');
+    } catch (err) {
+      console.warn('Screenshot compression fallback:', err);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setScreenshotDataUrl(reader.result as string);
+        showToast('পেমেন্ট স্ক্রিনশট যুক্ত হয়েছে');
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsCompressingScreenshot(false);
     }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      setScreenshotDataUrl(reader.result as string);
-      showToast('পেমেন্ট স্ক্রিনশট যুক্ত হয়েছে');
-    };
-    reader.readAsDataURL(file);
   };
+
 
   const handleStartUpgrade = (planId: 'pro' | 'enterprise') => {
     if (!currentUser) {
