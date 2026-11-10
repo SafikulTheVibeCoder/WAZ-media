@@ -88,7 +88,7 @@ const STORAGE_KEYS = {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [currentView, setCurrentView] = useState<string>('dashboard');
+  const [currentView, setCurrentView] = useState<string>('landing');
   const [activeEditingId, setActiveEditingId] = useState<string | null>(null);
 
   // Initial State from localStorage
@@ -242,6 +242,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsAuthLoading(false);
 
       if (user) {
+        // Automatically take authenticated user to dashboard from landing page
+        setCurrentView((prev) => (prev === 'landing' ? 'dashboard' : prev));
         try {
           // Sync profile to users collection with super_admin logic
           const profile = await syncUserProfile(user);
@@ -747,6 +749,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       await firebaseSignOut(auth);
       showToast('একাউন্ট থেকে সফলভাবে সাইন আউট করা হয়েছে');
       setIsAuthModalOpen(false);
+      setCurrentView('landing');
     } catch (err) {
       console.error('Sign out error:', err);
       showToast('সাইন আউট করতে সমস্যা হয়েছে');

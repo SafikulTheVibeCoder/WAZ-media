@@ -29,7 +29,91 @@ import {
   Unlock,
   AlertCircle,
   PlusCircle,
+  Palette,
+  LayoutDashboard,
+  Cloud,
 } from 'lucide-react';
+
+const FEATURED_POSTERS_SHOWCASE = [
+  {
+    id: 'p1',
+    title: 'সূরা আশ-শারহ (কষ্টের সাথেই স্বস্তি)',
+    ar: 'فَإِنَّ مَعَ الْعُسْرِ يُسْرًا ۝ إِنَّ مَعَ الْعُسْرِ يُسْرًا',
+    bn: 'নিশ্চয়ই কষ্টের সাথেই রয়েছে স্বস্তি।',
+    ref: 'সূরা আশ-শারহ, আয়াত: ৫-৬',
+    theme: 'golden' as const,
+    size: '1080x1080' as const,
+    borderStyle: 'double' as const,
+    tag: 'কুরআনের বাণী',
+    bgGradient: 'linear-gradient(135deg, #3d2b0e 0%, #17110c 100%)',
+    textColor: '#f7df94',
+  },
+  {
+    id: 'p2',
+    title: 'আয়াতুল কুরসি (মহিমান্বিত আয়াত)',
+    ar: 'اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ',
+    bn: 'আল্লাহ, তিনি ছাড়া কোনো সত্য উপাস্য নেই; তিনি চিরঞ্জীব, সবকিছুর ধারক।',
+    ref: 'সূরা আল-বাকারা, আয়াত: ২৫৫',
+    theme: 'black' as const,
+    size: '1080x1350' as const,
+    borderStyle: 'arch' as const,
+    tag: 'আয়াতুল কুরসি',
+    bgGradient: 'linear-gradient(135deg, #241a12 0%, #0d0a08 100%)',
+    textColor: '#ffd700',
+  },
+  {
+    id: 'p3',
+    title: 'জুমার দিনের মর্যাদা ও বরকত',
+    ar: 'خَيْرُ يَوْمٍ طَلَعَتْ عَلَيْهِ الشَّمْسُ يَوْمُ الْجُمُعَةِ',
+    bn: 'সূর্য উদিত হওয়া দিনগুলোর মধ্যে সর্বোত্তম দিন হলো জুমার দিন।',
+    ref: 'সহিহ মুসলিম, হাদিস: ৮৫৪',
+    theme: 'emerald' as const,
+    size: '1080x1080' as const,
+    borderStyle: 'arch' as const,
+    tag: 'জুম্মা স্পেশাল',
+    bgGradient: 'linear-gradient(135deg, #093325 0%, #03140e 100%)',
+    textColor: '#6ee7b7',
+  },
+  {
+    id: 'p4',
+    title: 'সকল কাজের ফলাফল নিয়তের ওপর',
+    ar: 'إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى',
+    bn: 'সকল কাজের ফলাফল নিয়তের ওপর নির্ভরশীল, আর প্রতিটি মানুষ কেবল তাই পাবে যা সে নিয়ত করেছে।',
+    ref: 'সহীহ আল-বুখারী, হাদিস: ১',
+    theme: 'classic' as const,
+    size: '1080x1080' as const,
+    borderStyle: 'simple' as const,
+    tag: 'সহীহ হাদিস',
+    bgGradient: 'linear-gradient(135deg, #382718 0%, #1c130b 100%)',
+    textColor: '#e8dcbe',
+  },
+  {
+    id: 'p5',
+    title: 'পিতা-মাতার জন্য কুরআনিক দোয়া',
+    ar: 'رَّبِّ ارْحَمْهُمَا كَمَا رَبَّيَانِي صَغِيرًا',
+    bn: 'হে আমার রব! তাদের উভয়ের প্রতি দয়া করুন, যেমন করে শৈশবে তারা আমাকে লালন-পালন করেছিলেন।',
+    ref: 'সূরা আল-ইসরা, আয়াত: ২৪',
+    theme: 'sapphire' as const,
+    size: '1080x1080' as const,
+    borderStyle: 'ornate' as const,
+    tag: 'দোয়া ও মোনাজাত',
+    bgGradient: 'linear-gradient(135deg, #10294c 0%, #061120 100%)',
+    textColor: '#93c5fd',
+  },
+  {
+    id: 'p6',
+    title: 'আল্লাহর অফুরন্ত ক্ষমা ও দয়া',
+    ar: 'لَا تَقْنَطُوا مِن رَّحْمَةِ اللَّهِ ۚ إِنَّ اللَّهَ يَغْفِرُ الذُّنُوبَ جَمِيعًا',
+    bn: 'তোমরা আল্লাহর অনুগ্রহ থেকে নিরাশ হয়ো না। নিশ্চয়ই আল্লাহ সমস্ত গুনাহ ক্ষমা করে দেন।',
+    ref: 'সূরা আয-যুমার, আয়াত: ৫৩',
+    theme: 'black' as const,
+    size: '1080x1920' as const,
+    borderStyle: 'double' as const,
+    tag: 'মাগফিরাত ও তাওবা',
+    bgGradient: 'linear-gradient(135deg, #2b1f14 0%, #0d0a08 100%)',
+    textColor: '#fcd34d',
+  },
+];
 
 const DEMO_QUOTES = [
   {
@@ -194,6 +278,23 @@ export const LandingPageView: React.FC = () => {
     showToast(`"${item.ref}" ডেমো ক্যানভাসে লোড হয়েছে!`);
   };
 
+  // Customize a poster from the showcase gallery
+  const handleCustomizeShowcasePoster = (item: (typeof FEATURED_POSTERS_SHOWCASE)[0]) => {
+    setDemoPoster((prev) => ({
+      ...prev,
+      bn: item.bn,
+      ar: item.ar,
+      ref: item.ref,
+      theme: item.theme,
+      size: item.size,
+      borderStyle: item.borderStyle,
+    }));
+    setActiveTab('poster');
+    const demoElement = document.getElementById('interactive-demo');
+    demoElement?.scrollIntoView({ behavior: 'smooth' });
+    showToast(`"${item.title}" পোস্টারটি লাইভ ক্যানভাসে লোড হয়েছে!`);
+  };
+
   // Apply a preset to the live demo
   const handleApplyPresetToDemo = (preset: PosterPreset) => {
     const cfg = preset.config;
@@ -290,7 +391,92 @@ export const LandingPageView: React.FC = () => {
   const selectedThemeObj = THEME_PRESETS.find((t) => t.id === demoPoster.theme) || THEME_PRESETS[0];
 
   return (
-    <div className="space-y-16 py-4 animate-in fade-in duration-300 max-w-6xl mx-auto">
+    <div className="space-y-16 py-2 animate-in fade-in duration-300 max-w-6xl mx-auto">
+      {/* ────────────────────────────────────────────────────────── */}
+      {/* TOP SAAS NAVBAR (FOR VISITORS & USERS) */}
+      {/* ────────────────────────────────────────────────────────── */}
+      <nav className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-[#140e0a]/90 backdrop-blur-md border border-[#2d2117] sticky top-2 z-40 shadow-xl">
+        <div 
+          onClick={() => setCurrentView(currentUser ? 'dashboard' : 'landing')}
+          className="flex items-center gap-3 cursor-pointer"
+        >
+          <div className="w-9 h-9 rounded-xl bg-[#1d150e] border border-[#3b2a1a] flex items-center justify-center p-1.5 shadow-sm">
+            <img src={brand.logo || DEFAULT_LOGO} alt="Logo" className="w-full h-full object-contain" />
+          </div>
+          <div>
+            <span className="font-bold text-sm tracking-wider text-[#f7df94] block leading-tight">{brand.name || 'WAZ MEDIA'}</span>
+            <span className="text-[10px] text-[#877461] tracking-wider uppercase block">Islamic Media Studio</span>
+          </div>
+        </div>
+
+        {/* Quick section links */}
+        <div className="hidden lg:flex items-center gap-6 text-xs text-[#baa791]">
+          <button 
+            onClick={() => document.getElementById('posters-showcase')?.scrollIntoView({ behavior: 'smooth' })} 
+            className="hover:text-[#f7df94] transition"
+          >
+            পোস্টার কালেকশন
+          </button>
+          <button 
+            onClick={() => {
+              setActiveTab('poster');
+              document.getElementById('interactive-demo')?.scrollIntoView({ behavior: 'smooth' });
+            }} 
+            className="hover:text-[#f7df94] transition"
+          >
+            লাইভ স্টুডিও ডেমো
+          </button>
+          <button 
+            onClick={() => {
+              setActiveTab('presets');
+              document.getElementById('interactive-demo')?.scrollIntoView({ behavior: 'smooth' });
+            }} 
+            className="hover:text-[#f7df94] transition"
+          >
+            স্টাইল প্রিসেট
+          </button>
+          <button 
+            onClick={() => {
+              setActiveTab('library');
+              document.getElementById('interactive-demo')?.scrollIntoView({ behavior: 'smooth' });
+            }} 
+            className="hover:text-[#f7df94] transition"
+          >
+            কুরআন ও হাদিস
+          </button>
+        </div>
+
+        {/* Action Button: Sign Up / Sign In / Dashboard */}
+        <div className="flex items-center gap-2.5">
+          {currentUser ? (
+            <button
+              onClick={() => setCurrentView('dashboard')}
+              className="flex items-center gap-2 py-2 px-4 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] font-bold text-xs shadow-md transition active:scale-95"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              <span>ড্যাশবোর্ডে প্রবেশ করুন</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => setIsAuthModalOpen(true)}
+                className="py-2 px-3 sm:px-4 rounded-xl bg-[#201710] hover:bg-[#2b1f16] text-[#baa791] hover:text-[#f4eee2] border border-[#38281b] text-xs font-semibold transition"
+              >
+                লগইন
+              </button>
+              <button
+                onClick={() => setIsAuthModalOpen(true)}
+                className="flex items-center gap-1.5 py-2 px-3.5 sm:px-5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] font-bold text-xs shadow-md transition active:scale-95"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>সাইন-আপ / শুরু করুন</span>
+              </button>
+            </>
+          )}
+        </div>
+      </nav>
+
       {/* ────────────────────────────────────────────────────────── */}
       {/* HERO SECTION */}
       {/* ────────────────────────────────────────────────────────── */}
@@ -315,16 +501,14 @@ export const LandingPageView: React.FC = () => {
 
         {/* Subtitle */}
         <p className="text-sm sm:text-lg text-[#baa791] max-w-2xl mx-auto mt-4 sm:mt-6 leading-relaxed font-normal">
-          সহীহ হাদিস ও কুরআনের আয়াত ব্রাউজ করুন, রয়্যাল ইসলামিক ক্যালিগ্রাফি স্টাইলে ১-ক্লিকে পোস্টার তৈরি করুন এবং যেকোনো সোশ্যাল মিডিয়ায় শেয়ার করুন।
+          সহীহ হাদিস ও কুরআনের আয়াত ব্রাউজ করুন, রয়্যাল ইসলামিক ক্যালিগ্রাফি স্টাইলে ১-ক্লিকে পোস্টার তৈরি করুন এবং যেকোনো সোশ্যাল মিডিয়ায় শেয়ার করুন। সাইন-আপ করেই আপনার ডেডিকেটেড ড্যাশবোর্ডে প্রবেশ করুন!
         </p>
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 mt-8 max-w-md mx-auto">
           <button
             onClick={() => {
-              if (currentUser && isApproved) {
-                setCurrentView('poster');
-              } else if (currentUser) {
+              if (currentUser) {
                 setCurrentView('dashboard');
               } else {
                 setIsAuthModalOpen(true);
@@ -332,19 +516,19 @@ export const LandingPageView: React.FC = () => {
             }}
             className="w-full sm:w-auto flex items-center justify-center gap-2.5 py-3.5 px-7 rounded-2xl bg-gradient-to-r from-[#d4af37] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] font-bold text-sm shadow-xl transition active:scale-[0.98]"
           >
-            <span>{currentUser ? (isApproved ? 'পোস্টার স্টুডিও খুলুন' : 'ড্যাশবোর্ডে যান') : 'Get Started / Request Access'}</span>
+            <span>{currentUser ? 'ড্যাশবোর্ডে প্রবেশ করুন' : 'ফ্রি সাইন-আপ করুন (ড্যাশবোর্ড)'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
 
           <button
             onClick={() => {
-              const demoElement = document.getElementById('interactive-demo');
-              demoElement?.scrollIntoView({ behavior: 'smooth' });
+              const showcaseEl = document.getElementById('posters-showcase');
+              showcaseEl?.scrollIntoView({ behavior: 'smooth' });
             }}
             className="w-full sm:w-auto flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-[#201710] hover:bg-[#2b1f16] text-[#e0d2bf] border border-[#3b2a1a] font-semibold text-sm transition"
           >
-            <Sparkles className="w-4 h-4 text-[#d4af37]" />
-            <span>লাইভ ডেমো পরীক্ষা করুন</span>
+            <Palette className="w-4 h-4 text-[#d4af37]" />
+            <span>পোস্টার কালেকশন ও ডেমো</span>
           </button>
         </div>
 
@@ -366,9 +550,99 @@ export const LandingPageView: React.FC = () => {
       </section>
 
       {/* ────────────────────────────────────────────────────────── */}
+      {/* FEATURED POSTERS SHOWCASE SECTION */}
+      {/* ────────────────────────────────────────────────────────── */}
+      <section id="posters-showcase" className="space-y-6 scroll-mt-24">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+          <div>
+            <span className="text-xs font-semibold text-[#d4af37] tracking-wider uppercase">
+              রেডি-টু-ইউজ টেমপ্লেট গ্যালারি
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-bold text-[#f4eee2] mt-1">
+              দৃষ্টিনন্দন ইসলামিক পোস্টার কালেকশন
+            </h2>
+            <p className="text-xs sm:text-sm text-[#877461] mt-1">
+              যেকোনো পোস্টারে ক্লিক করে সরাসরি লাইভ ক্যানভাসে কাস্টমাইজ করুন এবং ১-ক্লিকে ডাউনলোড করুন
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              if (currentUser) {
+                setCurrentView('dashboard');
+              } else {
+                setIsAuthModalOpen(true);
+              }
+            }}
+            className="text-xs text-[#f7df94] hover:underline flex items-center gap-1 font-semibold shrink-0"
+          >
+            <span>সকল টেমপ্লেট দেখুন</span>
+            <ArrowRight className="w-3.5 h-3.5 text-[#d4af37]" />
+          </button>
+        </div>
+
+        {/* 6 Featured Poster Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {FEATURED_POSTERS_SHOWCASE.map((item) => (
+            <div
+              key={item.id}
+              className="p-5 rounded-3xl bg-[#17110c] border border-[#2d2117] hover:border-[#d4af37]/60 transition-all duration-300 shadow-xl flex flex-col justify-between group"
+            >
+              <div>
+                {/* Header Tag */}
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#271d15] text-[#d4af37] border border-[#3f2f1d]">
+                    {item.tag}
+                  </span>
+                  <span className="text-[10px] text-[#877461]">{item.size.replace('x', '×')}px</span>
+                </div>
+
+                {/* Poster Mockup Preview Card */}
+                <div
+                  className="rounded-2xl p-5 border border-[#3d2b1a] flex flex-col justify-between text-center min-h-[190px] shadow-inner mb-4 transition-transform group-hover:scale-[1.01]"
+                  style={{ background: item.bgGradient }}
+                >
+                  <div className="text-[9px] tracking-widest text-[#d4af37] uppercase font-bold opacity-80">
+                    WAZ MEDIA STUDIO
+                  </div>
+
+                  <div className="space-y-2 my-auto">
+                    <p dir="rtl" className="font-arabic text-base sm:text-lg leading-relaxed text-[#f7df94]">
+                      {item.ar}
+                    </p>
+                    <p className="text-xs sm:text-sm font-semibold text-[#f4eee2] line-clamp-2 px-1">
+                      "{item.bn}"
+                    </p>
+                  </div>
+
+                  <div className="text-[10px] font-medium" style={{ color: item.textColor }}>
+                    — {item.ref} —
+                  </div>
+                </div>
+
+                <h3 className="font-bold text-sm text-[#f4eee2] group-hover:text-[#f7df94] transition">
+                  {item.title}
+                </h3>
+                <p className="text-xs text-[#877461] mt-1 line-clamp-2">{item.bn}</p>
+              </div>
+
+              {/* Action Button */}
+              <button
+                onClick={() => handleCustomizeShowcasePoster(item)}
+                className="mt-4 w-full py-2.5 px-4 rounded-xl bg-[#201710] hover:bg-[#2c1f15] border border-[#38281b] hover:border-[#d4af37] text-xs font-semibold text-[#f7df94] transition flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                <Wand2 className="w-3.5 h-3.5 text-[#d4af37]" />
+                <span>এই পোস্টারটি কাস্টমাইজ করুন</span>
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ────────────────────────────────────────────────────────── */}
       {/* INTERACTIVE DEMO SHOWCASE SECTION */}
       {/* ────────────────────────────────────────────────────────── */}
-      <section id="interactive-demo" className="space-y-6 scroll-mt-6">
+      <section id="interactive-demo" className="space-y-6 scroll-mt-24">
         <div className="text-center max-w-2xl mx-auto">
           <span className="text-xs font-semibold text-[#d4af37] tracking-wider uppercase">
             ইন্টারেক্টিভ ডেমো স্যান্ডবক্স
@@ -662,7 +936,7 @@ export const LandingPageView: React.FC = () => {
               </div>
 
               <div className="mt-3 text-center text-[11px] text-[#786654]">
-                <span>ক্যানভাসে ক্লিক করে জেনারেট হওয়া পোস্টারের হাই-রেজোলিউশন কোয়ালিটি যাচাই করতে পারেন</span>
+                <span>ক্যানভাসে জেনারেট হওয়া পোস্টারের হাই-রেজোলিউশন কোয়ালিটি সরাসরি প্রিভিউ হচ্ছে</span>
               </div>
             </div>
           </div>
@@ -878,7 +1152,7 @@ export const LandingPageView: React.FC = () => {
                     onClick={() =>
                       handleLoadLibraryItemToDemo({
                         bn: 'সূর্য উদিত হওয়া দিনগুলোর মধ্যে সর্বোত্তম দিন হলো জুমার দিন।',
-                        ar: 'خَيْرُ يَوْمٍ طَلَعَتْ عَلَيْهِ الشَّمْسُ يَوْمُ الْجُمُعَةِ',
+                        ar: 'خَيْرُ يَوْমٍ طَلَعَتْ عَلَيْهِ الشَّمْسُ يَوْمُ الْجُمُعَةِ',
                         ref: 'সহিহ মুসলিম, হাদিস: ৮৫৪',
                       })
                     }
@@ -1093,10 +1367,16 @@ export const LandingPageView: React.FC = () => {
             </div>
 
             <button
-              onClick={() => setIsAuthModalOpen(true)}
+              onClick={() => {
+                if (currentUser) {
+                  setCurrentView('dashboard');
+                } else {
+                  setIsAuthModalOpen(true);
+                }
+              }}
               className="w-full py-2.5 px-4 rounded-xl bg-[#201710] hover:bg-[#2b1f16] text-[#baa791] hover:text-[#f4eee2] border border-[#38281b] text-xs font-semibold transition"
             >
-              সাইন-ইন করুন
+              {currentUser ? 'ড্যাশবোর্ডে প্রবেশ করুন' : 'সাইন-ইন করুন'}
             </button>
           </div>
 
@@ -1122,15 +1402,15 @@ export const LandingPageView: React.FC = () => {
 
             <button
               onClick={() => {
-                if (currentUser && isApproved) {
-                  setCurrentView('poster');
+                if (currentUser) {
+                  setCurrentView('dashboard');
                 } else {
                   setIsAuthModalOpen(true);
                 }
               }}
               className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] font-bold text-xs shadow-md transition"
             >
-              {currentUser && isApproved ? 'পোস্টার তৈরি শুরু করুন' : 'অ্যাক্সেসের জন্য অনুরোধ জানান'}
+              {currentUser ? 'ড্যাশবোর্ডে প্রবেশ করুন' : 'সাইন-আপ করে শুরু করুন'}
             </button>
           </div>
 

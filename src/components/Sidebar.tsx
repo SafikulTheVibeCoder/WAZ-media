@@ -29,12 +29,12 @@ export const Sidebar: React.FC = () => {
   } = useApp();
 
   const navItems = [
+    { id: 'landing', label: 'হোম ও ল্যান্ডিং', icon: Sparkles },
     { id: 'dashboard', label: 'ড্যাশবোর্ড', icon: LayoutDashboard },
     { id: 'captions', label: 'বাণী ও ক্যাপশন', icon: BookOpen },
     { id: 'poster', label: 'পোস্টার স্টুডিও', icon: Sparkles },
     { id: 'brand', label: 'ব্র্যান্ডিং', icon: BadgeCheck },
     { id: 'saved', label: 'সংরক্ষিত গ্যালারি', icon: FolderHeart, badge: savedDesigns.length },
-    { id: 'landing', label: 'SaaS ল্যান্ডিং ও ডেমো', icon: Sparkles },
     ...(isSuperAdmin
       ? [{ id: 'admin', label: 'সুপার এডমিন', icon: Crown, badge: 'Master', isSpecial: true }]
       : []),
@@ -46,7 +46,7 @@ export const Sidebar: React.FC = () => {
       <aside className="hidden md:flex flex-col w-64 bg-[#140e0a] border-r border-[#2d2117] min-h-screen p-4 sticky top-0 h-screen select-none z-30">
         {/* Brand Header */}
         <div 
-          onClick={() => setCurrentView('dashboard')}
+          onClick={() => setCurrentView(currentUser ? 'dashboard' : 'landing')}
           className="flex items-center gap-3 p-3 rounded-xl hover:bg-[#1f1610] cursor-pointer transition border border-transparent hover:border-[#382a1d]"
         >
           <div className="w-10 h-10 rounded-xl bg-[#1d150e] border border-[#3b2a1a] flex items-center justify-center shrink-0 p-1.5 shadow-sm">

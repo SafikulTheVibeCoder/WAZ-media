@@ -73,6 +73,7 @@ export const AuthModal: React.FC = () => {
       await signInWithPopup(auth, googleProvider);
       showToast('গুগল অ্যাকাউন্ট সফলভাবে সংযুক্ত হয়েছে!');
       setIsAuthModalOpen(false);
+      setCurrentView('dashboard');
     } catch (err: any) {
       console.error('Google Sign In Error:', err);
       if (err.code === 'auth/popup-closed-by-user') {
@@ -104,6 +105,7 @@ export const AuthModal: React.FC = () => {
       await signInWithEmailAndPassword(auth, email.trim(), password);
       showToast('সফলভাবে লগইন হয়েছে!');
       setIsAuthModalOpen(false);
+      setCurrentView('dashboard');
     } catch (err: any) {
       console.error('Email Login Error:', err);
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
@@ -137,8 +139,9 @@ export const AuthModal: React.FC = () => {
           displayName: name.trim(),
         });
       }
-      showToast('একাউন্ট সফলভাবে তৈরি হয়েছে!');
+      showToast('একাউন্ট সফলভাবে তৈরি হয়েছে! ড্যাশবোর্ডে স্বাগতম');
       setIsAuthModalOpen(false);
+      setCurrentView('dashboard');
     } catch (err: any) {
       console.error('Registration Error:', err);
       if (err.code === 'auth/email-already-in-use') {
