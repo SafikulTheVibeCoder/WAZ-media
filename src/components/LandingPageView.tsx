@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import { THEME_PRESETS } from '../data/quotes';
+import { THEME_PRESETS, DEFAULT_POSTER, DEFAULT_BRAND, DEFAULT_LOGO } from '../data/quotes';
 import { BUILTIN_PRESETS } from '../data/presets';
-import { ThemeConfig } from '../types';
+import { renderPoster, downloadBlob } from '../utils/canvasRenderer';
+import { ThemeConfig, PosterConfig, BrandConfig, PosterPreset, AspectRatio, BorderStyle } from '../types';
+import { toBengaliNumber } from '../utils/bengaliUtils';
 import {
   Sparkles,
   Layers,
@@ -12,15 +14,57 @@ import {
   CheckCircle2,
   Clock,
   Crown,
-  Share2,
   Download,
-  Palette,
-  Layout,
-  ExternalLink,
+  Copy,
+  Check,
   ChevronRight,
-  Star,
-  Zap,
+  Maximize2,
+  Wand2,
+  Bookmark,
+  RotateCcw,
+  SlidersHorizontal,
+  ExternalLink,
+  Eye,
+  Lock,
+  Unlock,
+  AlertCircle,
+  PlusCircle,
 } from 'lucide-react';
+
+const DEMO_QUOTES = [
+  {
+    id: 'ash-sharh',
+    title: 'কষ্টের সাথেই স্বস্তি (সূরা আশ-শারহ ৯৪:৫-৬)',
+    bn: 'নিশ্চয়ই কষ্টের সাথেই রয়েছে স্বস্তি।',
+    ar: 'فَإِنَّ مَعَ الْعُسْرِ يُسْرًا ۝ إِنَّ مَعَ الْعُسْرِ يُسْرًا',
+    ref: 'সূরা আশ-শারহ, আয়াত: ৫-৬',
+    theme: 'golden' as const,
+  },
+  {
+    id: 'baqarah-153',
+    title: 'ধৈর্য ও সালাত (সূরা আল-বাকারা ২:১৫৩)',
+    bn: 'হে ঈমানদারগণ! তোমরা ধৈর্য ও সালাতের মাধ্যমে সাহায্য প্রার্থনা করো। নিশ্চয়ই আল্লাহ ধৈর্যশীলদের সাথে আছেন।',
+    ar: 'يَا أَيُّهَا الَّذِينَ آمَنُوا اسْتَعِينُوا بِالصَّبْرِ وَالصَّلَاةِ ۚ إِنَّ اللَّهَ مَعَ الصَّابِرِينَ',
+    ref: 'সূরা আল-বাকারা, আয়াত: ১৫৩',
+    theme: 'emerald' as const,
+  },
+  {
+    id: 'bukhari-1',
+    title: 'নিয়তের গুরুত্ব (সহীহ আল-বুখারী ১)',
+    bn: 'সকল কাজের ফলাফল নিয়তের ওপর নির্ভরশীল, আর প্রতিটি মানুষ কেবল তাই পাবে যা সে নিয়ত করেছে।',
+    ar: 'إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى',
+    ref: 'সহীহ আল-বুখারী, হাদিস: ১',
+    theme: 'black' as const,
+  },
+  {
+    id: 'rad-28',
+    title: 'আল্লাহর স্মরণে প্রশান্তি (সূরা আর-রাদ ১৩:২৮)',
+    bn: 'জেনে রেখো, আল্লাহর স্মরণেই অন্তরসমূহ প্রশান্ত হয়।',
+    ar: 'أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ',
+    ref: 'সূরা আর-রাদ, আয়াত: ২৮',
+    theme: 'sapphire' as const,
+  },
+];
 
 export const LandingPageView: React.FC = () => {
   const {
@@ -29,18 +73,227 @@ export const LandingPageView: React.FC = () => {
     isApproved,
     setIsAuthModalOpen,
     setCurrentView,
+    setPoster,
     loadQuoteToPoster,
+    showToast,
+    triggerAccessGuard,
+    brand,
   } = useApp();
 
-  const [demoTheme, setDemoTheme] = useState<string>('golden');
-  const [demoSize, setDemoSize] = useState<'1:1' | '4:5' | '9:16'>('1:1');
+  // Active navigation tab in demo showcase
   const [activeTab, setActiveTab] = useState<'poster' | 'presets' | 'library' | 'rbac'>('poster');
 
-  const selectedThemeObj = THEME_PRESETS.find((t: ThemeConfig) => t.id === demoTheme) || THEME_PRESETS[0];
+  // Interactive Live Demo Poster State
+  const [demoPoster, setDemoPoster] = useState<PosterConfig>({
+    ...DEFAULT_POSTER,
+    bn: 'নিশ্চয়ই কষ্টের সাথেই রয়েছে স্বস্তি।',
+    ar: 'فَإِنَّ مَعَ الْعُسْرِ يُسْرًا ۝ إِنَّ مَعَ الْعُسْرِ يُسْرًا',
+    ref: 'সূরা আশ-শারহ, আয়াত: ৫-৬',
+    theme: 'golden',
+    size: '1080x1080',
+    borderStyle: 'double',
+  });
+
+  const [activeQuoteIndex, setActiveQuoteIndex] = useState(0);
+  const [showCustomTextEditor, setShowCustomTextEditor] = useState(false);
+  const [isDemoDownloading, setIsDemoDownloading] = useState(false);
+  const [demoCopiedCaption, setDemoCopiedCaption] = useState(false);
+  const [simulatedRole, setSimulatedRole] = useState<'basic_user' | 'approved_user' | 'super_admin'>('basic_user');
+
+  // Simulated presets list for Preset Saver Demo
+  const [demoPresets, setDemoPresets] = useState<PosterPreset[]>(BUILTIN_PRESETS);
+  const [customPresetName, setCustomPresetName] = useState('');
+  const [mockApprovalList, setMockApprovalList] = useState([
+    { id: '1', email: 'creator@example.com', name: 'আব্দুর রহমান', role: 'basic_user', status: 'pending' },
+    { id: '2', email: 'media@wazpost.com', name: 'মুহাম্মদ শাকিল', role: 'approved_user', status: 'active' },
+  ]);
+
+  const demoCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Demo brand configuration
+  const demoBrand: BrandConfig = {
+    ...DEFAULT_BRAND,
+    name: brand.name || 'WAZ MEDIA',
+    tagline: brand.tagline || 'INSPIRING FAITH, ILLUMINATING MINDS',
+    handle: brand.handle || '@wazmedia.bd',
+    logo: brand.logo || DEFAULT_LOGO,
+    showLogo: true,
+    showTag: true,
+    showHandle: true,
+    watermark: true,
+    pos: 'top-center',
+    logoSize: 105,
+  };
+
+  // Re-render the HTML5 canvas whenever demo state changes
+  useEffect(() => {
+    let isSubscribed = true;
+    if (activeTab === 'poster' && demoCanvasRef.current) {
+      document.fonts.ready.then(() => {
+        if (isSubscribed && demoCanvasRef.current) {
+          renderPoster(demoCanvasRef.current, demoPoster, demoBrand);
+        }
+      });
+    }
+    return () => {
+      isSubscribed = false;
+    };
+  }, [demoPoster, activeTab]);
+
+  // Handle direct download of the demo poster
+  const handleDownloadDemoPoster = () => {
+    if (!demoCanvasRef.current) return;
+    setIsDemoDownloading(true);
+    try {
+      demoCanvasRef.current.toBlob(
+        (blob) => {
+          if (blob) {
+            downloadBlob(blob, 'wazmedia-demo-poster.png');
+            showToast('ডেমো পোস্টার সফলভাবে ডাউনলোড হয়েছে!');
+          } else {
+            showToast('ডাউনলোড করতে সমস্যা হয়েছে');
+          }
+          setIsDemoDownloading(false);
+        },
+        'image/png'
+      );
+    } catch (err) {
+      console.error(err);
+      showToast('ডাউনলোড ব্যর্থ হয়েছে');
+      setIsDemoDownloading(false);
+    }
+  };
+
+  // Copy full caption text
+  const handleCopyDemoCaption = () => {
+    const parts = [
+      demoPoster.ar,
+      `"${demoPoster.bn}"`,
+      `— ${demoPoster.ref}`,
+      `\n#WAZMEDIA #IslamicPoster #Hadith #Quran #Bangladesh`
+    ].filter(Boolean);
+
+    navigator.clipboard.writeText(parts.join('\n\n'));
+    setDemoCopiedCaption(true);
+    setTimeout(() => setDemoCopiedCaption(false), 2000);
+    showToast('ডেমো ফেসবুক ক্যাপশন কপি হয়েছে!');
+  };
+
+  // Select quick demo quote
+  const handleSelectDemoQuote = (index: number) => {
+    const item = DEMO_QUOTES[index];
+    if (!item) return;
+    setActiveQuoteIndex(index);
+    setDemoPoster((prev) => ({
+      ...prev,
+      bn: item.bn,
+      ar: item.ar,
+      ref: item.ref,
+      theme: item.theme,
+    }));
+    showToast(`"${item.ref}" ডেমো ক্যানভাসে লোড হয়েছে!`);
+  };
+
+  // Apply a preset to the live demo
+  const handleApplyPresetToDemo = (preset: PosterPreset) => {
+    const cfg = preset.config;
+    setDemoPoster((prev) => ({
+      ...prev,
+      theme: cfg.theme,
+      size: cfg.size,
+      font: cfg.font,
+      fontSize: cfg.fontSize,
+      borderStyle: cfg.borderStyle,
+      bgPattern: cfg.bgPattern,
+      textColor: cfg.textColor,
+      accentColor: cfg.accentColor,
+      arabicColor: cfg.arabicColor,
+      align: cfg.align,
+      refPos: cfg.refPos,
+      overlay: cfg.overlay,
+      decorCorner: cfg.decorCorner,
+      decorDivider: cfg.decorDivider,
+      showBismillah: cfg.showBismillah,
+    }));
+    setActiveTab('poster');
+    showToast(`"${preset.name}" স্টাইল ডেমো ক্যানভাসে প্রয়োগ করা হয়েছে!`);
+  };
+
+  // Simulate saving a new custom preset in the demo
+  const handleSimulateSavePreset = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customPresetName.trim()) {
+      showToast('দয়া করে প্রিসেটের একটি নাম লিখুন');
+      return;
+    }
+    const newSimulated: PosterPreset = {
+      id: `sim-preset-${Date.now()}`,
+      name: customPresetName.trim(),
+      description: `${demoPoster.theme} থিম • ${demoPoster.size} • ${demoPoster.borderStyle} বর্ডার`,
+      category: 'কাস্টম প্রিসেট',
+      createdAt: Date.now(),
+      isBuiltIn: false,
+      previewGradient: 'linear-gradient(135deg, #44301d 0%, #150f09 100%)',
+      config: {
+        theme: demoPoster.theme,
+        size: demoPoster.size,
+        font: demoPoster.font,
+        fontSize: demoPoster.fontSize,
+        arabicSizeRatio: demoPoster.arabicSizeRatio,
+        lineHeight: demoPoster.lineHeight,
+        autoFit: demoPoster.autoFit,
+        textColor: demoPoster.textColor,
+        accentColor: demoPoster.accentColor,
+        arabicColor: demoPoster.arabicColor,
+        align: demoPoster.align,
+        refPos: demoPoster.refPos,
+        overlay: demoPoster.overlay,
+        bgType: demoPoster.bgType,
+        bgPattern: demoPoster.bgPattern,
+        borderStyle: demoPoster.borderStyle,
+        decorCorner: demoPoster.decorCorner,
+        decorDivider: demoPoster.decorDivider,
+        showBismillah: demoPoster.showBismillah,
+      },
+    };
+    setDemoPresets((prev) => [newSimulated, ...prev]);
+    setCustomPresetName('');
+    showToast(`"${newSimulated.name}" প্রিসেট সিমুলেশনে সফলভাবে সংরক্ষিত হয়েছে!`);
+  };
+
+  // Load a sample from Library tab into the live demo canvas
+  const handleLoadLibraryItemToDemo = (item: { bn: string; ar: string; ref: string }) => {
+    setDemoPoster((prev) => ({
+      ...prev,
+      bn: item.bn,
+      ar: item.ar,
+      ref: item.ref,
+    }));
+    setActiveTab('poster');
+    showToast(`"${item.ref}" বাণীটি ডেমো ক্যানভাসে লোড হয়েছে!`);
+  };
+
+  // Transfer demo poster to actual authenticated Poster Studio
+  const handleTransferToStudio = () => {
+    if (currentUser && isApproved) {
+      setPoster((prev) => ({
+        ...prev,
+        ...demoPoster,
+      }));
+      setCurrentView('poster');
+      showToast('ডেমো ডিজাইনটি পোস্টার স্টুডিওতে লোড করা হয়েছে!');
+    } else {
+      triggerAccessGuard('পোস্টার স্টুডিও অ্যাক্সেস');
+    }
+  };
+
+  const selectedThemeObj = THEME_PRESETS.find((t) => t.id === demoPoster.theme) || THEME_PRESETS[0];
 
   return (
     <div className="space-y-16 py-4 animate-in fade-in duration-300 max-w-6xl mx-auto">
+      {/* ────────────────────────────────────────────────────────── */}
       {/* HERO SECTION */}
+      {/* ────────────────────────────────────────────────────────── */}
       <section className="relative text-center pt-8 pb-12 px-4 sm:px-6 rounded-3xl bg-gradient-to-b from-[#1c140d] via-[#140e0a] to-[#0d0a08] border border-[#38281b] overflow-hidden shadow-2xl">
         {/* Ambient Glows */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-[#d4af37]/15 rounded-full blur-3xl pointer-events-none" />
@@ -62,7 +315,7 @@ export const LandingPageView: React.FC = () => {
 
         {/* Subtitle */}
         <p className="text-sm sm:text-lg text-[#baa791] max-w-2xl mx-auto mt-4 sm:mt-6 leading-relaxed font-normal">
-          সহীহ হাদিস ও কুরআনের আয়াত ব্রাউজ করুন, রয়্যাল ইসলামিক ক্যালিগ্রাফি স্টাইলে ১-ক্লিকে পোস্টার তৈরি করুন এবং সোশ্যাল মিডিয়ায় শেয়ার করুন।
+          সহীহ হাদিস ও কুরআনের আয়াত ব্রাউজ করুন, রয়্যাল ইসলামিক ক্যালিগ্রাফি স্টাইলে ১-ক্লিকে পোস্টার তৈরি করুন এবং যেকোনো সোশ্যাল মিডিয়ায় শেয়ার করুন।
         </p>
 
         {/* CTA Buttons */}
@@ -90,8 +343,8 @@ export const LandingPageView: React.FC = () => {
             }}
             className="w-full sm:w-auto flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-[#201710] hover:bg-[#2b1f16] text-[#e0d2bf] border border-[#3b2a1a] font-semibold text-sm transition"
           >
+            <Sparkles className="w-4 h-4 text-[#d4af37]" />
             <span>লাইভ ডেমো পরীক্ষা করুন</span>
-            <ChevronRight className="w-4 h-4 text-[#d4af37]" />
           </button>
         </div>
 
@@ -112,14 +365,16 @@ export const LandingPageView: React.FC = () => {
         </div>
       </section>
 
+      {/* ────────────────────────────────────────────────────────── */}
       {/* INTERACTIVE DEMO SHOWCASE SECTION */}
-      <section id="interactive-demo" className="space-y-6">
+      {/* ────────────────────────────────────────────────────────── */}
+      <section id="interactive-demo" className="space-y-6 scroll-mt-6">
         <div className="text-center max-w-2xl mx-auto">
           <span className="text-xs font-semibold text-[#d4af37] tracking-wider uppercase">
-            ইন্টারেক্টিভ ডেমো
+            ইন্টারেক্টিভ ডেমো স্যান্ডবক্স
           </span>
           <h2 className="text-2xl sm:text-3xl font-bold text-[#f4eee2] mt-1">
-            সফটওয়্যারটির শক্তিশালী ফিচারসমূহ এক্সপ্লোর করুন
+            সফটওয়্যারটির শক্তিশালী ফিচারসমূহ সরাসরি চালিয়ে দেখুন
           </h2>
           <p className="text-xs sm:text-sm text-[#877461] mt-2">
             অনুমোদনের আগেই ডেমো প্রিভিউতে দেখে নিন কিভাবে প্রতিটি মডিউল কাজ করে
@@ -127,79 +382,151 @@ export const LandingPageView: React.FC = () => {
         </div>
 
         {/* Feature Navigation Tabs */}
-        <div className="flex flex-wrap justify-center gap-2 p-1.5 bg-[#140e0a] border border-[#2d2117] rounded-2xl max-w-xl mx-auto">
+        <div className="flex flex-wrap justify-center gap-2 p-1.5 bg-[#140e0a] border border-[#2d2117] rounded-2xl max-w-2xl mx-auto">
           <button
             onClick={() => setActiveTab('poster')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition ${
               activeTab === 'poster'
-                ? 'bg-gradient-to-r from-[#d4af37] to-[#b38927] text-[#140e0a] shadow'
+                ? 'bg-gradient-to-r from-[#d4af37] to-[#b38927] text-[#140e0a] shadow font-bold'
                 : 'text-[#baa791] hover:text-[#f4eee2]'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>লাইভ পোস্টার ইঞ্জিন</span>
+            <span>১. লাইভ পোস্টার ইঞ্জিন</span>
           </button>
           <button
             onClick={() => setActiveTab('presets')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition ${
               activeTab === 'presets'
-                ? 'bg-gradient-to-r from-[#d4af37] to-[#b38927] text-[#140e0a] shadow'
+                ? 'bg-gradient-to-r from-[#d4af37] to-[#b38927] text-[#140e0a] shadow font-bold'
                 : 'text-[#baa791] hover:text-[#f4eee2]'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>স্টাইল প্রিসেট সেভার</span>
+            <span>২. স্টাইল প্রিসেট সেভার</span>
           </button>
           <button
             onClick={() => setActiveTab('library')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition ${
               activeTab === 'library'
-                ? 'bg-gradient-to-r from-[#d4af37] to-[#b38927] text-[#140e0a] shadow'
+                ? 'bg-gradient-to-r from-[#d4af37] to-[#b38927] text-[#140e0a] shadow font-bold'
                 : 'text-[#baa791] hover:text-[#f4eee2]'
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>কুরআন ও হাদিস ব্রাউজার</span>
+            <span>৩. কুরআন ও হাদিস ব্রাউজার</span>
           </button>
           <button
             onClick={() => setActiveTab('rbac')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition ${
               activeTab === 'rbac'
-                ? 'bg-gradient-to-r from-[#d4af37] to-[#b38927] text-[#140e0a] shadow'
+                ? 'bg-gradient-to-r from-[#d4af37] to-[#b38927] text-[#140e0a] shadow font-bold'
                 : 'text-[#baa791] hover:text-[#f4eee2]'
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>এডমিন ও রোল সিকিউরিটি</span>
+            <span>৪. রোল সিকিউরিটি ও এডমিন</span>
           </button>
         </div>
 
+        {/* ────────────────────────────────────────────────────────── */}
         {/* TAB 1: LIVE POSTER ENGINE DEMO */}
+        {/* ────────────────────────────────────────────────────────── */}
         {activeTab === 'poster' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center bg-[#17110c] border border-[#2d2117] rounded-3xl p-6 sm:p-8 shadow-2xl">
-            {/* Controls */}
-            <div className="lg:col-span-5 space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start bg-[#17110c] border border-[#2d2117] rounded-3xl p-6 sm:p-8 shadow-2xl">
+            {/* Interactive Control Panel */}
+            <div className="lg:col-span-5 space-y-5">
               <div>
-                <span className="text-[11px] font-bold text-[#d4af37] uppercase tracking-wider">ফিচার ১</span>
-                <h3 className="text-xl font-bold text-[#f4eee2] mt-1">তাৎক্ষণিক পোস্টার জেনারেটর</h3>
-                <p className="text-xs text-[#9b8976] mt-2 leading-relaxed">
-                  পছন্দমতো যেকোনো থিম নির্বাচন করুন। রয়্যাল ফ্রেম, মেহরাব বর্ডার এবং নিখুঁত বাংলা ও আরবি টাইপোগ্রাফি সরাসরি লাইভ ক্যানভাসে রেন্ডার হয়।
+                <span className="text-[11px] font-bold text-[#d4af37] uppercase tracking-wider">ইন্টারেক্টিভ ইঞ্জিন</span>
+                <h3 className="text-xl font-bold text-[#f4eee2] mt-1">তাৎক্ষণিক ক্যানভাস জেনারেটর</h3>
+                <p className="text-xs text-[#9b8976] mt-1.5 leading-relaxed">
+                  নিচের অপশনগুলো পরিবর্তন করুন। রয়্যাল মেহরাব বর্ডার, আরবি ক্যালিগ্রাফি এবং নিখুঁত বাংলা টাইপোগ্রাফি সরাসরি ডানপাশের ক্যানভাসে রেন্ডার হচ্ছে।
                 </p>
               </div>
 
-              {/* Theme Selector */}
+              {/* 1. Quick Quote Selector */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[#baa791] flex items-center justify-between">
+                  <span>বাণী বা আয়াত নির্বাচন করুন:</span>
+                  <span className="text-[10px] text-[#d4af37]">১-ক্লিক সুইচ</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {DEMO_QUOTES.map((q, idx) => (
+                    <button
+                      key={q.id}
+                      onClick={() => handleSelectDemoQuote(idx)}
+                      className={`p-2.5 rounded-xl border text-left transition ${
+                        activeQuoteIndex === idx
+                          ? 'bg-[#2a1d13] border-[#d4af37] text-[#f7df94] shadow-sm'
+                          : 'bg-[#120e0a] border-[#2d2117] text-[#877461] hover:border-[#44301d]'
+                      }`}
+                    >
+                      <div className="font-semibold text-xs truncate">{q.title}</div>
+                      <div className="text-[10px] opacity-70 truncate">{q.ref}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Text Toggle / Editor */}
+              <div className="bg-[#120e0a] border border-[#2d2117] rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-[#baa791]">নিজের লেখা দিয়ে পরীক্ষা করবেন?</span>
+                  <button
+                    onClick={() => setShowCustomTextEditor(!showCustomTextEditor)}
+                    className="text-xs text-[#d4af37] hover:underline font-semibold"
+                  >
+                    {showCustomTextEditor ? 'লুকান' : 'কাস্টম টেক্সট লিখুন'}
+                  </button>
+                </div>
+
+                {showCustomTextEditor && (
+                  <div className="mt-3 space-y-2 pt-2 border-t border-[#261b12]">
+                    <div>
+                      <label className="text-[10px] text-[#877461] block mb-1">বাংলা বাণী:</label>
+                      <textarea
+                        rows={2}
+                        value={demoPoster.bn}
+                        onChange={(e) => setDemoPoster((prev) => ({ ...prev, bn: e.target.value }))}
+                        className="w-full p-2 bg-[#17110c] border border-[#3b2a1a] rounded-lg text-xs text-[#f4eee2] outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-[#877461] block mb-1">আরবি টেক্সট:</label>
+                      <textarea
+                        rows={2}
+                        dir="rtl"
+                        value={demoPoster.ar}
+                        onChange={(e) => setDemoPoster((prev) => ({ ...prev, ar: e.target.value }))}
+                        className="w-full p-2 bg-[#17110c] border border-[#3b2a1a] rounded-lg text-xs text-[#f7df94] font-arabic outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-[#877461] block mb-1">রেফারেন্স:</label>
+                      <input
+                        type="text"
+                        value={demoPoster.ref}
+                        onChange={(e) => setDemoPoster((prev) => ({ ...prev, ref: e.target.value }))}
+                        className="w-full p-2 bg-[#17110c] border border-[#3b2a1a] rounded-lg text-xs text-[#f4eee2] outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Theme Selector */}
               <div>
                 <label className="text-xs font-semibold text-[#baa791] block mb-2">
-                  লাইভ থিম পরিবর্তন করে দেখুন:
+                  লাইভ থিম ও কালার প্যালেট:
                 </label>
                 <div className="grid grid-cols-4 gap-2">
-                  {THEMES.slice(0, 8).map((t) => (
+                  {THEME_PRESETS.map((t: ThemeConfig) => (
                     <button
                       key={t.id}
-                      onClick={() => setDemoTheme(t.id)}
+                      onClick={() => setDemoPoster((prev) => ({ ...prev, theme: t.id }))}
                       className={`p-2 rounded-xl border flex flex-col items-center gap-1 text-[11px] font-medium transition ${
-                        demoTheme === t.id
-                          ? 'bg-[#2a1d13] border-[#d4af37] text-[#f7df94]'
+                        demoPoster.theme === t.id
+                          ? 'bg-[#2a1d13] border-[#d4af37] text-[#f7df94] ring-1 ring-[#d4af37]'
                           : 'bg-[#120e0a] border-[#2d2117] text-[#877461] hover:border-[#44301d]'
                       }`}
                     >
@@ -213,191 +540,352 @@ export const LandingPageView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Aspect Ratio Selector */}
+              {/* 3. Aspect Ratio Selector (All 3 sizes) */}
               <div>
                 <label className="text-xs font-semibold text-[#baa791] block mb-2">
-                  সোশ্যাল মিডিয়া সাইজ:
+                  সোশ্যাল মিডিয়া অনুপাত ও রেজোলিউশন:
                 </label>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
-                    onClick={() => setDemoSize('1:1')}
-                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-semibold border transition ${
-                      demoSize === '1:1'
+                    onClick={() => setDemoPoster((prev) => ({ ...prev, size: '1080x1080' }))}
+                    className={`py-2 px-2 rounded-xl text-[11px] font-semibold border transition text-center ${
+                      demoPoster.size === '1080x1080'
                         ? 'bg-[#d4af37]/20 border-[#d4af37] text-[#f7df94]'
                         : 'bg-[#120e0a] border-[#2d2117] text-[#877461]'
                     }`}
                   >
-                    1:1 Square (FB/Insta)
+                    1:1 স্কয়ার (FB/Insta)
                   </button>
                   <button
-                    onClick={() => setDemoSize('4:5')}
-                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-semibold border transition ${
-                      demoSize === '4:5'
+                    onClick={() => setDemoPoster((prev) => ({ ...prev, size: '1080x1350' }))}
+                    className={`py-2 px-2 rounded-xl text-[11px] font-semibold border transition text-center ${
+                      demoPoster.size === '1080x1350'
                         ? 'bg-[#d4af37]/20 border-[#d4af37] text-[#f7df94]'
                         : 'bg-[#120e0a] border-[#2d2117] text-[#877461]'
                     }`}
                   >
-                    4:5 Portrait
+                    4:5 পোর্ট্রেট (Feed)
+                  </button>
+                  <button
+                    onClick={() => setDemoPoster((prev) => ({ ...prev, size: '1080x1920' }))}
+                    className={`py-2 px-2 rounded-xl text-[11px] font-semibold border transition text-center ${
+                      demoPoster.size === '1080x1920'
+                        ? 'bg-[#d4af37]/20 border-[#d4af37] text-[#f7df94]'
+                        : 'bg-[#120e0a] border-[#2d2117] text-[#877461]'
+                    }`}
+                  >
+                    9:16 স্টোরি / রিলস
                   </button>
                 </div>
               </div>
 
-              <div className="pt-2">
+              {/* 4. Border Style Selector */}
+              <div>
+                <label className="text-xs font-semibold text-[#baa791] block mb-2">
+                  ইসলামিক বর্ডার আর্ট:
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { id: 'double', label: 'ডাবল গোল্ড' },
+                    { id: 'arch', label: 'মেহরাব খিলান' },
+                    { id: 'ornate', label: 'কারুকার্যময়' },
+                    { id: 'simple', label: 'সিম্পল' },
+                  ].map((b) => (
+                    <button
+                      key={b.id}
+                      onClick={() => setDemoPoster((prev) => ({ ...prev, borderStyle: b.id as BorderStyle }))}
+                      className={`py-1.5 px-2 rounded-lg text-[10px] font-medium border transition text-center ${
+                        demoPoster.borderStyle === b.id
+                          ? 'bg-[#d4af37]/20 border-[#d4af37] text-[#f7df94]'
+                          : 'bg-[#120e0a] border-[#2d2117] text-[#877461]'
+                      }`}
+                    >
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="pt-2 space-y-2.5">
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleDownloadDemoPoster}
+                    disabled={isDemoDownloading}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-bold text-xs shadow-md transition disabled:opacity-50"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>{isDemoDownloading ? 'ডাউনলোড হচ্ছে...' : 'ডেমো পোস্টার ডাউনলোড (PNG)'}</span>
+                  </button>
+
+                  <button
+                    onClick={handleCopyDemoCaption}
+                    className="px-4 py-3 rounded-xl bg-[#201710] hover:bg-[#2b1f16] text-[#e0d2bf] border border-[#3b2a1a] text-xs font-semibold transition flex items-center justify-center gap-1.5"
+                    title="ফেসবুক পোস্ট ক্যাপশন কপি করুন"
+                  >
+                    {demoCopiedCaption ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-[#d4af37]" />}
+                    <span>{demoCopiedCaption ? 'কপি হয়েছে' : 'ক্যাপশন কপি'}</span>
+                  </button>
+                </div>
+
                 <button
-                  onClick={() => {
-                    if (currentUser && isApproved) {
-                      setCurrentView('poster');
-                    } else {
-                      setIsAuthModalOpen(true);
-                    }
-                  }}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] font-bold text-xs shadow-md transition"
+                  onClick={handleTransferToStudio}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] font-bold text-xs shadow-md transition active:scale-[0.98]"
                 >
                   <Sparkles className="w-4 h-4" />
-                  <span>{currentUser && isApproved ? 'পোস্টার স্টুডিওতে যান' : 'পূর্ণ অ্যাক্সেস পেতে সাইন-ইন / রিকোয়েস্ট করুন'}</span>
+                  <span>
+                    {currentUser && isApproved
+                      ? 'এই ডিজাইন নিয়ে পোস্টার স্টুডিওতে যান'
+                      : 'পূর্ণ অ্যাক্সেস পেতে সাইন-ইন / রিকোয়েস্ট করুন'}
+                  </span>
                 </button>
               </div>
             </div>
 
-            {/* Poster Preview Window */}
-            <div className="lg:col-span-7 flex justify-center">
-              <div
-                className={`relative w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl p-6 flex flex-col justify-between text-center border transition-all duration-300 ${
-                  demoSize === '1:1' ? 'aspect-square' : 'aspect-[4/5]'
-                }`}
-                style={{
-                  background: selectedThemeObj.previewBg,
-                  borderColor: selectedThemeObj.border,
-                  color: selectedThemeObj.text,
-                }}
-              >
-                {/* Top Corner Decor */}
-                <div className="flex items-center justify-between opacity-70">
-                  <span className="text-[10px] tracking-widest uppercase font-bold" style={{ color: selectedThemeObj.accent }}>
-                    WAZ MEDIA
-                  </span>
-                  <span className="text-[10px] opacity-60">আল-কুরআন</span>
-                </div>
+            {/* Poster Canvas Preview */}
+            <div className="lg:col-span-7 flex flex-col items-center justify-center">
+              <div className="w-full flex items-center justify-between mb-2 text-xs text-[#877461] px-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>লাইভ ক্যানভাস রেন্ডারার • {demoPoster.size.replace('x', '×')}px</span>
+                </span>
+                <span className="text-[#d4af37] font-medium">নিখুঁত আরবি ও বাংলা ফন্ট</span>
+              </div>
 
-                {/* Content */}
-                <div className="space-y-3 my-auto">
-                  <p
-                    className="font-arabic text-base sm:text-lg leading-relaxed dir-rtl"
-                    style={{ color: selectedThemeObj.ar }}
-                  >
-                    فَإِنَّ مَعَ الْعُسْرِ يُسْرًا ۝ إِنَّ مَعَ الْعُسْرِ يُسْرًا
-                  </p>
-                  <p className="text-sm sm:text-base font-semibold leading-relaxed px-2">
-                    "নিশ্চয়ই কষ্টের সাথেই রয়েছে স্বস্তি।"
-                  </p>
-                  <p className="text-[11px] font-medium" style={{ color: selectedThemeObj.accent }}>
-                    — সূরা আশ-শারহ, আয়াত: ৫-৬ —
-                  </p>
-                </div>
+              <div className="relative w-full max-w-md rounded-2xl overflow-hidden shadow-2xl bg-[#0f0b08] p-2 border border-[#332519] flex items-center justify-center">
+                <canvas
+                  ref={demoCanvasRef}
+                  width={1080}
+                  height={demoPoster.size === '1080x1080' ? 1080 : demoPoster.size === '1080x1350' ? 1350 : 1920}
+                  className="w-full h-auto max-h-[540px] object-contain rounded-xl shadow-lg border border-[#3b2a1a]/60"
+                />
+              </div>
 
-                {/* Footer Watermark */}
-                <div className="text-[9px] opacity-60 pt-2 border-t border-black/10">
-                  @wazmedia.bd • Islamic Media Studio
-                </div>
+              <div className="mt-3 text-center text-[11px] text-[#786654]">
+                <span>ক্যানভাসে ক্লিক করে জেনারেট হওয়া পোস্টারের হাই-রেজোলিউশন কোয়ালিটি যাচাই করতে পারেন</span>
               </div>
             </div>
           </div>
         )}
 
+        {/* ────────────────────────────────────────────────────────── */}
         {/* TAB 2: PRESET SAVER DEMO */}
+        {/* ────────────────────────────────────────────────────────── */}
         {activeTab === 'presets' && (
           <div className="bg-[#17110c] border border-[#2d2117] rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
-            <div className="max-w-2xl">
-              <span className="text-[11px] font-bold text-[#d4af37] uppercase tracking-wider">ফিচার ২</span>
-              <h3 className="text-xl font-bold text-[#f4eee2] mt-1">স্টাইল প্রিসেট সংরক্ষণ ও অটো-অ্যাপ্লাই সিস্টেম</h3>
-              <p className="text-xs text-[#9b8976] mt-2 leading-relaxed">
-                আপনার পেজ বা ব্র্যান্ডের সিগনেচার স্টাইল (ফন্ট, সাইজ, মেহরাব বর্ডার, রঙ ও লোগোর অবস্থান) একবার প্রিসেট হিসেবে সেভ করুন। এরপর নতুন যেকোনো আয়াত বা হাদিস নির্বাচন করলেই সেই ফরম্যাটে স্বয়ংক্রিয়ভাবে পোস্টার তৈরি হয়ে যাবে।
-              </p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="max-w-2xl">
+                <span className="text-[11px] font-bold text-[#d4af37] uppercase tracking-wider">ফিচার ২</span>
+                <h3 className="text-xl font-bold text-[#f4eee2] mt-1">স্টাইল প্রিসেট সংরক্ষণ ও অটো-অ্যাপ্লাই সিস্টেম</h3>
+                <p className="text-xs text-[#9b8976] mt-1.5 leading-relaxed">
+                  আপনার পেজ বা ব্র্যান্ডের সিগনেচার স্টাইল (ফন্ট, সাইজ, মেহরাব বর্ডার, রঙ ও লোগোর অবস্থান) একবার প্রিসেট হিসেবে সেভ করুন। যেকোনো নতুন আয়াত বা হাদিসে ১-ক্লিকেই পুরো ফরম্যাট প্রয়োগ হয়ে যাবে।
+                </p>
+              </div>
+
+              {/* Simulation Save Form */}
+              <form
+                onSubmit={handleSimulateSavePreset}
+                className="bg-[#120e0a] border border-[#2d2117] rounded-2xl p-3.5 space-y-2 shrink-0 md:w-80"
+              >
+                <span className="text-xs font-semibold text-[#f7df94] block">টেস্ট প্রিসেট সেভ করুন:</span>
+                <input
+                  type="text"
+                  value={customPresetName}
+                  onChange={(e) => setCustomPresetName(e.target.value)}
+                  placeholder="উদাঃ আমার পেইজের গোল্ডেন স্টাইল"
+                  className="w-full px-3 py-1.5 bg-[#17110c] border border-[#3b2a1a] rounded-lg text-xs text-[#f4eee2] outline-none"
+                />
+                <button
+                  type="submit"
+                  className="w-full py-2 rounded-lg bg-[#d4af37] hover:bg-[#e6c878] text-[#140e0a] font-bold text-xs transition"
+                >
+                  প্রিসেট সংরক্ষণ টেস্ট করুন
+                </button>
+              </form>
             </div>
 
             {/* Presets Grid Showcase */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {BUILTIN_PRESETS.slice(0, 3).map((preset) => (
+              {demoPresets.map((preset) => (
                 <div
                   key={preset.id}
-                  className="p-5 rounded-2xl bg-[#120e0a] border border-[#2d2117] hover:border-[#d4af37]/50 transition space-y-3 shadow-md"
+                  className="p-5 rounded-2xl bg-[#120e0a] border border-[#2d2117] hover:border-[#d4af37]/60 transition space-y-3 shadow-md flex flex-col justify-between"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#f7df94]">{preset.name}</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#d4af37]/20 text-[#f7df94]">
-                      {preset.category}
-                    </span>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-[#f7df94] truncate">{preset.name}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#d4af37]/20 text-[#f7df94] shrink-0">
+                        {preset.category || 'প্রিসেট'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#877461] mt-1 line-clamp-2">{preset.description}</p>
+                    
+                    <div
+                      className="h-20 rounded-xl border border-[#3b2a1a] flex items-center justify-center p-3 text-center text-xs font-semibold mt-3"
+                      style={{ background: preset.previewGradient }}
+                    >
+                      <span className="text-[#f7df94] drop-shadow">{preset.name}</span>
+                    </div>
                   </div>
-                  <p className="text-xs text-[#877461]">{preset.description}</p>
-                  <div
-                    className="h-16 rounded-xl border border-[#3b2a1a] flex items-center justify-center p-3 text-center text-xs font-semibold"
-                    style={{ background: preset.previewGradient }}
+
+                  <button
+                    onClick={() => handleApplyPresetToDemo(preset)}
+                    className="w-full py-2.5 rounded-xl bg-[#201710] hover:bg-[#2b1f16] border border-[#38281b] hover:border-[#d4af37] text-xs font-semibold text-[#f7df94] transition flex items-center justify-center gap-1.5"
                   >
-                    <span className="text-[#f7df94]">নমুনা প্রিভিউ স্টাইল</span>
-                  </div>
+                    <Wand2 className="w-3.5 h-3.5 text-[#d4af37]" />
+                    <span>এই স্টাইলটি ডেমোতে প্রয়োগ করুন</span>
+                  </button>
                 </div>
               ))}
             </div>
           </div>
         )}
 
+        {/* ────────────────────────────────────────────────────────── */}
         {/* TAB 3: QURAN & HADITH API BROWSER */}
+        {/* ────────────────────────────────────────────────────────── */}
         {activeTab === 'library' && (
           <div className="bg-[#17110c] border border-[#2d2117] rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
-            <div className="max-w-2xl">
-              <span className="text-[11px] font-bold text-[#d4af37] uppercase tracking-wider">ফিচার ৩</span>
-              <h3 className="text-xl font-bold text-[#f4eee2] mt-1">সহীহ হাদিস ও পূর্ণাঙ্গ আল-কুরআন এপিআই ব্রাউজার</h3>
-              <p className="text-xs text-[#9b8976] mt-2 leading-relaxed">
-                সহীহ বুখারী, মুসলিম এবং আল-কুরআনের পূর্ণাঙ্গ ১১৪টি সূরার আয়াত অনুসন্ধান করুন এবং ব্রাউজার থেকেই সরাসরি ১-ক্লিকে "পোস্টার তৈরি করুন" বাটনে ক্লিক করে পোস্টার স্টুডিওতে লোড করুন।
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="max-w-2xl">
+                <span className="text-[11px] font-bold text-[#d4af37] uppercase tracking-wider">ফিচার ৩</span>
+                <h3 className="text-xl font-bold text-[#f4eee2] mt-1">সহীহ হাদিস ও পূর্ণাঙ্গ আল-কুরআন এপিআই ব্রাউজার</h3>
+                <p className="text-xs text-[#9b8976] mt-1.5 leading-relaxed">
+                  সহীহ বুখারী, মুসলিম এবং আল-কুরআনের পূর্ণাঙ্গ ১১৪টি সূরার আয়াত অনুসন্ধান করুন এবং ব্রাউজার থেকেই সরাসরি ১-ক্লিকে ডেমো বা স্টুডিওতে লোড করুন।
+                </p>
+              </div>
+
+              <button
+                onClick={() => setCurrentView('captions')}
+                className="px-4 py-2.5 rounded-xl bg-[#241a12] border border-[#d4af37]/40 text-[#f7df94] text-xs font-bold hover:bg-[#322318] transition flex items-center gap-1.5 shrink-0"
+              >
+                <BookOpen className="w-4 h-4 text-[#d4af37]" />
+                <span>সম্পূর্ণ লাইব্রেরিতে যান</span>
+              </button>
             </div>
 
             {/* Sample Quran/Hadith Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-5 rounded-2xl bg-[#120e0a] border border-[#2d2117] space-y-3">
-                <span className="text-[10px] text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full font-bold">
-                  কুরআনুল কারীম
-                </span>
-                <p className="text-xs text-[#baa791]">
-                  "হে ঈমানদারগণ! তোমরা ধৈর্য ও সালাতের মাধ্যমে সাহায্য প্রার্থনা করো। নিশ্চয়ই আল্লাহ ধৈর্যশীলদের সাথে আছেন।"
-                </p>
-                <div className="flex items-center justify-between pt-2 border-t border-[#261b12] text-xs">
+              {/* Card 1 */}
+              <div className="p-5 rounded-2xl bg-[#120e0a] border border-[#2d2117] space-y-3 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <span className="text-[10px] text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded-full font-bold">
+                    কুরআনুল কারীম
+                  </span>
+                  <p dir="rtl" className="text-base font-arabic text-[#f7df94] leading-relaxed">
+                    يَا أَيُّهَا الَّذِينَ آمَنُوا اسْتَعِينُوا بِالصَّبْرِ وَالصَّلَاةِ ۚ إِنَّ اللَّهَ مَعَ الصَّابِرِينَ
+                  </p>
+                  <p className="text-xs text-[#baa791]">
+                    "হে ঈমানদারগণ! তোমরা ধৈর্য ও সালাতের মাধ্যমে সাহায্য প্রার্থনা করো। নিশ্চয়ই আল্লাহ ধৈর্যশীলদের সাথে আছেন।"
+                  </p>
+                </div>
+                <div className="flex items-center justify-between pt-3 border-t border-[#261b12] text-xs">
                   <span className="text-[#877461]">সূরা আল-বাকারা, আয়াত: ১৫৩</span>
                   <button
-                    onClick={() => {
-                      if (currentUser && isApproved) {
-                        setCurrentView('captions');
-                      } else {
-                        setIsAuthModalOpen(true);
-                      }
-                    }}
-                    className="text-[#d4af37] hover:underline font-semibold"
+                    onClick={() =>
+                      handleLoadLibraryItemToDemo({
+                        bn: 'হে ঈমানদারগণ! তোমরা ধৈর্য ও সালাতের মাধ্যমে সাহায্য প্রার্থনা করো। নিশ্চয়ই আল্লাহ ধৈর্যশীলদের সাথে আছেন।',
+                        ar: 'يَا أَيُّهَا الَّذِينَ آمَنُوا اسْتَعِينُوا بِالصَّبْرِ وَالصَّلَاةِ ۚ إِنَّ اللَّهَ مَعَ الصَّابِرِينَ',
+                        ref: 'সূরা আল-বাকারা, আয়াত: ১৫৩',
+                      })
+                    }
+                    className="text-[#d4af37] hover:underline font-bold flex items-center gap-1"
                   >
-                    পোস্টার তৈরি করুন &rarr;
+                    <span>ডেমোতে লোড করুন</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
 
-              <div className="p-5 rounded-2xl bg-[#120e0a] border border-[#2d2117] space-y-3">
-                <span className="text-[10px] text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full font-bold">
-                  সহীহ আল-বুখারী
-                </span>
-                <p className="text-xs text-[#baa791]">
-                  "নিশ্চয়ই সকল কাজের ফলাফল নিয়তের ওপর নির্ভরশীল, আর প্রতিটি মানুষ কেবল তাই পাবে যা সে নিয়ত করেছে।"
-                </p>
-                <div className="flex items-center justify-between pt-2 border-t border-[#261b12] text-xs">
-                  <span className="text-[#877461]">হাদিস নম্বর: ১</span>
+              {/* Card 2 */}
+              <div className="p-5 rounded-2xl bg-[#120e0a] border border-[#2d2117] space-y-3 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <span className="text-[10px] text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded-full font-bold">
+                    সহীহ আল-বুখারী
+                  </span>
+                  <p dir="rtl" className="text-base font-arabic text-[#f7df94] leading-relaxed">
+                    إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى
+                  </p>
+                  <p className="text-xs text-[#baa791]">
+                    "নিশ্চয়ই সকল কাজের ফলাফল নিয়তের ওপর নির্ভরশীল, আর প্রতিটি মানুষ কেবল তাই পাবে যা সে নিয়ত করেছে।"
+                  </p>
+                </div>
+                <div className="flex items-center justify-between pt-3 border-t border-[#261b12] text-xs">
+                  <span className="text-[#877461]">সহীহ আল-বুখারী, হাদিস: ১</span>
                   <button
-                    onClick={() => {
-                      if (currentUser && isApproved) {
-                        setCurrentView('captions');
-                      } else {
-                        setIsAuthModalOpen(true);
-                      }
-                    }}
-                    className="text-[#d4af37] hover:underline font-semibold"
+                    onClick={() =>
+                      handleLoadLibraryItemToDemo({
+                        bn: 'নিশ্চয়ই সকল কাজের ফলাফল নিয়তের ওপর নির্ভরশীল, আর প্রতিটি মানুষ কেবল তাই পাবে যা সে নিয়ত করেছে।',
+                        ar: 'إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى',
+                        ref: 'সহীহ আল-বুখারী, হাদিস: ১',
+                      })
+                    }
+                    className="text-[#d4af37] hover:underline font-bold flex items-center gap-1"
                   >
-                    পোস্টার তৈরি করুন &rarr;
+                    <span>ডেমোতে লোড করুন</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 3 */}
+              <div className="p-5 rounded-2xl bg-[#120e0a] border border-[#2d2117] space-y-3 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <span className="text-[10px] text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded-full font-bold">
+                    কুরআনুল কারীম
+                  </span>
+                  <p dir="rtl" className="text-base font-arabic text-[#f7df94] leading-relaxed">
+                    فَإِنَّ مَعَ الْعُسْرِ يُسْرًا ۝ إِنَّ مَعَ الْعُسْرِ يُسْرًا
+                  </p>
+                  <p className="text-xs text-[#baa791]">
+                    "নিশ্চয়ই কষ্টের সাথেই রয়েছে স্বস্তি।"
+                  </p>
+                </div>
+                <div className="flex items-center justify-between pt-3 border-t border-[#261b12] text-xs">
+                  <span className="text-[#877461]">সূরা আশ-শারহ, আয়াত: ৫-৬</span>
+                  <button
+                    onClick={() =>
+                      handleLoadLibraryItemToDemo({
+                        bn: 'নিশ্চয়ই কষ্টের সাথেই রয়েছে স্বস্তি।',
+                        ar: 'فَإِنَّ مَعَ الْعُسْرِ يُسْرًا ۝ إِنَّ مَعَ الْعُسْرِ يُسْرًا',
+                        ref: 'সূরা আশ-শারহ, আয়াত: ৫-৬',
+                      })
+                    }
+                    className="text-[#d4af37] hover:underline font-bold flex items-center gap-1"
+                  >
+                    <span>ডেমোতে লোড করুন</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 4 */}
+              <div className="p-5 rounded-2xl bg-[#120e0a] border border-[#2d2117] space-y-3 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <span className="text-[10px] text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded-full font-bold">
+                    সহিহ মুসলিম (জুমার স্পেশাল)
+                  </span>
+                  <p dir="rtl" className="text-base font-arabic text-[#f7df94] leading-relaxed">
+                    خَيْرُ يَوْمٍ طَلَعَتْ عَلَيْهِ الشَّمْسُ يَوْمُ الْجُمُعَةِ
+                  </p>
+                  <p className="text-xs text-[#baa791]">
+                    "সূর্য উদিত হওয়া দিনগুলোর মধ্যে সর্বোত্তম দিন হলো জুমার দিন।"
+                  </p>
+                </div>
+                <div className="flex items-center justify-between pt-3 border-t border-[#261b12] text-xs">
+                  <span className="text-[#877461]">সহিহ মুসলিম, হাদিস: ৮৫৪</span>
+                  <button
+                    onClick={() =>
+                      handleLoadLibraryItemToDemo({
+                        bn: 'সূর্য উদিত হওয়া দিনগুলোর মধ্যে সর্বোত্তম দিন হলো জুমার দিন।',
+                        ar: 'خَيْرُ يَوْمٍ طَلَعَتْ عَلَيْهِ الشَّمْسُ يَوْمُ الْجُمُعَةِ',
+                        ref: 'সহিহ মুসলিম, হাদিস: ৮৫৪',
+                      })
+                    }
+                    className="text-[#d4af37] hover:underline font-bold flex items-center gap-1"
+                  >
+                    <span>ডেমোতে লোড করুন</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -405,53 +893,179 @@ export const LandingPageView: React.FC = () => {
           </div>
         )}
 
-        {/* TAB 4: RBAC & SUPER ADMIN SECURITY */}
+        {/* ────────────────────────────────────────────────────────── */}
+        {/* TAB 4: RBAC & SUPER ADMIN SECURITY DEMO */}
+        {/* ────────────────────────────────────────────────────────── */}
         {activeTab === 'rbac' && (
           <div className="bg-[#17110c] border border-[#2d2117] rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
             <div className="max-w-2xl">
               <span className="text-[11px] font-bold text-[#d4af37] uppercase tracking-wider">ফিচার ৪</span>
               <h3 className="text-xl font-bold text-[#f4eee2] mt-1">রোল-বেসড অ্যাক্সেস কন্ট্রোল (RBAC) ও সুপার এডমিন</h3>
-              <p className="text-xs text-[#9b8976] mt-2 leading-relaxed">
-                কনটেন্টের বিশুদ্ধতা ও প্ল্যাটফর্মের সুরক্ষা নিশ্চিত করতে তিন স্তরের ব্যবহারকারী কাঠামো রয়েছে:
+              <p className="text-xs text-[#9b8976] mt-1.5 leading-relaxed">
+                কনটেন্টের বিশুদ্ধতা ও প্ল্যাটফর্মের সুরক্ষা নিশ্চিত করতে তিন স্তরের ব্যবহারকারী কাঠামো রয়েছে। নিচের বাটনে ক্লিক করে প্রতিটি রোলের অভিজ্ঞতা পরীক্ষা করুন:
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-5 rounded-2xl bg-[#120e0a] border border-[#2d2117] space-y-2">
-                <div className="w-9 h-9 rounded-xl bg-amber-950/60 border border-amber-800/60 flex items-center justify-center text-amber-400">
-                  <Clock className="w-5 h-5" />
+            {/* Interactive Role Simulator Selector */}
+            <div className="flex flex-wrap gap-2 p-1 bg-[#120e0a] border border-[#2d2117] rounded-2xl max-w-xl">
+              <button
+                onClick={() => setSimulatedRole('basic_user')}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition ${
+                  simulatedRole === 'basic_user'
+                    ? 'bg-amber-950/80 border border-amber-700 text-amber-300 shadow'
+                    : 'text-[#877461] hover:text-[#baa791]'
+                }`}
+              >
+                ১. বেসিক (পেন্ডিং অনবোর্ডিং)
+              </button>
+              <button
+                onClick={() => setSimulatedRole('approved_user')}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition ${
+                  simulatedRole === 'approved_user'
+                    ? 'bg-emerald-950/80 border border-emerald-700 text-emerald-300 shadow'
+                    : 'text-[#877461] hover:text-[#baa791]'
+                }`}
+              >
+                ২. অনুমোদিত ক্রিয়েটর
+              </button>
+              <button
+                onClick={() => setSimulatedRole('super_admin')}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition ${
+                  simulatedRole === 'super_admin'
+                    ? 'bg-[#2a1d13] border border-[#d4af37] text-[#f7df94] shadow'
+                    : 'text-[#877461] hover:text-[#baa791]'
+                }`}
+              >
+                ৩. সুপার এডমিন (Master)
+              </button>
+            </div>
+
+            {/* Simulator Output View */}
+            <div className="p-5 rounded-2xl bg-[#120e0a] border border-[#2d2117] space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-[#261b12]">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-[#877461]">সিমুলেটেড রোল ভিউ:</span>
+                  <span
+                    className={`text-xs font-bold px-3 py-1 rounded-full border ${
+                      simulatedRole === 'super_admin'
+                        ? 'bg-[#d4af37]/20 border-[#d4af37] text-[#f7df94]'
+                        : simulatedRole === 'approved_user'
+                        ? 'bg-emerald-950 border-emerald-600 text-emerald-300'
+                        : 'bg-amber-950 border-amber-600 text-amber-300'
+                    }`}
+                  >
+                    {simulatedRole === 'super_admin'
+                      ? '👑 Super Admin (realsafikul@gmail.com)'
+                      : simulatedRole === 'approved_user'
+                      ? '✨ Approved Creator'
+                      : '⏳ Basic User (Pending Approval)'}
+                  </span>
                 </div>
-                <h4 className="font-bold text-sm text-[#f4eee2]">1. বেসিক ইউজার (Basic)</h4>
-                <p className="text-xs text-[#877461] leading-relaxed">
-                  নতুন নিবন্ধনকারী। ডেমো ও পাবলিক ব্রাউজ করতে পারেন; পোস্টার তৈরি ও সেভের জন্য এডমিনের অনুমোদন প্রয়োজন।
-                </p>
+
+                <span className="text-[11px] text-[#877461]">
+                  স্ট্যাটাস:{' '}
+                  <strong className={simulatedRole === 'basic_user' ? 'text-amber-400' : 'text-emerald-400'}>
+                    {simulatedRole === 'basic_user' ? 'অনুমোদন অপেক্ষমাণ' : 'সক্রিয়'}
+                  </strong>
+                </span>
               </div>
 
-              <div className="p-5 rounded-2xl bg-[#120e0a] border border-emerald-900/40 space-y-2">
-                <div className="w-9 h-9 rounded-xl bg-emerald-950/60 border border-emerald-700/60 flex items-center justify-center text-emerald-400">
-                  <CheckCircle2 className="w-5 h-5" />
+              {simulatedRole === 'basic_user' && (
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-xl bg-amber-950/40 border border-amber-800/60 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                    <div className="text-xs text-amber-200">
+                      <p className="font-semibold">এক্সেস কন্ট্রোল রেস্ট্রিকশন বার্তা:</p>
+                      <p className="mt-1 text-amber-300/80">
+                        "আপনার একাউন্টটি এখনো সুপার এডমিন কর্তৃক অনুমোদিত হয়নি। আপনি ডেমো ও পাবলিক হাদিস ব্রাউজ করতে পারবেন, তবে পোস্টার এক্সপোর্ট ও সেভ করতে এডমিন অনুমোদনের প্রয়োজন।"
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-xs text-[#877461]">
+                    ✓ কুরআন ও হাদিস ব্রাউজিং উন্মুক্ত • ✗ হাই-রেজোলিউশন স্টুডিও সেভিং লকড
+                  </div>
                 </div>
-                <h4 className="font-bold text-sm text-emerald-300">2. অনুমোদিত ক্রিয়েটর (Approved)</h4>
-                <p className="text-xs text-[#877461] leading-relaxed">
-                  সুপার এডমিন কর্তৃক অনুমোদিত। আনলিমিটেড পোস্টার জেনারেট, ক্লাউড প্রিসেট সেভিং ও এইচডি এক্সপোর্ট সুবিধা পান।
-                </p>
-              </div>
+              )}
 
-              <div className="p-5 rounded-2xl bg-[#120e0a] border border-[#d4af37]/40 space-y-2">
-                <div className="w-9 h-9 rounded-xl bg-[#241a12] border border-[#d4af37]/60 flex items-center justify-center text-[#d4af37]">
-                  <Crown className="w-5 h-5" />
+              {simulatedRole === 'approved_user' && (
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-800/60 flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                    <div className="text-xs text-emerald-200">
+                      <p className="font-semibold">পূর্ণ ক্রিয়েটর সুবিধা সক্রিয়:</p>
+                      <p className="mt-1 text-emerald-300/80">
+                        "আনলিমিটেড পোস্টার তৈরি, ক্লাউড প্রিসেট অটো-অ্যাপ্লাই, কাস্টম ব্র্যান্ডিং ও এইচডি এক্সপোর্ট সক্ষম।"
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-xs text-[#877461]">
+                    ✓ সকল পোস্টার ফরম্যাট • ✓ ক্লাউড সিঙ্ক • ✓ এসইও ফেসবুক পোস্ট জেনারেটর
+                  </div>
                 </div>
-                <h4 className="font-bold text-sm text-[#f7df94]">3. সুপার এডমিন (Super Admin)</h4>
-                <p className="text-xs text-[#877461] leading-relaxed">
-                  ইউজার অ্যাকাউন্ট অনুমোদন, রোল আপগ্রেড, ডেটা নিয়ন্ত্রণ ও সামগ্রিক প্ল্যাটফর্ম পরিচালনার পূর্ণ অধিকার।
-                </p>
-              </div>
+              )}
+
+              {simulatedRole === 'super_admin' && (
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-xl bg-[#241a12] border border-[#d4af37]/60 flex items-start gap-3">
+                    <Crown className="w-5 h-5 text-[#d4af37] shrink-0 mt-0.5" />
+                    <div className="text-xs text-[#f7df94]">
+                      <p className="font-semibold">সুপার এডমিন কন্ট্রোল এক্সেস (realsafikul@gmail.com):</p>
+                      <p className="mt-1 text-[#e8dcbe]">
+                        "নতুন আবেদনকারীদের তালিকা দেখুন এবং ১-ক্লিকেই তাদের ক্রিয়েটর হিসেবে অনুমোদন বা বাতিল করুন।"
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Mock Admin Table inside Demo */}
+                  <div className="rounded-xl border border-[#2d2117] overflow-hidden">
+                    <div className="px-3.5 py-2 bg-[#1a130d] text-[11px] font-bold text-[#f7df94]">
+                      ইউজার অনবোর্ডিং সিমুলেশন প্যানেল
+                    </div>
+                    {mockApprovalList.map((usr) => (
+                      <div
+                        key={usr.id}
+                        className="px-3.5 py-2.5 flex items-center justify-between text-xs border-t border-[#261b12] bg-[#140e0a]"
+                      >
+                        <div>
+                          <span className="font-semibold text-[#f4eee2] block">{usr.name}</span>
+                          <span className="text-[10px] text-[#877461]">{usr.email}</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setMockApprovalList((prev) =>
+                              prev.map((item) =>
+                                item.id === usr.id
+                                  ? {
+                                      ...item,
+                                      status: item.status === 'pending' ? 'active' : 'pending',
+                                      role: item.status === 'pending' ? 'approved_user' : 'basic_user',
+                                    }
+                                  : item
+                              )
+                            );
+                            showToast(`${usr.name}-এর স্ট্যাটাস আপডেট হয়েছে!`);
+                          }}
+                          className={`px-3 py-1 rounded-lg text-[10px] font-bold border transition ${
+                            usr.status === 'pending'
+                              ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500'
+                              : 'bg-amber-950 text-amber-300 border-amber-800'
+                          }`}
+                        >
+                          {usr.status === 'pending' ? 'অনুমোদন দিন' : 'অনুমোদন বাতিল করুন'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
       </section>
 
+      {/* ────────────────────────────────────────────────────────── */}
       {/* SUBSCRIPTION / ACCESS TIERS PREVIEW */}
+      {/* ────────────────────────────────────────────────────────── */}
       <section className="space-y-6 pt-6">
         <div className="text-center max-w-xl mx-auto">
           <span className="text-xs font-semibold text-[#d4af37] tracking-wider uppercase">
