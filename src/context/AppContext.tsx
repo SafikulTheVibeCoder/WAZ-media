@@ -119,6 +119,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           parsed.ar = 'فَإِنَّ مَعَ الْعُسْرِ يُسْرًا ۝ إِنَّ مَعَ الْعُسْرِ يُسْرًا';
           parsed.ref = 'সূরা আশ-শারহ, আয়াত: ৫-৬';
         }
+        // Migrate old dark colors to high-contrast colors
+        if (parsed.textColor === '#241406' || parsed.textColor === '#341f0f') {
+          parsed.textColor = '#FFFFFF';
+        }
+        if (parsed.arabicColor === '#442200' || parsed.arabicColor === '#542e0e') {
+          parsed.arabicColor = '#fadb7f';
+        }
+        if (parsed.accentColor === '#8a5a0c' || parsed.accentColor === '#835222') {
+          parsed.accentColor = '#d4af37';
+        }
         return { ...DEFAULT_POSTER, ...parsed };
       }
       return DEFAULT_POSTER;
@@ -135,6 +145,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Automatically migrate old glossy base64 logo to the new clean matte vector logo
         if (!parsed.logo || parsed.logo.includes('PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNTYi')) {
           parsed.logo = DEFAULT_LOGO;
+        }
+        if (parsed.tagline === 'INSPIRING FAITH, ILLUMINATING MINDS' || !parsed.tagline) {
+          parsed.tagline = 'INSPIRES FAITH, ILLUMINATING MINDS';
         }
         return { ...DEFAULT_BRAND, ...parsed };
       }

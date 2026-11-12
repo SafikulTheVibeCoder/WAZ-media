@@ -48,7 +48,7 @@ function drawStar8(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: num
   ctx.closePath();
 }
 
-// Intricate decorative divider
+// Refined horizontal golden ornamental divider with central star
 function drawDivider(
   ctx: CanvasRenderingContext2D,
   cx: number,
@@ -60,11 +60,11 @@ function drawDivider(
   ctx.save();
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
-  ctx.lineWidth = Math.max(1, 2.5 * scale);
-  ctx.globalAlpha = 0.85;
+  ctx.lineWidth = Math.max(1, 2 * scale);
+  ctx.globalAlpha = 0.9;
 
   const half = width / 2;
-  const centerGap = 32 * scale;
+  const centerGap = 30 * scale;
 
   // Left & right lines with diamond taper
   ctx.beginPath();
@@ -76,18 +76,28 @@ function drawDivider(
 
   // Small accents on ends
   ctx.beginPath();
-  ctx.arc(cx - half, cy, 3 * scale, 0, Math.PI * 2);
-  ctx.arc(cx + half, cy, 3 * scale, 0, Math.PI * 2);
+  ctx.arc(cx - half, cy, 2.5 * scale, 0, Math.PI * 2);
+  ctx.arc(cx + half, cy, 2.5 * scale, 0, Math.PI * 2);
   ctx.fill();
 
-  // Center star
-  drawStar8(ctx, cx, cy, 14 * scale);
+  // Center star with warm golden glow
+  ctx.shadowColor = 'rgba(212, 175, 55, 0.45)';
+  ctx.shadowBlur = 6 * scale;
+  drawStar8(ctx, cx, cy, 13 * scale);
   ctx.fill();
+
+  // Radiant center dot
+  ctx.shadowBlur = 0;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 2.8 * scale, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff6d6';
+  ctx.fill();
+  ctx.fillStyle = color;
 
   // Tiny dots around center
   ctx.beginPath();
-  ctx.arc(cx - 20 * scale, cy, 2.5 * scale, 0, Math.PI * 2);
-  ctx.arc(cx + 20 * scale, cy, 2.5 * scale, 0, Math.PI * 2);
+  ctx.arc(cx - 18 * scale, cy, 2 * scale, 0, Math.PI * 2);
+  ctx.arc(cx + 18 * scale, cy, 2 * scale, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.restore();
@@ -174,25 +184,26 @@ function drawBackgroundTheme(
 ) {
   const k = width / 1080;
   if (themeId === 'golden') {
+    // Deep dark charcoal and midnight blue gradient background
     const grad = ctx.createLinearGradient(0, 0, width, height);
-    grad.addColorStop(0, '#fef1c8');
-    grad.addColorStop(0.35, '#ebd189');
-    grad.addColorStop(0.75, '#c99b3a');
-    grad.addColorStop(1, '#9f7020');
+    grad.addColorStop(0, '#111723');
+    grad.addColorStop(0.45, '#0b1018');
+    grad.addColorStop(1, '#05070c');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
 
-    // Warm radial glow
+    // Warm golden ambient radial glow in the center
     const radial = ctx.createRadialGradient(
       width / 2,
-      height * 0.4,
-      50 * k,
+      height * 0.45,
+      25 * k,
       width / 2,
-      height * 0.4,
-      width * 0.85
+      height * 0.45,
+      width * 0.72
     );
-    radial.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
-    radial.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
+    radial.addColorStop(0, 'rgba(212, 175, 55, 0.16)');
+    radial.addColorStop(0.5, 'rgba(180, 140, 40, 0.05)');
+    radial.addColorStop(1, 'rgba(0, 0, 0, 0.42)');
     ctx.fillStyle = radial;
     ctx.fillRect(0, 0, width, height);
   } else if (themeId === 'emerald') {
@@ -337,10 +348,10 @@ function drawBorders(
     ctx.lineWidth = 3 * scale;
     ctx.strokeRect(width * 0.04, width * 0.04, width * 0.92, height - width * 0.08);
   } else if (style === 'double') {
-    ctx.lineWidth = 4 * scale;
+    ctx.lineWidth = 2.6 * scale;
     ctx.strokeRect(width * 0.035, width * 0.035, width * 0.93, height - width * 0.07);
-    ctx.lineWidth = 1.5 * scale;
-    ctx.globalAlpha = 0.75;
+    ctx.lineWidth = 1.2 * scale;
+    ctx.globalAlpha = 0.85;
     ctx.strokeRect(width * 0.048, width * 0.048, width * 0.904, height - width * 0.096);
   } else if (style === 'ornate') {
     ctx.lineWidth = 3.5 * scale;
@@ -391,10 +402,9 @@ function drawCorners(
   color: string,
   scale: number
 ) {
-  const o = width * 0.075;
-  const r = 24 * scale;
+  const o = width * 0.072;
+  const r = 22 * scale;
   ctx.save();
-  ctx.fillStyle = color;
   const positions = [
     [o, o],
     [width - o, o],
@@ -402,13 +412,19 @@ function drawCorners(
     [width - o, height - o],
   ];
   positions.forEach(([x, y]) => {
+    // Subtle golden glow
+    ctx.shadowColor = 'rgba(212, 175, 55, 0.45)';
+    ctx.shadowBlur = 8 * scale;
+    ctx.fillStyle = color;
     drawStar8(ctx, x, y, r);
     ctx.fill();
+
+    // Radiant inner dot
+    ctx.shadowBlur = 0;
     ctx.beginPath();
-    ctx.arc(x, y, r * 0.35, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.arc(x, y, r * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff6d6';
     ctx.fill();
-    ctx.fillStyle = color;
   });
   ctx.restore();
 }
@@ -491,11 +507,39 @@ export async function renderPoster(
     console.warn('Font loading check:', err);
   }
 
+function getHexLuminance(hex: string): number {
+  if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return 180;
+  let c = hex.slice(1).trim();
+  if (c.length === 3) c = c.split('').map((ch) => ch + ch).join('');
+  if (c.length !== 6) return 180;
+  const r = parseInt(c.slice(0, 2), 16) || 0;
+  const g = parseInt(c.slice(2, 4), 16) || 0;
+  const b = parseInt(c.slice(4, 6), 16) || 0;
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+
   const theme = THEME_PRESETS.find((t) => t.id === poster.theme) || THEME_PRESETS[0];
 
-  const primaryText = poster.textColor || theme.text;
-  const accent = poster.accentColor || theme.accent;
-  const arColor = poster.arabicColor || theme.ar;
+  const isDarkCanvas =
+    ['golden', 'black', 'emerald', 'sapphire', 'crimson'].includes(poster.theme) ||
+    (poster.bgType === 'custom' && (poster.overlay || 0) >= 0.25);
+
+  let primaryText = poster.textColor || theme.text;
+  let accent = poster.accentColor || theme.accent;
+  let arColor = poster.arabicColor || theme.ar;
+
+  // Auto-Contrast Guard: On dark backgrounds, NEVER allow text or Arabic to collapse to dark brown/black!
+  if (isDarkCanvas) {
+    if (getHexLuminance(primaryText) < 135) {
+      primaryText = '#FFFFFF';
+    }
+    if (getHexLuminance(arColor) < 135) {
+      arColor = '#fadb7f';
+    }
+    if (getHexLuminance(accent) < 95) {
+      accent = '#d4af37';
+    }
+  }
 
   // 1. Clear & draw background
   ctx.clearRect(0, 0, W, H);
@@ -570,28 +614,32 @@ export async function renderPoster(
         curY += logoH + 12 * k;
       }
       if (brand.name) {
-        ctx.font = `700 ${nameFontSize}px "${fontName}", "Noto Sans Bengali", sans-serif`;
+        ctx.fillStyle = '#f7df94';
+        ctx.shadowColor = 'rgba(212, 175, 55, 0.45)';
+        ctx.shadowBlur = 6 * k;
+        ctx.font = `700 ${nameFontSize}px "Cinzel", "Noto Serif Bengali", "${fontName}", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.letterSpacing = `${3 * k}px`;
+        ctx.letterSpacing = `${3.5 * k}px`;
         ctx.fillText(brand.name, W / 2, curY);
+        ctx.shadowBlur = 0;
         curY += nameH;
       }
       if (brand.showTag && brand.tagline) {
-        ctx.font = `500 ${tagFontSize}px "${fontName}", "Noto Sans Bengali", sans-serif`;
+        ctx.fillStyle = '#dfcca8';
+        ctx.font = `600 ${tagFontSize}px "${fontName}", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.letterSpacing = `${1.5 * k}px`;
-        ctx.globalAlpha = 0.85;
+        ctx.letterSpacing = `${2 * k}px`;
         ctx.fillText(brand.tagline, W / 2, curY);
         curY += tagH;
-        ctx.globalAlpha = 1;
       }
       if (brand.showHandle && brand.handle) {
-        ctx.font = `400 ${tagFontSize * 0.9}px "${fontName}", "Noto Sans Bengali", sans-serif`;
+        ctx.font = `400 ${tagFontSize * 0.9}px "${fontName}", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = accent;
+        ctx.globalAlpha = 0.75;
         ctx.fillText(brand.handle, W / 2, curY);
         ctx.globalAlpha = 1;
       }
@@ -646,14 +694,15 @@ export async function renderPoster(
   if (brand.watermark && isBrandTop) {
     ctx.save();
     ctx.fillStyle = accent;
-    ctx.globalAlpha = 0.5;
-    ctx.font = `500 ${14 * k}px "Hind Siliguri", sans-serif`;
+    ctx.globalAlpha = 0.7;
+    ctx.font = `500 ${11 * k}px "Noto Sans Bengali", sans-serif`;
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
+    ctx.textBaseline = 'middle';
     ctx.letterSpacing = `${2 * k}px`;
-    ctx.fillText(`${brand.name} • ${brand.handle || 'ISLAMIC MEDIA'}`, W / 2, H - padY * 0.5);
+    const watermarkY = H - (W * 0.048 + 16 * k);
+    ctx.fillText(`${brand.name} • ${brand.handle || 'ISLAMIC MEDIA'}`, W / 2, watermarkY);
     ctx.restore();
-    bottomReserved -= 24 * k;
+    bottomReserved -= 28 * k;
   }
 
   // 6. Layout Main Content
@@ -809,20 +858,37 @@ export async function renderPoster(
       if (i > 0) currY += layout.spacing;
 
       if (item.type === 'div') {
-        drawDivider(ctx, W / 2, currY + item.height / 2, Math.min(maxContentWidth, 360 * k), accent, k);
+        drawDivider(ctx, W / 2, currY + item.height / 2, Math.min(maxContentWidth, 340 * k), accent, k);
         currY += item.height;
         continue;
       }
 
+      ctx.save();
       ctx.font = item.font!;
       ctx.fillStyle = item.color!;
       ctx.direction = item.dir || 'ltr';
+
+      if (item.type === 'bismillah') {
+        ctx.shadowColor = 'rgba(241, 206, 104, 0.45)';
+        ctx.shadowBlur = 8 * k;
+      } else if (item.type === 'ar') {
+        // Clear, prominent, and luminous golden Arabic text with rich contrast
+        ctx.shadowColor = 'rgba(250, 219, 127, 0.45)';
+        ctx.shadowBlur = 12 * k;
+      } else if (item.type === 'bn') {
+        // Clean, modern, highly readable, bright golden-white font with max contrast
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+        ctx.shadowBlur = 6 * k;
+      } else if (item.type === 'ref') {
+        ctx.shadowBlur = 0;
+        ctx.letterSpacing = `${1.5 * k}px`;
+      }
 
       for (const line of item.lines || []) {
         ctx.fillText(line, alignX, currY + (item.lineHeight || 40) / 2);
         currY += item.lineHeight || 40;
       }
-      ctx.direction = 'ltr';
+      ctx.restore();
     }
   };
 

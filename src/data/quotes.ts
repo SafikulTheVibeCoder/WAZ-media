@@ -22,14 +22,14 @@ export const INITIAL_QUOTES: QuoteItem[] = VERIFIED_QUOTES;
 export const THEME_PRESETS: ThemeConfig[] = [
   {
     id: 'golden',
-    name: 'গোল্ডেন নূর',
-    nameEn: 'Golden Noor',
-    text: '#241406',
-    accent: '#8a5a0c',
-    ar: '#442200',
-    border: '#c4912a',
-    bgDesc: 'সোনার আভা ও আভিজাত্য',
-    previewBg: 'linear-gradient(135deg, #fce8a6 0%, #e3b955 50%, #b8862b 100%)',
+    name: 'রয়্যাল মিডনাইট গোল্ড',
+    nameEn: 'Royal Midnight Gold',
+    text: '#FFFFFF',
+    accent: '#d4af37',
+    ar: '#fadb7f',
+    border: '#d4af37',
+    bgDesc: 'ডিপ মিডনাইট চারকোল ও খাঁটি সোনার আভা',
+    previewBg: 'linear-gradient(135deg, #101722 0%, #06090d 100%)',
   },
   {
     id: 'emerald',
@@ -178,15 +178,15 @@ export const BRAND_LOGO_PRESETS: BrandLogoPreset[] = [
 
 export const DEFAULT_BRAND: BrandConfig = {
   name: 'WAZ MEDIA',
-  tagline: 'INSPIRING FAITH, ILLUMINATING MINDS',
+  tagline: 'INSPIRES FAITH, ILLUMINATING MINDS',
   handle: '@wazmedia.bd',
   showLogo: true,
   showTag: true,
-  showHandle: true,
+  showHandle: false,
   logo: DEFAULT_LOGO,
   pos: 'top-center',
   logoSize: 110,
-  watermark: true
+  watermark: false
 };
 
 export const DEFAULT_POSTER: PosterConfig = {
@@ -202,9 +202,9 @@ export const DEFAULT_POSTER: PosterConfig = {
   arabicSizeRatio: 1.15,
   lineHeight: 1.5,
   autoFit: true,
-  textColor: '#241406',
-  accentColor: '#8a5a0c',
-  arabicColor: '#442200',
+  textColor: '#FFFFFF',
+  accentColor: '#d4af37',
+  arabicColor: '#fadb7f',
   align: 'center',
   refPos: 'below',
   overlay: 0.35,
