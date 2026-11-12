@@ -17,7 +17,8 @@ import {
   ArrowRight,
   Share2,
   Bookmark,
-  Check
+  Check,
+  Calendar,
 } from 'lucide-react';
 
 export const DashboardView: React.FC = () => {
@@ -177,6 +178,33 @@ export const DashboardView: React.FC = () => {
           </div>
           <div className="absolute right-0 top-0 w-24 h-24 bg-[#d4af37]/5 rounded-full blur-xl group-hover:bg-[#d4af37]/10 transition-all pointer-events-none" />
         </div>
+      </div>
+
+      {/* Bulk Media Planner Banner */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#22160d] via-[#2a1c11] to-[#1a120b] border border-[#d4af37]/30 shadow-md flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-xl bg-[#d4af37]/15 border border-[#d4af37]/30 flex items-center justify-center text-[#d4af37] shrink-0">
+            <Calendar className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-bold text-[#f7df94]">বাল্ক সোশ্যাল মিডিয়া ও হিজরি ক্যালেন্ডার প্ল্যানার</h3>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                নতুন ফিচার
+              </span>
+            </div>
+            <p className="text-xs text-[#b8a691] mt-0.5 max-w-xl">
+              হিজরি ও গ্রেগোরিয়ান ক্যালেন্ডারের সাথে সিঙ্ক করে ১ সপ্তাহ বা ১ মাসের (৩০ দিন) পোস্টার সিডিউল তৈরি করুন স্বয়ংক্রিয়ভাবে।
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => setCurrentView('planner')}
+          className="w-full md:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] font-bold text-xs shadow transition flex items-center justify-center gap-2 shrink-0 active:scale-95"
+        >
+          <span>প্ল্যানার ওপেন করুন</span>
+          <ArrowRight className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Main split: Instant Generator Card + Recent Designs */}

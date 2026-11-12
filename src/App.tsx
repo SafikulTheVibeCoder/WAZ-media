@@ -8,6 +8,7 @@ import { BrandManagerView } from './components/BrandManagerView';
 import { SavedDesignsView } from './components/SavedDesignsView';
 import { LandingPageView } from './components/LandingPageView';
 import { AdminDashboardView } from './components/AdminDashboardView';
+import { BulkPlannerView } from './components/BulkPlannerView';
 import { Toast } from './components/Toast';
 import { AuthModal } from './components/AuthModal';
 import { AccessDeniedModal } from './components/AccessDeniedModal';
@@ -20,6 +21,7 @@ const MainContent: React.FC = () => {
     <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full pb-24 md:pb-8">
       {currentView === 'dashboard' && <DashboardView />}
       {currentView === 'captions' && <CaptionsView />}
+      {currentView === 'planner' && <BulkPlannerView />}
       {currentView === 'poster' && <PosterStudioView />}
       {currentView === 'brand' && <BrandManagerView />}
       {currentView === 'saved' && <SavedDesignsView />}

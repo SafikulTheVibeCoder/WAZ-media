@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   User as UserIcon,
   Crown,
+  Calendar,
 } from 'lucide-react';
 import { toBengaliNumber } from '../utils/bengaliUtils';
 
@@ -31,11 +32,11 @@ export const Sidebar: React.FC = () => {
     setIsPricingModalOpen,
   } = useApp();
 
-
   const navItems = [
     { id: 'landing', label: 'হোম ও ল্যান্ডিং', icon: Sparkles },
     { id: 'dashboard', label: 'ড্যাশবোর্ড', icon: LayoutDashboard },
     { id: 'captions', label: 'বাণী ও ক্যাপশন', icon: BookOpen },
+    { id: 'planner', label: 'মিডিয়া প্ল্যানার', icon: Calendar, badge: 'বাল্ক' },
     { id: 'poster', label: 'পোস্টার স্টুডিও', icon: Sparkles },
     { id: 'brand', label: 'ব্র্যান্ডিং', icon: BadgeCheck },
     { id: 'saved', label: 'সংরক্ষিত গ্যালারি', icon: FolderHeart, badge: savedDesigns.length },

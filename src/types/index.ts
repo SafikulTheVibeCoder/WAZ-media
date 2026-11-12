@@ -195,3 +195,43 @@ export interface PaymentUpgradeRequest {
   reviewedAt?: string;
   reviewedBy?: string;
 }
+
+export interface BulkPosterScheduleItem {
+  posterId: string;
+  dayIndex: number;
+  gregorianDate: string; // e.g. 13 নভেম্বর ২০২৬
+  gregorianIso: string; // 2026-11-13
+  dayName: string; // শুক্রবার
+  hijriDateFormatted: string; // ৩ জমাদিউস সানি, ১৪৪৮ হিজরি
+  hijriDay: number;
+  hijriMonthNumber: number;
+  hijriMonthNameBn: string;
+  hijriYear: number;
+  isSpecialOccasion: boolean;
+  occasionName: string; // e.g. "জুম্মাবার (পবিত্র জুমার দিন)" or "১ম রমজান"
+  occasionCategory: 'jummah' | 'ramadan' | 'eid' | 'fasting' | 'special_night' | 'daily';
+  suggestedTheme: ThemeId;
+  suggestedRatio: AspectRatio;
+  quoteSnippet: {
+    bn: string;
+    ar?: string;
+    ref: string;
+    topic?: string;
+  };
+  recommendedPostTime: string; // e.g. "বৃহস্পতিবার রাত ৮:০০ টা (জুমার প্রস্তুতি)"
+  publishingGuideline: string; // Strategy & SEO guideline
+  status?: 'planned' | 'generated' | 'exported';
+}
+
+export interface BulkMediaPlanResult {
+  id: string;
+  timeframe: 'week' | 'month' | 'ramadan_30';
+  startDateIso: string;
+  endDateIso: string;
+  totalDays: number;
+  specialEventsCount: number;
+  jummahCount: number;
+  items: BulkPosterScheduleItem[];
+  generatedAt: number;
+}
+
