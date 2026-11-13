@@ -61,7 +61,7 @@ service cloud.firestore {
         data.senderPhone is string && data.senderPhone.size() <= 64 &&
         data.transactionId is string && data.transactionId.size() <= 128 &&
         (!('screenshotUrl' in data) || (data.screenshotUrl is string && data.screenshotUrl.size() <= 1048576)) &&
-        data.status in ['pending', 'approved', 'rejected'] &&
+        data.status == 'pending' &&
         data.createdAt is string;
     }
 
@@ -104,12 +104,21 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isOwner(userId) || isSuperAdmin();
       allow list: if isSuperAdmin();
-      allow create: if (isOwner(userId) || isSuperAdmin()) && isValidId(userId) && isValidUserProfile(incoming(), userId);
+      allow create: if isValidId(userId) && isValidUserProfile(incoming(), userId) && (
+        isSuperAdmin() || (
+          isOwner(userId) &&
+          incoming().role == 'basic_user' &&
+          incoming().status == 'pending' &&
+          (!('plan' in incoming()) || incoming().plan == 'free') &&
+          !('planExpiresAt' in incoming())
+        )
+      );
       allow update: if isSuperAdmin() || (
         isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming(), userId) &&
-        (!('role' in incoming()) || incoming().role == existing().role) &&
-        (!('status' in incoming()) || incoming().status == existing().status) &&
-        (!('plan' in incoming()) || incoming().plan == existing().plan)
+        (!('role' in incoming()) || (!('role' in existing()) ? incoming().role == 'basic_user' : incoming().role == existing().role)) &&
+        (!('status' in incoming()) || (!('status' in existing()) ? incoming().status == 'pending' : incoming().status == existing().status)) &&
+        (!('plan' in incoming()) || (!('plan' in existing()) ? incoming().plan == 'free' : incoming().plan == existing().plan)) &&
+        (!('planExpiresAt' in incoming()) || (('planExpiresAt' in existing()) && incoming().planExpiresAt == existing().planExpiresAt))
       );
       allow delete: if isOwner(userId) || isSuperAdmin();
 

@@ -25,6 +25,7 @@ export const Sidebar: React.FC = () => {
     savedDesigns,
     startNewDesign,
     currentUser,
+    userProfile,
     isSuperAdmin,
     isApproved,
     setIsAuthModalOpen,
@@ -227,7 +228,7 @@ export const Sidebar: React.FC = () => {
           </div>
           <span className="text-[11px] text-[#807a72] truncate">
             {currentUser
-              ? currentUser.displayName || currentUser.email
+              ? currentUser.displayName || userProfile?.displayName || currentUser.email
               : 'ক্লাউডে সেভ করতে লগইন করুন'}
           </span>
         </button>

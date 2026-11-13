@@ -29,19 +29,41 @@ export function formatDateBn(timestamp: number): string {
   });
 }
 
+export function formatLocalIsoDate(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function getTodayHijriEstimate(): string {
-  // Approximate Hijri date calculation for demonstration/display
-  const today = new Date();
-  const hijriYear = 1447;
   const months = [
     'মুহাররম', 'সফর', 'রবিউল আউয়াল', 'রবিউস সানি', 'জমাদিউল আউয়াল',
-    'জমাদিউস সানি', 'রজব', 'শাবান', 'রমজান', 'শাওয়াল', 'জিলকদ', 'জিলহজ্জ'
+    'জমাদিউস সানি', 'রজব', 'শাবান', 'রমজান', 'শাওয়াল', 'জিলকদ', 'জিলহজ্জ',
   ];
-  // Format current date in Bengali
-  const dayName = today.toLocaleDateString('bn-BD', { weekday: 'long' });
-  const day = toBengaliNumber(today.getDate());
-  const month = today.toLocaleDateString('bn-BD', { month: 'long' });
-  const year = toBengaliNumber(today.getFullYear());
-
-  return `${dayName}, ${day} ${month} ${year} খ্রি.`;
+  try {
+    const formatter = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', {
+      day: 'numeric',
+      month: 'numeric',
+      year: 'numeric',
+    });
+    const parts = formatter.formatToParts(new Date());
+    let day = 1;
+    let monthIdx = 1;
+    let year = 1448;
+    for (const p of parts) {
+      if (p.type === 'day') day = parseInt(p.value, 10);
+      else if (p.type === 'month') monthIdx = parseInt(p.value, 10);
+      else if (p.type === 'year') year = parseInt(p.value, 10);
+    }
+    const monthName = months[(monthIdx - 1) % 12] || months[0];
+    return `${toBengaliNumber(day)} ${monthName}, ${toBengaliNumber(year)} হিজরি`;
+  } catch {
+    const today = new Date();
+    const dayName = today.toLocaleDateString('bn-BD', { weekday: 'long' });
+    const day = toBengaliNumber(today.getDate());
+    const month = today.toLocaleDateString('bn-BD', { month: 'long' });
+    const year = toBengaliNumber(today.getFullYear());
+    return `${dayName}, ${day} ${month} ${year} খ্রি.`;
+  }
 }

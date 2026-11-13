@@ -13,6 +13,7 @@ import { VERIFIED_HADITHS } from '../services/hadithApi';
 import { BorderStyle, PatternStyle, ThemeId, BrandPosition } from '../types';
 import { toBengaliNumber } from '../utils/bengaliUtils';
 import { generateSeoFilename, generateLocalFacebookPost } from '../utils/seoUtils';
+import { compressScreenshot } from '../utils/imageCompressor';
 import {
   Download,
   Copy,
@@ -288,23 +289,33 @@ export const PosterStudioView: React.FC = () => {
     showToast('নতুন বাণী যোগ করা হয়েছে');
   };
 
-  const handleCustomBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCustomBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      if (dataUrl) {
-        setPoster((prev) => ({
-          ...prev,
-          bgType: 'custom',
-          bgDataUrl: dataUrl,
-        }));
-        showToast('ব্যাকগ্রাউন্ড ছবি যোগ করা হয়েছে');
-      }
-    };
-    reader.readAsDataURL(file);
     e.target.value = '';
+    try {
+      const optimized = await compressScreenshot(file, 1400, 0.8);
+      setPoster((prev) => ({
+        ...prev,
+        bgType: 'custom',
+        bgDataUrl: optimized,
+      }));
+      showToast('ব্যাকগ্রাউন্ড ছবি অপটিমাইজ করে যোগ করা হয়েছে');
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        if (dataUrl) {
+          setPoster((prev) => ({
+            ...prev,
+            bgType: 'custom',
+            bgDataUrl: dataUrl,
+          }));
+          showToast('ব্যাকগ্রাউন্ড ছবি যোগ করা হয়েছে');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const [showQuotePicker, setShowQuotePicker] = useState(false);

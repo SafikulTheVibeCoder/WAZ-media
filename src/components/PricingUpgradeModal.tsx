@@ -54,14 +54,26 @@ export const PricingUpgradeModal: React.FC = () => {
 
     setIsCompressingScreenshot(true);
     try {
-      const optimized = await compressScreenshot(file, 900, 0.7);
+      let optimized = await compressScreenshot(file, 900, 0.7);
+      if (optimized.length > 900000) {
+        optimized = await compressScreenshot(file, 650, 0.5);
+      }
+      if (optimized.length > 950000) {
+        showToast('স্ক্রিনশটের ফাইল সাইজ অনেক বড়, অনুগ্রহ করে ছোট ছবি নির্বাচন করুন');
+        return;
+      }
       setScreenshotDataUrl(optimized);
       showToast('পেমেন্ট স্ক্রিনশট অপটিমাইজ করে যুক্ত করা হয়েছে');
     } catch (err) {
       console.warn('Screenshot compression fallback:', err);
       const reader = new FileReader();
       reader.onload = () => {
-        setScreenshotDataUrl(reader.result as string);
+        const result = reader.result as string;
+        if (result && result.length > 950000) {
+          showToast('স্ক্রিনশটের ফাইল সাইজ অনেক বড়, অনুগ্রহ করে ছোট ছবি নির্বাচন করুন');
+          return;
+        }
+        setScreenshotDataUrl(result);
         showToast('পেমেন্ট স্ক্রিনশট যুক্ত হয়েছে');
       };
       reader.readAsDataURL(file);
@@ -105,7 +117,7 @@ export const PricingUpgradeModal: React.FC = () => {
         amount: currentPlanConfig.price,
         senderPhone: senderPhone.trim(),
         transactionId: transactionId.trim().toUpperCase(),
-        screenshotUrl: screenshotDataUrl || undefined,
+        ...(screenshotDataUrl ? { screenshotUrl: screenshotDataUrl } : {}),
       });
 
       setSubmissionSuccess(true);

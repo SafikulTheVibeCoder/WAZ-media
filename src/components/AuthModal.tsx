@@ -7,7 +7,7 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
 } from 'firebase/auth';
-import { SUPER_ADMIN_EMAIL } from '../services/firebaseDb';
+import { SUPER_ADMIN_EMAIL, syncUserProfile } from '../services/firebaseDb';
 import { ModalShell } from './ui/ModalShell';
 import {
   Cloud,
@@ -42,6 +42,7 @@ export const AuthModal: React.FC = () => {
     presets,
     showToast,
     setCurrentView,
+    refreshUserProfile,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'google' | 'login' | 'register'>('google');
@@ -137,6 +138,8 @@ export const AuthModal: React.FC = () => {
         await updateProfile(userCred.user, {
           displayName: name.trim(),
         });
+        await syncUserProfile(userCred.user);
+        await refreshUserProfile();
       }
       showToast('একাউন্ট সফলভাবে তৈরি হয়েছে! ড্যাশবোর্ডে স্বাগতম');
       setIsAuthModalOpen(false);

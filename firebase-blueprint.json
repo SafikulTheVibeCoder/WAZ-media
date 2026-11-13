@@ -12,6 +12,10 @@
         "photoURL": { "type": "string", "maxLength": 1024 },
         "role": { "type": "string", "enum": ["super_admin", "approved_user", "basic_user"] },
         "status": { "type": "string", "enum": ["active", "pending"] },
+        "plan": { "type": "string", "enum": ["free", "pro", "enterprise"] },
+        "planExpiresAt": { "type": "string", "maxLength": 64 },
+        "todayPosterCount": { "type": "number" },
+        "lastPosterDate": { "type": "string", "maxLength": 32 },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
       },
@@ -27,7 +31,8 @@
         "title": { "type": "string", "maxLength": 256 },
         "thumb": { "type": "string", "maxLength": 500000 },
         "poster": { "type": "object" },
-        "createdAt": { "type": "number" },
+        "created": { "type": "number" },
+        "updated": { "type": "number" },
         "updatedAt": { "type": "number" }
       },
       "required": ["id", "userId", "title", "poster"]

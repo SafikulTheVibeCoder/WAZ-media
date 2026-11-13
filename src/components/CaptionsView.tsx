@@ -618,7 +618,7 @@ export const CaptionsView: React.FC = () => {
                               ? 'হাদিস'
                               : 'উক্তি'}
                           </span>
-                          {item.cats.slice(1, 3).map((c) => (
+                          {Array.from(new Set(item.cats)).slice(1, 3).map((c) => (
                             <span key={c} className="text-[#807a72]">
                               · {c}
                             </span>

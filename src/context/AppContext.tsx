@@ -21,6 +21,7 @@ import {
   SUPER_ADMIN_EMAIL,
   recordUserPosterGeneration,
 } from '../services/firebaseDb';
+import { formatLocalIsoDate } from '../utils/bengaliUtils';
 
 interface AppContextType {
   currentView: string;
@@ -259,7 +260,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const profile = await fetchUserProfile(currentUser.uid);
       if (profile) {
         setUserProfile(profile);
-        const todayDateStr = new Date().toISOString().split('T')[0];
+        const todayDateStr = formatLocalIsoDate(new Date());
         if (profile.lastPosterDate === todayDateStr) {
           setTodayPosterCount(profile.todayPosterCount || 0);
         } else {
@@ -326,6 +327,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           // Sync profile to users collection with super_admin logic
           const profile = await syncUserProfile(user);
           setUserProfile(profile);
+          const todayDateStr = formatLocalIsoDate(new Date());
+          setTodayPosterCount(
+            profile.lastPosterDate === todayDateStr ? (profile.todayPosterCount || 0) : 0
+          );
 
           // 1. Fetch user designs from Firestore
           const cloudDesigns = await loadUserDesigns(user.uid);
@@ -368,6 +373,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
       } else {
         setUserProfile(null);
+        setTodayPosterCount(0);
       }
     });
 

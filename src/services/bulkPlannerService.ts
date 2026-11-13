@@ -7,7 +7,7 @@
 import { BulkPosterScheduleItem, BulkMediaPlanResult, AspectRatio, ThemeId } from '../types';
 import { getHijriDateDetails, detectIslamicOccasion } from './islamicCalendarService';
 import { INITIAL_QUOTES } from '../data/quotes';
-import { toBengaliNumber } from '../utils/bengaliUtils';
+import { toBengaliNumber, formatLocalIsoDate } from '../utils/bengaliUtils';
 
 const DAY_NAMES_BN = [
   'রবিবার',
@@ -107,7 +107,7 @@ export function generateBulkMediaPlan(
     const gMonth = MONTH_NAMES_BN[targetDate.getMonth()];
     const gYear = toBengaliNumber(targetDate.getFullYear());
     const gregorianDate = `${gDay} ${gMonth} ${gYear} খ্রি.`;
-    const gregorianIso = targetDate.toISOString().split('T')[0];
+    const gregorianIso = formatLocalIsoDate(targetDate);
 
     const posterId = `bulk_poster_${gregorianIso}_d${i + 1}`;
 
@@ -147,8 +147,8 @@ export function generateBulkMediaPlan(
   return {
     id: `plan_${Date.now()}_${timeframe}`,
     timeframe,
-    startDateIso: startDate.toISOString().split('T')[0],
-    endDateIso: endTargetDate.toISOString().split('T')[0],
+    startDateIso: formatLocalIsoDate(startDate),
+    endDateIso: formatLocalIsoDate(endTargetDate),
     totalDays,
     specialEventsCount,
     jummahCount,

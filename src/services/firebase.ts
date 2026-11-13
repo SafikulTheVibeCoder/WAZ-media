@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth';
 import {
   getFirestore,
+  initializeFirestore,
   doc,
   getDocFromServer,
   collection,
@@ -41,8 +42,19 @@ const config = {
 // Initialize Firebase App singleton
 export const app = getApps().length > 0 ? getApp() : initializeApp(config);
 
-// Initialize Firestore with Database ID (Critical requirement)
-export const db = getFirestore(app, config.firestoreDatabaseId || '(default)');
+// Initialize Firestore with Database ID & auto-detect long polling (Critical requirement)
+export const db = (() => {
+  const dbId = config.firestoreDatabaseId || '(default)';
+  try {
+    return initializeFirestore(
+      app,
+      { experimentalAutoDetectLongPolling: true },
+      dbId
+    );
+  } catch {
+    return getFirestore(app, dbId);
+  }
+})();
 
 // Initialize Auth & Storage
 export const auth = getAuth(app);

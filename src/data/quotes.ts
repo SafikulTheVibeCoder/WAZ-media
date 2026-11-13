@@ -17,7 +17,10 @@ export const CATEGORIES: string[] = [
   'ইসলামিক উপদেশ',
 ];
 
-export const INITIAL_QUOTES: QuoteItem[] = VERIFIED_QUOTES;
+export const INITIAL_QUOTES: QuoteItem[] = VERIFIED_QUOTES.map((q) => ({
+  ...q,
+  cats: Array.from(new Set(q.cats)),
+}));
 
 export const THEME_PRESETS: ThemeConfig[] = [
   {

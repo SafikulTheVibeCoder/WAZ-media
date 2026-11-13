@@ -11,9 +11,10 @@ import {
   getDoc,
   getDocs,
   deleteDoc,
-  serverTimestamp,
+  deleteField,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { formatLocalIsoDate } from '../utils/bengaliUtils';
 import {
   SavedDesign,
   PosterPreset,
@@ -34,13 +35,23 @@ export const SUPER_ADMIN_EMAIL = 'realsafikul@gmail.com';
 export async function syncUserProfile(user: User): Promise<AppUserProfile> {
   const path = `users/${user.uid}`;
   const now = new Date().toISOString();
-  const todayDateStr = new Date().toISOString().split('T')[0];
+  const todayDateStr = formatLocalIsoDate(new Date());
   const normalizedEmail = (user.email || '').toLowerCase().trim();
   const isSuperAdminEmail = normalizedEmail === SUPER_ADMIN_EMAIL.toLowerCase();
 
   try {
     const userDocRef = doc(db, 'users', user.uid);
-    const existing = await getDoc(userDocRef);
+    let existing;
+    try {
+      existing = await getDoc(userDocRef);
+    } catch (firstErr: any) {
+      if (String(firstErr?.message || firstErr).toLowerCase().includes('offline')) {
+        await new Promise((r) => setTimeout(r, 450));
+        existing = await getDoc(userDocRef);
+      } else {
+        throw firstErr;
+      }
+    }
 
     let role: UserRole = isSuperAdminEmail ? 'super_admin' : 'basic_user';
     let status: UserStatus = isSuperAdminEmail ? 'active' : 'pending';
@@ -62,8 +73,10 @@ export async function syncUserProfile(user: User): Promise<AppUserProfile> {
         role = (existingData.role as UserRole) || 'basic_user';
         status = (existingData.status as UserStatus) || 'pending';
         plan = (existingData.plan as SubscriptionPlan) || 'free';
-        planExpiresAt = existingData.planExpiresAt;
-        
+        if (typeof existingData.planExpiresAt === 'string' && existingData.planExpiresAt) {
+          planExpiresAt = existingData.planExpiresAt;
+        }
+
         // Reset daily count if date has changed
         if (existingData.lastPosterDate === todayDateStr) {
           todayPosterCount = existingData.todayPosterCount || 0;
@@ -83,7 +96,7 @@ export async function syncUserProfile(user: User): Promise<AppUserProfile> {
       role,
       status,
       plan,
-      planExpiresAt,
+      ...(planExpiresAt ? { planExpiresAt } : {}),
       todayPosterCount,
       lastPosterDate,
       createdAt,
@@ -155,7 +168,7 @@ export async function updateUserRoleAndPlan(
 
   try {
     const userDocRef = doc(db, 'users', userId);
-    const updatePayload: Partial<AppUserProfile> = {
+    const updatePayload: Record<string, unknown> = {
       role,
       status,
       plan,
@@ -165,7 +178,7 @@ export async function updateUserRoleAndPlan(
     if (plan !== 'free') {
       updatePayload.planExpiresAt = expires.toISOString();
     } else {
-      updatePayload.planExpiresAt = undefined;
+      updatePayload.planExpiresAt = deleteField();
     }
 
     await setDoc(userDocRef, updatePayload, { merge: true });
@@ -204,7 +217,7 @@ export async function updateUserRoleAndStatus(
  */
 export async function recordUserPosterGeneration(userId: string): Promise<{ todayCount: number }> {
   const path = `users/${userId}`;
-  const todayDateStr = new Date().toISOString().split('T')[0];
+  const todayDateStr = formatLocalIsoDate(new Date());
 
   try {
     const userDocRef = doc(db, 'users', userId);
@@ -247,8 +260,15 @@ export async function submitPaymentUpgradeRequest(
   const path = `upgradeRequests/${requestId}`;
 
   const payload: PaymentUpgradeRequest = {
-    ...request,
     id: requestId,
+    userId: request.userId,
+    userEmail: request.userEmail,
+    userName: request.userName,
+    targetPlan: request.targetPlan,
+    amount: request.amount,
+    senderPhone: request.senderPhone,
+    transactionId: request.transactionId,
+    ...(request.screenshotUrl ? { screenshotUrl: request.screenshotUrl } : {}),
     status: 'pending',
     createdAt: new Date().toISOString(),
   };

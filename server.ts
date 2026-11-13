@@ -107,7 +107,7 @@ async function startServer() {
         return res.json({ ...fallback, isAiGenerated: false });
       }
 
-      // Initialize Gemini SDK with gemini-3.8-flash
+      // Initialize Gemini SDK with gemini-4-hydrogen
       const ai = new GoogleGenAI({
         apiKey,
         httpOptions: {
@@ -143,42 +143,54 @@ Requirements:
 5. "hashtags": An array of 8-12 high-ranking Facebook hashtags starting with #.
 6. "altText": An accessible, SEO-optimized description of the poster for social media image indexing.`;
 
-      // Wrap API call in timeout so UI never hangs if network is slow
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('AI request timed out')), 4000)
-      );
+      // Try primary model gemini-4-hydrogen with transient fallback to gemini-3.1-flash-lite
+      const modelsToTry = ['gemini-4-hydrogen', 'gemini-3.1-flash-lite'];
+      let responseText: string | undefined;
+      let lastErr: any;
 
-      const response = await Promise.race([
-        ai.models.generateContent({
-          model: 'gemini-3.8-flash',
-          contents: prompt,
-          config: {
-            systemInstruction: 'You are an elite Islamic social media manager and SEO specialist. Always output valid JSON matching the schema.',
-            responseMimeType: 'application/json',
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                seoTitle: { type: Type.STRING, description: 'Viral SEO title for Facebook post' },
-                seoFilename: { type: Type.STRING, description: 'Clean SEO slug for the image file' },
-                fbCaption: { type: Type.STRING, description: 'Complete formatted Facebook post caption' },
-                reflection: { type: Type.STRING, description: 'Core spiritual lesson' },
-                hashtags: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
-                  description: 'Viral hashtag bank',
+      for (const modelName of modelsToTry) {
+        try {
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('AI request timed out')), 10000)
+          );
+          const response = await Promise.race([
+            ai.models.generateContent({
+              model: modelName,
+              contents: prompt,
+              config: {
+                systemInstruction: 'You are an elite Islamic social media manager and SEO specialist. Always output valid JSON matching the schema.',
+                responseMimeType: 'application/json',
+                responseSchema: {
+                  type: Type.OBJECT,
+                  properties: {
+                    seoTitle: { type: Type.STRING, description: 'Viral SEO title for Facebook post' },
+                    seoFilename: { type: Type.STRING, description: 'Clean SEO slug for the image file' },
+                    fbCaption: { type: Type.STRING, description: 'Complete formatted Facebook post caption' },
+                    reflection: { type: Type.STRING, description: 'Core spiritual lesson' },
+                    hashtags: {
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING },
+                      description: 'Viral hashtag bank',
+                    },
+                    altText: { type: Type.STRING, description: 'Image alt text for SEO' },
+                  },
+                  required: ['seoTitle', 'seoFilename', 'fbCaption', 'hashtags'],
                 },
-                altText: { type: Type.STRING, description: 'Image alt text for SEO' },
               },
-              required: ['seoTitle', 'seoFilename', 'fbCaption', 'hashtags'],
-            },
-          },
-        }),
-        timeoutPromise,
-      ]);
+            }),
+            timeoutPromise,
+          ]);
+          if (response.text) {
+            responseText = response.text;
+            break;
+          }
+        } catch (modelErr: any) {
+          lastErr = modelErr;
+        }
+      }
 
-      const responseText = response.text;
       if (!responseText) {
-        throw new Error('Empty response from AI model');
+        throw lastErr || new Error('Empty response from AI model');
       }
 
       const parsed = JSON.parse(responseText);
@@ -359,46 +371,51 @@ Each hadith must include:
 - topic: 2-4 word theme in Bengali
 - cats: array of 2-3 categories in Bengali`;
 
-      // Set a 4-second timeout promise to prevent hanging
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('AI generation timeout')), 4500)
-      );
+      for (const modelName of ['gemini-4-hydrogen', 'gemini-3.1-flash-lite']) {
+        try {
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('AI generation timeout')), 10000)
+          );
 
-      const generatePromise = ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          systemInstruction: 'You are an authentic Islamic Hadith scholar. Only return verified Hadiths with exact references.',
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              items: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    id: { type: Type.STRING },
-                    type: { type: Type.STRING },
-                    ar: { type: Type.STRING },
-                    bn: { type: Type.STRING },
-                    ref: { type: Type.STRING },
-                    topic: { type: Type.STRING },
-                    cats: { type: Type.ARRAY, items: { type: Type.STRING } },
+          const generatePromise = ai.models.generateContent({
+            model: modelName,
+            contents: prompt,
+            config: {
+              systemInstruction: 'You are an authentic Islamic Hadith scholar. Only return verified Hadiths with exact references.',
+              responseMimeType: 'application/json',
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  items: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        id: { type: Type.STRING },
+                        type: { type: Type.STRING },
+                        ar: { type: Type.STRING },
+                        bn: { type: Type.STRING },
+                        ref: { type: Type.STRING },
+                        topic: { type: Type.STRING },
+                        cats: { type: Type.ARRAY, items: { type: Type.STRING } },
+                      },
+                      required: ['id', 'type', 'ar', 'bn', 'ref', 'topic'],
+                    },
                   },
-                  required: ['id', 'type', 'ar', 'bn', 'ref', 'topic'],
                 },
+                required: ['items'],
               },
             },
-            required: ['items'],
-          },
-        },
-      });
+          });
 
-      const response: any = await Promise.race([generatePromise, timeoutPromise]);
-      const parsed = JSON.parse(response.text || '{"items":[]}');
-      if (Array.isArray(parsed.items) && parsed.items.length > 0) {
-        return res.json(parsed);
+          const response: any = await Promise.race([generatePromise, timeoutPromise]);
+          const parsed = JSON.parse(response.text || '{"items":[]}');
+          if (Array.isArray(parsed.items) && parsed.items.length > 0) {
+            return res.json(parsed);
+          }
+        } catch {
+          // Try next model before verified fallback
+        }
       }
       return res.json(getFallback());
     } catch (err: any) {

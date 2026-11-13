@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { getTodayHijriEstimate } from '../utils/bengaliUtils';
+import { getHijriDateDetails } from '../services/islamicCalendarService';
 import { Cloud, User as UserIcon, Crown } from 'lucide-react';
 
 interface HeaderProps {
@@ -13,6 +13,7 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, actionButton })
   const {
     brand,
     currentUser,
+    userProfile,
     isSuperAdmin,
     isApproved,
     setIsAuthModalOpen,
@@ -67,7 +68,7 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, actionButton })
           {/* Unboxed Hijri Date Metadata */}
           <div className="hidden xl:flex flex-col text-right pr-2 border-r border-white/[0.08]">
             <span className="text-[11px] font-medium text-[#d4af37]">আজকের হিজরি</span>
-            <span className="text-xs text-[#807a72]">{getTodayHijriEstimate()}</span>
+            <span className="text-xs text-[#807a72]">{getHijriDateDetails(new Date()).formattedBn}</span>
           </div>
 
           {/* Super Admin Panel Shortcut */}
@@ -101,7 +102,7 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, actionButton })
                 </div>
                 <div className="text-left leading-tight">
                   <span className="font-semibold text-[#f5f3ee] block truncate max-w-[110px]">
-                    {currentUser.displayName || 'ব্যবহারকারী'}
+                    {currentUser.displayName || userProfile?.displayName || 'ব্যবহারকারী'}
                   </span>
                   <span
                     className={`text-[10px] font-medium ${
