@@ -190,7 +190,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          const builtInIds = new Set(BUILTIN_PRESETS.map((b) => b.id));
+          const customUserPresets = parsed.filter((p: PosterPreset) => !p.isBuiltIn && !builtInIds.has(p.id));
+          return [...BUILTIN_PRESETS, ...customUserPresets];
         }
       }
       return BUILTIN_PRESETS;

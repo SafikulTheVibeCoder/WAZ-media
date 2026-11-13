@@ -46,7 +46,7 @@ const FEATURED_POSTERS_SHOWCASE = [
     size: '1080x1080' as const,
     borderStyle: 'double' as const,
     tag: 'কুরআনের বাণী',
-    bgGradient: 'linear-gradient(135deg, #3d2b0e 0%, #17110c 100%)',
+    bgGradient: 'linear-gradient(135deg, #111723 0%, #05070c 100%)',
     textColor: '#f7df94',
   },
   {
@@ -202,13 +202,13 @@ export const LandingPageView: React.FC = () => {
   const demoBrand: BrandConfig = {
     ...DEFAULT_BRAND,
     name: brand.name || 'WAZ MEDIA',
-    tagline: brand.tagline || 'INSPIRING FAITH, ILLUMINATING MINDS',
+    tagline: brand.tagline || 'INSPIRES FAITH, ILLUMINATING MINDS',
     handle: brand.handle || '@wazmedia.bd',
     logo: brand.logo || DEFAULT_LOGO,
     showLogo: true,
     showTag: true,
-    showHandle: true,
-    watermark: true,
+    showHandle: false,
+    watermark: false,
     pos: 'top-center',
     logoSize: 105,
   };
@@ -272,18 +272,23 @@ export const LandingPageView: React.FC = () => {
     const item = DEMO_QUOTES[index];
     if (!item) return;
     setActiveQuoteIndex(index);
+    const th = THEME_PRESETS.find((t) => t.id === item.theme) || THEME_PRESETS[0];
     setDemoPoster((prev) => ({
       ...prev,
       bn: item.bn,
       ar: item.ar,
       ref: item.ref,
       theme: item.theme,
+      textColor: th.text,
+      accentColor: th.accent,
+      arabicColor: th.ar,
     }));
     showToast(`"${item.ref}" ডেমো ক্যানভাসে লোড হয়েছে!`);
   };
 
   // Customize a poster from the showcase gallery
   const handleCustomizeShowcasePoster = (item: (typeof FEATURED_POSTERS_SHOWCASE)[0]) => {
+    const th = THEME_PRESETS.find((t) => t.id === item.theme) || THEME_PRESETS[0];
     setDemoPoster((prev) => ({
       ...prev,
       bn: item.bn,
@@ -292,6 +297,9 @@ export const LandingPageView: React.FC = () => {
       theme: item.theme,
       size: item.size,
       borderStyle: item.borderStyle,
+      textColor: th.text,
+      accentColor: th.accent,
+      arabicColor: th.ar,
     }));
     setActiveTab('poster');
     const demoElement = document.getElementById('interactive-demo');
@@ -801,7 +809,15 @@ export const LandingPageView: React.FC = () => {
                   {THEME_PRESETS.map((t: ThemeConfig) => (
                     <button
                       key={t.id}
-                      onClick={() => setDemoPoster((prev) => ({ ...prev, theme: t.id }))}
+                      onClick={() =>
+                        setDemoPoster((prev) => ({
+                          ...prev,
+                          theme: t.id,
+                          textColor: t.text,
+                          accentColor: t.accent,
+                          arabicColor: t.ar,
+                        }))
+                      }
                       className={`p-2 rounded-xl border flex flex-col items-center gap-1 text-[11px] font-medium transition ${
                         demoPoster.theme === t.id
                           ? 'bg-[#2a1d13] border-[#d4af37] text-[#f7df94] ring-1 ring-[#d4af37]'

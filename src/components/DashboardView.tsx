@@ -96,9 +96,11 @@ export const DashboardView: React.FC = () => {
     theme: any;
     size: any;
   }) => {
+    const th = THEME_PRESETS.find((t) => t.id === preset.theme);
     setPoster(prev => ({
       ...prev,
       ...preset,
+      ...(th ? { textColor: th.text, accentColor: th.accent, arabicColor: th.ar } : {}),
       showAr: !!preset.ar,
       showBismillah: true
     }));

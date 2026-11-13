@@ -117,17 +117,22 @@ function drawGeometricPattern(
   ctx.fillStyle = color;
 
   if (type === 'geometric') {
-    const step = 90 * scale;
-    ctx.lineWidth = 1 * scale;
-    ctx.globalAlpha = 0.08;
+    const step = 96 * scale;
+    ctx.lineWidth = 0.9 * scale;
+    ctx.globalAlpha = 0.065;
 
     for (let x = 0; x < width + step; x += step) {
       for (let y = 0; y < height + step; y += step) {
-        drawStar8(ctx, x, y, step * 0.38);
+        drawStar8(ctx, x, y, step * 0.36);
+        ctx.stroke();
+
+        // Inner delicate octagram accent
+        ctx.beginPath();
+        ctx.arc(x, y, step * 0.14, 0, Math.PI * 2);
         ctx.stroke();
 
         ctx.beginPath();
-        ctx.arc(x + step / 2, y + step / 2, 4 * scale, 0, Math.PI * 2);
+        ctx.arc(x + step / 2, y + step / 2, 2.5 * scale, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -348,11 +353,20 @@ function drawBorders(
     ctx.lineWidth = 3 * scale;
     ctx.strokeRect(width * 0.04, width * 0.04, width * 0.92, height - width * 0.08);
   } else if (style === 'double') {
-    ctx.lineWidth = 2.6 * scale;
-    ctx.strokeRect(width * 0.035, width * 0.035, width * 0.93, height - width * 0.07);
-    ctx.lineWidth = 1.2 * scale;
-    ctx.globalAlpha = 0.85;
-    ctx.strokeRect(width * 0.048, width * 0.048, width * 0.904, height - width * 0.096);
+    // Metallic gold sheen gradient along border diagonal
+    const borderGrad = ctx.createLinearGradient(0, 0, width, height);
+    borderGrad.addColorStop(0, color);
+    borderGrad.addColorStop(0.28, '#f8e49c');
+    borderGrad.addColorStop(0.5, color);
+    borderGrad.addColorStop(0.75, '#f9e69b');
+    borderGrad.addColorStop(1, color);
+
+    ctx.strokeStyle = borderGrad;
+    ctx.lineWidth = 2.4 * scale;
+    ctx.strokeRect(width * 0.034, width * 0.034, width * 0.932, height - width * 0.068);
+    ctx.lineWidth = 1.15 * scale;
+    ctx.globalAlpha = 0.88;
+    ctx.strokeRect(width * 0.047, width * 0.047, width * 0.906, height - width * 0.094);
   } else if (style === 'ornate') {
     ctx.lineWidth = 3.5 * scale;
     const inset1 = width * 0.035;
@@ -403,7 +417,7 @@ function drawCorners(
   scale: number
 ) {
   const o = width * 0.072;
-  const r = 22 * scale;
+  const r = 21 * scale;
   ctx.save();
   const positions = [
     [o, o],
@@ -412,18 +426,29 @@ function drawCorners(
     [width - o, height - o],
   ];
   positions.forEach(([x, y]) => {
-    // Subtle golden glow
+    // Metallic gold gradient for corner star motif
+    const starGrad = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
+    starGrad.addColorStop(0, '#f9e596');
+    starGrad.addColorStop(0.5, color);
+    starGrad.addColorStop(1, '#b68923');
+
     ctx.shadowColor = 'rgba(212, 175, 55, 0.45)';
     ctx.shadowBlur = 8 * scale;
-    ctx.fillStyle = color;
+    ctx.fillStyle = starGrad;
     drawStar8(ctx, x, y, r);
     ctx.fill();
 
-    // Radiant inner dot
+    // Inner delicate rosette ring
     ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255, 248, 220, 0.65)';
+    ctx.lineWidth = 1 * scale;
+    drawStar8(ctx, x, y, r * 0.56);
+    ctx.stroke();
+
+    // Radiant center jewel dot
     ctx.beginPath();
-    ctx.arc(x, y, r * 0.3, 0, Math.PI * 2);
-    ctx.fillStyle = '#fff6d6';
+    ctx.arc(x, y, r * 0.22, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff9df';
     ctx.fill();
   });
   ctx.restore();
@@ -476,6 +501,17 @@ interface BlockItem {
   height: number;
 }
 
+function getHexLuminance(hex: string): number {
+  if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return 180;
+  let c = hex.slice(1).trim();
+  if (c.length === 3) c = c.split('').map((ch) => ch + ch).join('');
+  if (c.length !== 6) return 180;
+  const r = parseInt(c.slice(0, 2), 16) || 0;
+  const g = parseInt(c.slice(2, 4), 16) || 0;
+  const b = parseInt(c.slice(4, 6), 16) || 0;
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+
 export async function renderPoster(
   canvas: HTMLCanvasElement,
   poster: PosterConfig,
@@ -496,6 +532,7 @@ export async function renderPoster(
     const baseSize = Math.round(poster.fontSize * k);
     const refSize = Math.round(Math.max(baseSize * 0.46, 22 * k));
     await Promise.all([
+      document.fonts.load(`700 ${Math.round(28 * k)}px "Cinzel"`),
       document.fonts.load(`600 ${baseSize}px "${fontName}"`),
       document.fonts.load(`500 ${refSize}px "${fontName}"`),
       document.fonts.load(`600 ${refSize}px "${fontName}"`),
@@ -506,17 +543,6 @@ export async function renderPoster(
   } catch (err) {
     console.warn('Font loading check:', err);
   }
-
-function getHexLuminance(hex: string): number {
-  if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return 180;
-  let c = hex.slice(1).trim();
-  if (c.length === 3) c = c.split('').map((ch) => ch + ch).join('');
-  if (c.length !== 6) return 180;
-  const r = parseInt(c.slice(0, 2), 16) || 0;
-  const g = parseInt(c.slice(2, 4), 16) || 0;
-  const b = parseInt(c.slice(4, 6), 16) || 0;
-  return 0.299 * r + 0.587 * g + 0.114 * b;
-}
 
   const theme = THEME_PRESETS.find((t) => t.id === poster.theme) || THEME_PRESETS[0];
 
@@ -530,13 +556,16 @@ function getHexLuminance(hex: string): number {
 
   // Auto-Contrast Guard: On dark backgrounds, NEVER allow text or Arabic to collapse to dark brown/black!
   if (isDarkCanvas) {
-    if (getHexLuminance(primaryText) < 135) {
-      primaryText = '#FFFFFF';
+    if (getHexLuminance(primaryText) < 150) {
+      primaryText = '#fffdf5';
+    } else if (primaryText.toUpperCase() === '#FFFFFF' && poster.theme === 'golden') {
+      // Bright golden-white for luxury contrast
+      primaryText = '#fffdf4';
     }
-    if (getHexLuminance(arColor) < 135) {
-      arColor = '#fadb7f';
+    if (getHexLuminance(arColor) < 150) {
+      arColor = '#fce083';
     }
-    if (getHexLuminance(accent) < 95) {
+    if (getHexLuminance(accent) < 110) {
       accent = '#d4af37';
     }
   }
@@ -614,9 +643,18 @@ function getHexLuminance(hex: string): number {
         curY += logoH + 12 * k;
       }
       if (brand.name) {
-        ctx.fillStyle = '#f7df94';
-        ctx.shadowColor = 'rgba(212, 175, 55, 0.45)';
-        ctx.shadowBlur = 6 * k;
+        if (isDarkCanvas) {
+          const brandGrad = ctx.createLinearGradient(W * 0.35, curY, W * 0.65, curY + nameFontSize);
+          brandGrad.addColorStop(0, '#f9e69b');
+          brandGrad.addColorStop(0.5, '#d4af37');
+          brandGrad.addColorStop(1, '#fce9a4');
+          ctx.fillStyle = brandGrad;
+          ctx.shadowColor = 'rgba(212, 175, 55, 0.4)';
+          ctx.shadowBlur = 6 * k;
+        } else {
+          ctx.fillStyle = accent;
+          ctx.shadowBlur = 0;
+        }
         ctx.font = `700 ${nameFontSize}px "Cinzel", "Noto Serif Bengali", "${fontName}", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
@@ -626,12 +664,14 @@ function getHexLuminance(hex: string): number {
         curY += nameH;
       }
       if (brand.showTag && brand.tagline) {
-        ctx.fillStyle = '#dfcca8';
+        ctx.fillStyle = isDarkCanvas ? '#e5d4b3' : primaryText;
+        ctx.globalAlpha = isDarkCanvas ? 0.92 : 0.78;
         ctx.font = `600 ${tagFontSize}px "${fontName}", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.letterSpacing = `${2 * k}px`;
         ctx.fillText(brand.tagline, W / 2, curY);
+        ctx.globalAlpha = 1;
         curY += tagH;
       }
       if (brand.showHandle && brand.handle) {
@@ -639,7 +679,7 @@ function getHexLuminance(hex: string): number {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillStyle = accent;
-        ctx.globalAlpha = 0.75;
+        ctx.globalAlpha = 0.78;
         ctx.fillText(brand.handle, W / 2, curY);
         ctx.globalAlpha = 1;
       }

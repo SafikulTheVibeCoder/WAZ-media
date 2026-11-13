@@ -139,6 +139,7 @@ export const BulkPlannerView: React.FC = () => {
       return;
     }
 
+    const th = THEME_PRESETS.find((t) => t.id === item.suggestedTheme);
     setPoster((prev) => ({
       ...prev,
       bn: item.quoteSnippet.bn,
@@ -147,6 +148,7 @@ export const BulkPlannerView: React.FC = () => {
       showAr: Boolean(item.quoteSnippet.ar),
       theme: item.suggestedTheme,
       size: item.suggestedRatio,
+      ...(th ? { textColor: th.text, accentColor: th.accent, arabicColor: th.ar } : {}),
     }));
 
     setCurrentView('poster');
