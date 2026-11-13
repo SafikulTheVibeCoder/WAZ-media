@@ -16,33 +16,49 @@ import { PricingUpgradeModal } from './components/PricingUpgradeModal';
 
 const MainContent: React.FC = () => {
   const { currentView } = useApp();
+  const isLanding = currentView === 'landing';
+
+  if (isLanding) {
+    return (
+      <main className="flex-1 w-full">
+        <LandingPageView />
+      </main>
+    );
+  }
 
   return (
-    <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full pb-24 md:pb-8">
+    <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full pb-24 md:pb-10">
       {currentView === 'dashboard' && <DashboardView />}
       {currentView === 'captions' && <CaptionsView />}
       {currentView === 'planner' && <BulkPlannerView />}
       {currentView === 'poster' && <PosterStudioView />}
       {currentView === 'brand' && <BrandManagerView />}
       {currentView === 'saved' && <SavedDesignsView />}
-      {currentView === 'landing' && <LandingPageView />}
       {currentView === 'admin' && <AdminDashboardView />}
     </main>
+  );
+};
+
+const AppShell: React.FC = () => {
+  const { currentView } = useApp();
+  const isLanding = currentView === 'landing';
+
+  return (
+    <div className="min-h-screen bg-[#0b0b0e] text-[#f5f3ee] flex flex-col md:flex-row font-bengali antialiased">
+      {!isLanding && <Sidebar />}
+      <MainContent />
+      <Toast />
+      <AuthModal />
+      <AccessDeniedModal />
+      <PricingUpgradeModal />
+    </div>
   );
 };
 
 export default function App() {
   return (
     <AppProvider>
-      <div className="min-h-screen bg-[#0d0a08] text-[#f4eee2] flex flex-col md:flex-row font-bengali antialiased">
-        <Sidebar />
-        <MainContent />
-        <Toast />
-        <AuthModal />
-        <AccessDeniedModal />
-        <PricingUpgradeModal />
-      </div>
+      <AppShell />
     </AppProvider>
   );
 }
-

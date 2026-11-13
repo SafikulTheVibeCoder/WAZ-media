@@ -2,17 +2,51 @@
 
 @layer base {
   :root {
+    /* Core Surface Tokens (60 / 30 / 10 Architecture) */
+    --bg-canvas: #0b0b0e;
+    --bg-sidebar: #101014;
+    --bg-surface: #141419;
+    --bg-elevated: #1b1b22;
+    --bg-inset: #0e0e12;
+
+    /* Borders */
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.14);
+
+    /* Metallic Gold Brand Accent */
     --gold: #d4af37;
-    --gold-light: #f7df94;
-    --gold-dark: #8c6d1f;
-    --bg-dark: #120e0b;
-    --bg-card: #1c1612;
+    --gold-light: #f2d77d;
+    --gold-dark: #9c7b1e;
+    --gold-muted: rgba(212, 175, 55, 0.12);
+    --gold-border: rgba(212, 175, 55, 0.32);
+
+    /* Typography Hierarchy */
+    --text-primary: #f5f3ee;
+    --text-secondary: #b6b0a6;
+    --text-muted: #807a72;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    color-scheme: dark;
   }
 
   body {
     font-family: 'Hind Siliguri', 'Noto Sans Bengali', -apple-system, BlinkMacSystemFont, sans-serif;
-    background-color: #0d0a08;
-    color: #ede5d8;
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    overflow-x: hidden;
+  }
+
+  /* Consistent keyboard focus visibility */
+  :focus-visible {
+    outline: 2px solid #d4af37;
+    outline-offset: 2px;
+  }
+
+  button,
+  [role="button"] {
+    cursor: pointer;
   }
 }
 
@@ -28,18 +62,47 @@
   font-family: 'Tiro Bangla', serif;
 }
 
-/* Custom scrollbars */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Subtle, accessible scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
+
 ::-webkit-scrollbar-track {
-  background: #140f0c;
+  background: #0e0e12;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: #33251c;
-  border-radius: 4px;
+  background: #2a2a34;
+  border-radius: 3px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: #543c2c;
+  background: #3d3d4a;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

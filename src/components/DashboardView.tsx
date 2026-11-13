@@ -1,34 +1,34 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Header } from './Header';
-import { INITIAL_QUOTES, THEME_PRESETS, CATEGORIES } from '../data/quotes';
+import { EmptyState } from './ui/EmptyState';
+import { INITIAL_QUOTES, THEME_PRESETS } from '../data/quotes';
 import { QuoteItem } from '../types';
 import { toBengaliNumber } from '../utils/bengaliUtils';
 import { generateLocalFacebookPost } from '../utils/seoUtils';
-import { 
-  Sparkles, 
-  Copy, 
-  RefreshCw, 
-  Palette, 
-  Download, 
-  FolderHeart, 
-  BookmarkCheck, 
+import {
+  Sparkles,
+  Copy,
+  RefreshCw,
+  Palette,
+  Download,
+  FolderHeart,
+  BookmarkCheck,
   Layers,
   ArrowRight,
-  Share2,
   Bookmark,
   Check,
   Calendar,
 } from 'lucide-react';
 
 export const DashboardView: React.FC = () => {
-  const { 
-    setCurrentView, 
-    loadQuoteToPoster, 
-    savedDesigns, 
-    stats, 
-    incrementStat, 
-    showToast, 
+  const {
+    setCurrentView,
+    loadQuoteToPoster,
+    savedDesigns,
+    stats,
+    incrementStat,
+    showToast,
     loadDesignForEdit,
     startNewDesign,
     toggleFavorite,
@@ -43,15 +43,16 @@ export const DashboardView: React.FC = () => {
   const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Filtered quotes based on selected category
-  const filteredQuotes = selectedCat === 'সব'
-    ? INITIAL_QUOTES
-    : INITIAL_QUOTES.filter(q => q.cats.includes(selectedCat));
+  const filteredQuotes =
+    selectedCat === 'সব'
+      ? INITIAL_QUOTES
+      : INITIAL_QUOTES.filter((q) => q.cats.includes(selectedCat));
 
-  const activeQuote = filteredQuotes[currentQuoteIndex % filteredQuotes.length] || INITIAL_QUOTES[0];
+  const activeQuote =
+    filteredQuotes[currentQuoteIndex % filteredQuotes.length] || INITIAL_QUOTES[0];
 
   const handleNextQuote = () => {
-    setCurrentQuoteIndex(prev => (prev + 1) % filteredQuotes.length);
+    setCurrentQuoteIndex((prev) => (prev + 1) % filteredQuotes.length);
     incrementStat('caps');
   };
 
@@ -97,29 +98,53 @@ export const DashboardView: React.FC = () => {
     size: any;
   }) => {
     const th = THEME_PRESETS.find((t) => t.id === preset.theme);
-    setPoster(prev => ({
+    setPoster((prev) => ({
       ...prev,
       ...preset,
       ...(th ? { textColor: th.text, accentColor: th.accent, arabicColor: th.ar } : {}),
       showAr: !!preset.ar,
-      showBismillah: true
+      showBismillah: true,
     }));
     setCurrentView('poster');
     showToast('টেমপ্লেট সফলভাবে লোড হয়েছে');
   };
 
+  const statItems = [
+    {
+      label: 'সংরক্ষিত ডিজাইন',
+      value: toBengaliNumber(savedDesigns.length),
+      icon: FolderHeart,
+    },
+    {
+      label: 'ডাউনলোডকৃত পোস্টার',
+      value: toBengaliNumber(stats.exports),
+      icon: Download,
+    },
+    {
+      label: 'মোট বাণী ও ক্যাপশন',
+      value: toBengaliNumber(stats.caps + INITIAL_QUOTES.length),
+      icon: Layers,
+    },
+    {
+      label: 'যাচাইকৃত রেফারেন্স',
+      value: toBengaliNumber(INITIAL_QUOTES.length),
+      icon: BookmarkCheck,
+    },
+  ];
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-200">
       <Header
         title="স্বাগতম, WAZ MEDIA স্টুডিওতে"
-        subtitle="যাচাইকৃত বিশুদ্ধ কুরআন ও সহীহ হাদিস থেকে ক্যাপশন তৈরি করুন এবং সেকেন্ডের মধ্যে নিখুঁত সোশ্যাল মিডিয়া পোস্টার বানান।"
+        subtitle="যাচাইকৃত কুরআন ও সহীহ হাদিস থেকে ক্যাপশন তৈরি করুন এবং মুহূর্তেই সোশ্যাল মিডিয়া পোস্টার বানান।"
         actionButton={
           <button
+            type="button"
             onClick={() => {
               startNewDesign();
               setCurrentView('poster');
             }}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] font-semibold text-sm shadow-lg transition-transform active:scale-95"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#d4af37] hover:bg-[#e3be47] text-[#0b0b0e] font-bold text-xs sm:text-sm transition active:scale-[0.98] min-h-[40px]"
           >
             <Sparkles className="w-4 h-4" />
             <span>নতুন পোস্টার বানান</span>
@@ -127,222 +152,199 @@ export const DashboardView: React.FC = () => {
         }
       />
 
-      {/* Stats row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[#18120d] border border-[#2d2117] rounded-2xl p-5 flex items-center gap-4 relative overflow-hidden group hover:border-[#d4af37]/40 transition">
-          <div className="w-12 h-12 rounded-xl bg-[#281b10] flex items-center justify-center text-[#d4af37] shrink-0 border border-[#44301d]">
-            <FolderHeart className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-[#f7df94]">
-              {toBengaliNumber(savedDesigns.length)}
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {statItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <div
+              key={item.label}
+              className="bg-[#141419] border border-white/[0.08] rounded-xl p-4 sm:p-5 flex items-center gap-3.5"
+            >
+              <div className="w-11 h-11 rounded-xl bg-[#1b1b22] border border-white/[0.08] flex items-center justify-center text-[#d4af37] shrink-0">
+                <Icon className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-2xl sm:text-3xl font-bold text-[#f5f3ee] tabular-nums leading-none">
+                  {item.value}
+                </div>
+                <div className="text-xs text-[#807a72] mt-1.5 truncate">{item.label}</div>
+              </div>
             </div>
-            <div className="text-xs text-[#a9947c] mt-0.5">সংরক্ষিত ডিজাইন</div>
-          </div>
-          <div className="absolute right-0 top-0 w-24 h-24 bg-[#d4af37]/5 rounded-full blur-xl group-hover:bg-[#d4af37]/10 transition-all pointer-events-none" />
-        </div>
-
-        <div className="bg-[#18120d] border border-[#2d2117] rounded-2xl p-5 flex items-center gap-4 relative overflow-hidden group hover:border-[#d4af37]/40 transition">
-          <div className="w-12 h-12 rounded-xl bg-[#281b10] flex items-center justify-center text-[#d4af37] shrink-0 border border-[#44301d]">
-            <Download className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-[#f7df94]">
-              {toBengaliNumber(stats.exports)}
-            </div>
-            <div className="text-xs text-[#a9947c] mt-0.5">ডাউনলোডকৃত পোস্টার</div>
-          </div>
-          <div className="absolute right-0 top-0 w-24 h-24 bg-[#d4af37]/5 rounded-full blur-xl group-hover:bg-[#d4af37]/10 transition-all pointer-events-none" />
-        </div>
-
-        <div className="bg-[#18120d] border border-[#2d2117] rounded-2xl p-5 flex items-center gap-4 relative overflow-hidden group hover:border-[#d4af37]/40 transition">
-          <div className="w-12 h-12 rounded-xl bg-[#281b10] flex items-center justify-center text-[#d4af37] shrink-0 border border-[#44301d]">
-            <Layers className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-[#f7df94]">
-              {toBengaliNumber(stats.caps + INITIAL_QUOTES.length)}
-            </div>
-            <div className="text-xs text-[#a9947c] mt-0.5">মোট বাণী ও ক্যাপশন</div>
-          </div>
-          <div className="absolute right-0 top-0 w-24 h-24 bg-[#d4af37]/5 rounded-full blur-xl group-hover:bg-[#d4af37]/10 transition-all pointer-events-none" />
-        </div>
-
-        <div className="bg-[#18120d] border border-[#2d2117] rounded-2xl p-5 flex items-center gap-4 relative overflow-hidden group hover:border-[#d4af37]/40 transition">
-          <div className="w-12 h-12 rounded-xl bg-[#281b10] flex items-center justify-center text-[#d4af37] shrink-0 border border-[#44301d]">
-            <BookmarkCheck className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-[#f7df94]">
-              {toBengaliNumber(INITIAL_QUOTES.length)}
-            </div>
-            <div className="text-xs text-[#a9947c] mt-0.5">যাচাইকৃত রেফারেন্স</div>
-          </div>
-          <div className="absolute right-0 top-0 w-24 h-24 bg-[#d4af37]/5 rounded-full blur-xl group-hover:bg-[#d4af37]/10 transition-all pointer-events-none" />
-        </div>
+          );
+        })}
       </div>
 
-      {/* Bulk Media Planner Banner */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#22160d] via-[#2a1c11] to-[#1a120b] border border-[#d4af37]/30 shadow-md flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-[#d4af37]/15 border border-[#d4af37]/30 flex items-center justify-center text-[#d4af37] shrink-0">
-            <Calendar className="w-6 h-6" />
+      {/* Bulk Media Planner CTA Banner */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-[#141419] border border-[#d4af37]/25 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-[#d4af37]/10 border border-[#d4af37]/25 flex items-center justify-center text-[#d4af37] shrink-0">
+            <Calendar className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold text-[#f7df94]">বাল্ক সোশ্যাল মিডিয়া ও হিজরি ক্যালেন্ডার প্ল্যানার</h3>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                নতুন ফিচার
-              </span>
-            </div>
-            <p className="text-xs text-[#b8a691] mt-0.5 max-w-xl">
-              হিজরি ও গ্রেগোরিয়ান ক্যালেন্ডারের সাথে সিঙ্ক করে ১ সপ্তাহ বা ১ মাসের (৩০ দিন) পোস্টার সিডিউল তৈরি করুন স্বয়ংক্রিয়ভাবে।
+            <h2 className="text-sm sm:text-base font-bold text-[#f5f3ee]">
+              বাল্ক সোশ্যাল মিডিয়া ও হিজরি ক্যালেন্ডার প্ল্যানার
+            </h2>
+            <p className="text-xs text-[#b6b0a6] mt-0.5 max-w-2xl leading-relaxed">
+              হিজরি ও গ্রেগোরিয়ান ক্যালেন্ডারের সাথে সিঙ্ক করে ১ সপ্তাহ বা ১ মাসের পোস্টার সিডিউল তৈরি করুন স্বয়ংক্রিয়ভাবে।
             </p>
           </div>
         </div>
         <button
+          type="button"
           onClick={() => setCurrentView('planner')}
-          className="w-full md:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] font-bold text-xs shadow transition flex items-center justify-center gap-2 shrink-0 active:scale-95"
+          className="w-full md:w-auto px-4 py-2.5 rounded-xl bg-[#d4af37] hover:bg-[#e3be47] text-[#0b0b0e] font-bold text-xs transition inline-flex items-center justify-center gap-2 shrink-0 min-h-[42px]"
         >
           <span>প্ল্যানার ওপেন করুন</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Main split: Instant Generator Card + Recent Designs */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Quick Quote Generator */}
-        <div className="lg:col-span-7 bg-[#17110c] border border-[#2d2117] rounded-2xl p-6 shadow-xl flex flex-col justify-between relative overflow-hidden">
-          <div className="flex items-center justify-between pb-4 border-b border-[#2d2117]/60">
-            <div className="flex items-center gap-2">
-              <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#d4af37] animate-pulse"></span>
-              <h2 className="text-lg font-semibold text-[#f4eee2]">দ্রুত ক্যাপশন ও বাণী</h2>
+      {/* Main Split: Quick Quote Generator + Recent Designs */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left: Quick Quote Generator */}
+        <section className="lg:col-span-7 bg-[#141419] border border-white/[0.08] rounded-2xl p-5 sm:p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
+              <h2 className="text-base font-bold text-[#f5f3ee]">দ্রুত ক্যাপশন ও বাণী</h2>
+              <span className="text-xs font-medium text-[#d4af37]">
+                {activeQuote.type === 'quran'
+                  ? 'কুরআনুল কারীম'
+                  : activeQuote.type === 'hadith'
+                  ? 'সহীহ হাদিস'
+                  : 'ইসলামিক বাণী'}
+              </span>
             </div>
-            <span className="text-xs font-medium px-3 py-1 rounded-full bg-[#271d15] text-[#d4af37] border border-[#3f2f1d]">
-              {activeQuote.type === 'quran' ? 'কুরআনুল কারীম' : activeQuote.type === 'hadith' ? 'সহীহ হাদিস' : 'ইসলামিক বাণী'}
-            </span>
-          </div>
 
-          {/* Quick Categories Bar */}
-          <div className="flex gap-2 py-3 overflow-x-auto no-scrollbar">
-            {['সব', 'সবর ও শোকর', 'তাওবা ও ক্ষমা', 'সালাত ও ইবাদত', 'জুমার দিন'].map((cat) => (
-              <button
-                key={cat}
-                onClick={() => {
-                  setSelectedCat(cat);
-                  setCurrentQuoteIndex(0);
-                }}
-                className={`text-xs px-3 py-1 rounded-full whitespace-nowrap transition ${
-                  selectedCat === cat
-                    ? 'bg-[#d4af37] text-[#140e0a] font-semibold'
-                    : 'bg-[#221811] text-[#9b8976] hover:text-[#f4eee2] hover:bg-[#2b1f16]'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
+            {/* Category Filter Tabs */}
+            <div className="flex gap-1.5 py-3 overflow-x-auto no-scrollbar">
+              {['সব', 'সবর ও শোকর', 'তাওবা ও ক্ষমা', 'সালাত ও ইবাদত', 'জুমার দিন'].map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => {
+                    setSelectedCat(cat);
+                    setCurrentQuoteIndex(0);
+                  }}
+                  className={`text-xs px-3 py-1.5 rounded-lg whitespace-nowrap transition min-h-[34px] ${
+                    selectedCat === cat
+                      ? 'bg-[#d4af37] text-[#0b0b0e] font-bold'
+                      : 'bg-[#1b1b22] text-[#b6b0a6] hover:text-[#f5f3ee]'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
 
-          {/* Card Content Display */}
-          <div className="my-5 p-6 rounded-xl bg-gradient-to-b from-[#1c140d] to-[#16100a] border border-[#2d2117] flex flex-col items-center text-center">
-            {activeQuote.ar && (
-              <p 
-                dir="rtl" 
-                className="font-arabic text-2xl sm:text-3xl text-[#f7df94] leading-relaxed mb-4 tracking-wide"
-              >
-                {activeQuote.ar}
+            {/* Quote Display */}
+            <div className="my-4 p-5 sm:p-6 rounded-xl bg-[#0e0e12] border border-white/[0.06] flex flex-col items-center text-center">
+              {activeQuote.ar && (
+                <p
+                  dir="rtl"
+                  className="font-arabic text-xl sm:text-2xl text-[#f2d77d] leading-loose mb-3"
+                >
+                  {activeQuote.ar}
+                </p>
+              )}
+              <p className="font-bengali text-base sm:text-lg text-[#f5f3ee] font-medium leading-relaxed max-w-xl">
+                “{activeQuote.bn}”
               </p>
-            )}
-            <p className="font-bengali text-lg sm:text-xl text-[#f3ebd9] font-medium leading-relaxed max-w-xl">
-              “{activeQuote.bn}”
-            </p>
-            <div className="mt-4 inline-flex items-center gap-1.5 text-xs text-[#d4af37] font-semibold bg-[#2a1d13] px-3.5 py-1.5 rounded-full border border-[#4d361c]">
-              <span>{activeQuote.ref}</span>
+              <span className="mt-3 text-xs text-[#d4af37] font-medium">
+                — {activeQuote.ref} —
+              </span>
             </div>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2">
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={() => handleCopyQuote(activeQuote)}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#221811] hover:bg-[#2e2016] text-[#e0d2bf] text-xs font-medium border border-[#3a2a1d] transition"
-                title="ক্যাপশন কপি করুন"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#1b1b22] hover:bg-[#23232c] text-[#f5f3ee] text-xs font-medium border border-white/[0.08] transition min-h-[40px]"
               >
-                {copiedId === activeQuote.id ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-[#d4af37]" />}
+                {copiedId === activeQuote.id ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5 text-[#d4af37]" />
+                )}
                 <span>{copiedId === activeQuote.id ? 'কপি হয়েছে' : 'কপি করুন'}</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => toggleFavorite(activeQuote.id)}
-                className={`p-2 rounded-lg border text-xs transition ${
+                aria-label="পছন্দের তালিকায় রাখুন"
+                className={`w-10 h-10 rounded-xl border flex items-center justify-center transition ${
                   isFavorite(activeQuote.id)
-                    ? 'bg-[#d4af37]/20 border-[#d4af37] text-[#d4af37]'
-                    : 'bg-[#221811] border-[#3a2a1d] text-[#877461] hover:text-[#d4af37]'
+                    ? 'bg-[#d4af37]/15 border-[#d4af37] text-[#d4af37]'
+                    : 'bg-[#1b1b22] border-white/[0.08] text-[#807a72] hover:text-[#d4af37]'
                 }`}
-                title="পছন্দের তালিকায় রাখুন"
               >
                 <Bookmark className="w-4 h-4 fill-current" />
               </button>
 
               <button
+                type="button"
                 onClick={handleNextQuote}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#221811] hover:bg-[#2e2016] text-[#e0d2bf] text-xs font-medium border border-[#3a2a1d] transition"
-                title="পরবর্তী বাণী"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#1b1b22] hover:bg-[#23232c] text-[#b6b0a6] hover:text-[#f5f3ee] text-xs font-medium border border-white/[0.08] transition min-h-[40px]"
               >
-                <RefreshCw className="w-4 h-4 text-[#a9947c]" />
-                <span>আরেকটি দেখুন</span>
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>পরবর্তী বাণী</span>
               </button>
             </div>
 
             <button
+              type="button"
               onClick={() => loadQuoteToPoster(activeQuote)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#d4af37] hover:bg-[#e6c878] text-[#140e0a] text-xs font-bold transition shadow"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#d4af37] hover:bg-[#e3be47] text-[#0b0b0e] text-xs font-bold transition min-h-[40px]"
             >
               <Palette className="w-4 h-4" />
-              <span>এই বাণী দিয়ে পোস্টার তৈরি</span>
+              <span>পোস্টার তৈরি করুন</span>
             </button>
           </div>
-        </div>
+        </section>
 
-        {/* Right Column: Recent Designs or Blank state */}
-        <div className="lg:col-span-5 bg-[#17110c] border border-[#2d2117] rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+        {/* Right: Recent Designs */}
+        <section className="lg:col-span-5 bg-[#141419] border border-white/[0.08] rounded-2xl p-5 sm:p-6 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between pb-4 border-b border-[#2d2117]/60">
-              <h2 className="text-lg font-semibold text-[#f4eee2]">সাম্প্রতিক পোস্টার</h2>
+            <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
+              <h2 className="text-base font-bold text-[#f5f3ee]">সাম্প্রতিক পোস্টার</h2>
               <button
+                type="button"
                 onClick={() => setCurrentView('saved')}
-                className="text-xs text-[#d4af37] hover:underline flex items-center gap-1"
+                className="text-xs text-[#d4af37] hover:underline inline-flex items-center gap-1 font-medium"
               >
-                সবগুলো দেখুন
+                <span>সবগুলো দেখুন</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {savedDesigns.length === 0 ? (
-              <div className="py-12 px-4 text-center">
-                <div className="w-16 h-16 rounded-full bg-[#201710] flex items-center justify-center text-[#7e6d5b] mx-auto mb-3">
-                  <Palette className="w-8 h-8 opacity-60" />
-                </div>
-                <p className="text-sm text-[#baa791] font-medium">এখনো কোনো পোস্টার সংরক্ষণ করা হয়নি</p>
-                <p className="text-xs text-[#7e6d5b] mt-1 max-w-xs mx-auto">
-                  পোস্টার স্টুডিওতে যান এবং নিজের পছন্দমতো ডিজাইন বানিয়ে সংরক্ষণ করুন।
-                </p>
-                <button
-                  onClick={() => setCurrentView('poster')}
-                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-[#241a12] text-[#f7df94] border border-[#3f2f1d] hover:border-[#d4af37]"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  এখনই ডিজাইন শুরু করুন
-                </button>
-              </div>
+              <EmptyState
+                className="border-0 bg-transparent py-8 px-2"
+                icon={<Palette className="w-6 h-6" />}
+                title="এখনো কোনো পোস্টার সংরক্ষণ করা হয়নি"
+                description="পোস্টার স্টুডিওতে যান এবং নিজের পছন্দমতো ডিজাইন বানিয়ে সংরক্ষণ করুন।"
+                action={
+                  <button
+                    type="button"
+                    onClick={() => setCurrentView('poster')}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-xl bg-[#1b1b22] hover:bg-[#23232c] text-[#f2d77d] border border-white/10 transition min-h-[40px]"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>ডিজাইন শুরু করুন</span>
+                  </button>
+                }
+              />
             ) : (
-              <div className="grid grid-cols-2 gap-3.5 mt-4">
+              <div className="grid grid-cols-2 gap-3 mt-4">
                 {savedDesigns.slice(0, 4).map((item) => (
-                  <div
+                  <button
                     key={item.id}
+                    type="button"
                     onClick={() => loadDesignForEdit(item)}
-                    className="group relative bg-[#1f1610] rounded-xl overflow-hidden border border-[#2f2216] hover:border-[#d4af37] cursor-pointer transition shadow-md"
+                    className="group text-left bg-[#0e0e12] rounded-xl overflow-hidden border border-white/[0.08] hover:border-[#d4af37]/50 transition"
                   >
                     <div className="aspect-square w-full overflow-hidden bg-black/40">
                       <img
@@ -352,162 +354,152 @@ export const DashboardView: React.FC = () => {
                       />
                     </div>
                     <div className="p-2.5">
-                      <p className="text-xs font-medium text-[#e8dcbe] truncate">
-                        {item.title}
-                      </p>
-                      <span className="text-[10px] text-[#877461]">
+                      <p className="text-xs font-medium text-[#f5f3ee] truncate">{item.title}</p>
+                      <span className="text-[11px] text-[#807a72] font-mono">
                         {item.poster.size.replace('x', '×')}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
           </div>
 
-          <div className="mt-5 p-3.5 rounded-xl bg-[#1f1610] border border-[#2d2117] flex items-center justify-between">
-            <span className="text-xs text-[#a9947c]">ব্র্যান্ড ও ওয়াটারমার্ক সেটিংস পরিবর্তন করতে চান?</span>
+          <div className="mt-5 pt-4 border-t border-white/[0.08] flex items-center justify-between gap-2 text-xs">
+            <span className="text-[#807a72]">ব্র্যান্ড ও লোগো পরিবর্তন করতে চান?</span>
             <button
+              type="button"
               onClick={() => setCurrentView('brand')}
-              className="text-xs text-[#f7df94] hover:underline font-semibold"
+              className="text-[#f2d77d] hover:underline font-semibold shrink-0"
             >
               ব্র্যান্ড ম্যানেজার →
             </button>
           </div>
-        </div>
+        </section>
       </div>
 
-      {/* Featured Template Cards */}
-      <div className="bg-[#17110c] border border-[#2d2117] rounded-2xl p-6 shadow-xl">
+      {/* Quick Poster Templates */}
+      <section className="bg-[#141419] border border-white/[0.08] rounded-2xl p-5 sm:p-6">
         <div className="mb-4">
-          <h2 className="text-lg font-semibold text-[#f4eee2]">দ্রুত পোস্টার টেমপ্লেট</h2>
-          <p className="text-xs text-[#9b8976] mt-0.5">এক ক্লিকেই বিশেষ দিনের কিংবা নির্দিষ্ট বিষয়ের পোস্টার তৈরি করুন</p>
+          <h2 className="text-base font-bold text-[#f5f3ee]">দ্রুত পোস্টার টেমপ্লেট</h2>
+          <p className="text-xs text-[#807a72] mt-0.5">
+            এক ক্লিকেই বিশেষ দিনের কিংবা নির্দিষ্ট বিষয়ের পোস্টার তৈরি করুন
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          {/* Template 1: Jummah Mubarak */}
-          <div 
-            onClick={() => handleApplyPresetTemplate({
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {[
+            {
+              tag: 'জুমার স্পেশাল',
+              title: 'জুমার দিনের বরকত ও ফজিলত',
+              meta: 'এমারেল্ড রওজা · ১:১ স্কয়ার',
               bn: 'সূর্য উদিত হওয়া দিনগুলোর মধ্যে সর্বোত্তম দিন হলো জুমার দিন।',
               ar: 'خَيْرُ يَوْمٍ طَلَعَتْ عَلَيْهِ الشَّمْسُ يَوْمُ الْجُمُعَةِ',
               ref: 'সহিহ মুসলিম, হাদিস: ৮৫৪',
               theme: 'emerald',
-              size: '1080x1080'
-            })}
-            className="cursor-pointer p-4 rounded-xl border border-[#2d2117] bg-gradient-to-br from-[#0c2e22] to-[#04150f] hover:border-[#d4af37] transition group shadow"
-          >
-            <div className="text-xs font-bold text-[#d4af37] uppercase tracking-wider mb-1">জুমার স্পেশাল</div>
-            <div className="text-sm font-semibold text-white line-clamp-2">জুমার দিনের বরকত ও ফজিলত</div>
-            <p className="text-[11px] text-[#93c5b3] mt-2">এমারেল্ড রওজা থিম • স্কয়ার সাইজ</p>
-          </div>
-
-          {/* Template 2: Sabr */}
-          <div 
-            onClick={() => handleApplyPresetTemplate({
+              size: '1080x1080',
+            },
+            {
+              tag: 'কুরআনের বাণী',
+              title: 'ধৈর্য ও বিপদে স্বস্তির আশা',
+              meta: 'গোল্ডেন নূর · ৪:৫ পোর্ট্রেট',
               bn: 'নিশ্চয়ই কষ্টের সাথেই রয়েছে স্বস্তি।',
               ar: 'فَإِنَّ مَعَ الْعُسْرِ يُسْرًا ۝ إِنَّ مَعَ الْعُسْرِ يُسْرًا',
               ref: 'সূরা আশ-শারহ, আয়াত: ৫-৬',
               theme: 'golden',
-              size: '1080x1350'
-            })}
-            className="cursor-pointer p-4 rounded-xl border border-[#2d2117] bg-gradient-to-br from-[#3b2b10] to-[#1a1205] hover:border-[#d4af37] transition group shadow"
-          >
-            <div className="text-xs font-bold text-[#f7df94] uppercase tracking-wider mb-1">কুরআনের বাণী</div>
-            <div className="text-sm font-semibold text-white line-clamp-2">ধৈর্য ও বিপদে স্বস্তির আশা</div>
-            <p className="text-[11px] text-[#e3c78a] mt-2">গোল্ডেন নূর থিম • ৪:৫ পোর্ট্রেট</p>
-          </div>
-
-          {/* Template 3: Parents */}
-          <div 
-            onClick={() => handleApplyPresetTemplate({
+              size: '1080x1350',
+            },
+            {
+              tag: 'পিতা-মাতার জন্য দোয়া',
+              title: 'মা-বাবার প্রতি ভালোবাসা ও সম্মান',
+              meta: 'নীল গম্বুজ · ১:১ পোস্ট',
               bn: 'হে আমার রব! তাদের উভয়ের প্রতি দয়া করুন, যেমন করে শৈশবে তারা আমাকে লালন-পালন করেছিলেন।',
               ar: 'رَّبِّ ارْحَمْهُمَا كَمَا رَبَّيَانِي صَغِيرًا',
               ref: 'সূরা আল-ইসরা, আয়াত: ২৪',
               theme: 'sapphire',
-              size: '1080x1080'
-            })}
-            className="cursor-pointer p-4 rounded-xl border border-[#2d2117] bg-gradient-to-br from-[#12233b] to-[#060e19] hover:border-[#d4af37] transition group shadow"
-          >
-            <div className="text-xs font-bold text-[#60a5fa] uppercase tracking-wider mb-1">পিতা-মাতার জন্য দোয়া</div>
-            <div className="text-sm font-semibold text-white line-clamp-2">মা-বাবার প্রতি ভালোবাসা ও সম্মান</div>
-            <p className="text-[11px] text-[#93c5fd] mt-2">নীল গম্বুজ থিম • ১:১ পোস্ট</p>
-          </div>
-
-          {/* Template 4: Istighfar */}
-          <div 
-            onClick={() => handleApplyPresetTemplate({
+              size: '1080x1080',
+            },
+            {
+              tag: 'তাওবাহ ও মাগফিরাত',
+              title: 'আল্লাহর সীমাহীন ক্ষমা ও দয়া',
+              meta: 'রয়্যাল অবসিডিয়ান · ৯:১৬ স্টোরি',
               bn: 'তোমরা আল্লাহর রহমত থেকে নিরাশ হয়ো না। নিশ্চয়ই আল্লাহ সমস্ত গুনাহ ক্ষমা করে দেন।',
               ar: 'لَا تَقْنَطُوا مِن رَّحْمَةِ اللَّهِ ۚ إِنَّ اللَّهَ يَغْفِرُ الذُّنُوبَ جَمِيعًا',
               ref: 'সূরা আয-যুমার, আয়াত: ৫৩',
               theme: 'black',
-              size: '1080x1920'
-            })}
-            className="cursor-pointer p-4 rounded-xl border border-[#2d2117] bg-gradient-to-br from-[#241a12] to-[#0d0a07] hover:border-[#d4af37] transition group shadow"
-          >
-            <div className="text-xs font-bold text-[#f59e0b] uppercase tracking-wider mb-1">তাওবাহ ও মাগফিরাত</div>
-            <div className="text-sm font-semibold text-white line-clamp-2">আল্লাহর সীমাহীন ক্ষমা ও দয়া</div>
-            <p className="text-[11px] text-[#d6b794] mt-2">রয়্যাল অবসিডিয়ান • ৯:১৬ স্টোরি</p>
-          </div>
+              size: '1080x1920',
+            },
+          ].map((tpl) => (
+            <button
+              key={tpl.tag}
+              type="button"
+              onClick={() => handleApplyPresetTemplate(tpl)}
+              className="text-left p-4 rounded-xl border border-white/[0.08] bg-[#0e0e12] hover:border-[#d4af37]/50 hover:bg-[#18181f] transition flex flex-col justify-between gap-3"
+            >
+              <div>
+                <div className="text-[11px] font-bold text-[#d4af37] mb-1">{tpl.tag}</div>
+                <div className="text-sm font-semibold text-[#f5f3ee] line-clamp-2">
+                  {tpl.title}
+                </div>
+              </div>
+              <span className="text-[11px] text-[#807a72]">{tpl.meta}</span>
+            </button>
+          ))}
         </div>
-      </div>
+      </section>
 
-      {/* Saved Style Presets Section */}
-      <div className="bg-[#17110c] border border-[#2d2117] rounded-2xl p-6 shadow-xl">
-        <div className="flex items-center justify-between mb-4">
+      {/* Saved Style Presets */}
+      <section className="bg-[#141419] border border-white/[0.08] rounded-2xl p-5 sm:p-6">
+        <div className="flex items-center justify-between gap-3 mb-4">
           <div>
-            <h2 className="text-lg font-semibold text-[#f4eee2] flex items-center gap-2">
-              <Bookmark className="w-5 h-5 text-[#d4af37]" />
-              <span>সংরক্ষিত ডিজাইন প্রিসেট (Saved Style Presets)</span>
-            </h2>
-            <p className="text-xs text-[#9b8976] mt-0.5">
-              পূর্বে সংরক্ষিত যেকোনো ডিজাইনের স্টাইল নির্বাচন করে এক ক্লিকেই ক্যানভাসে প্রয়োগ করুন
+            <h2 className="text-base font-bold text-[#f5f3ee]">সংরক্ষিত ডিজাইন প্রিসেট</h2>
+            <p className="text-xs text-[#807a72] mt-0.5">
+              যেকোনো স্টাইল নির্বাচন করে এক ক্লিকে ক্যানভাসে প্রয়োগ করুন
             </p>
           </div>
           <button
-            onClick={() => {
-              setCurrentView('poster');
-            }}
-            className="text-xs text-[#d4af37] hover:underline flex items-center gap-1 font-semibold"
+            type="button"
+            onClick={() => setCurrentView('poster')}
+            className="text-xs text-[#d4af37] hover:underline font-semibold shrink-0"
           >
             পোস্টার স্টুডিও →
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
           {presets.slice(0, 6).map((preset) => (
-            <div
+            <button
               key={preset.id}
+              type="button"
               onClick={() => {
                 applyPreset(preset.id);
                 setCurrentView('poster');
               }}
-              className="p-4 rounded-xl border border-[#2d2117] hover:border-[#d4af37] bg-[#1a120b] hover:bg-[#221811] cursor-pointer transition group shadow flex flex-col justify-between"
+              className="text-left p-4 rounded-xl border border-white/[0.08] hover:border-[#d4af37]/50 bg-[#0e0e12] hover:bg-[#18181f] transition group flex flex-col justify-between gap-3"
             >
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#271d15] text-[#d4af37] border border-[#3f2f1d]">
+                <div className="flex items-center justify-between text-[11px] text-[#807a72] mb-1.5">
+                  <span className="text-[#d4af37] font-semibold">
                     {preset.category || 'প্রিসেট'}
                   </span>
-                  <span className="text-[10px] text-[#877461]">
-                    {preset.config.size}
-                  </span>
+                  <span className="font-mono">{preset.config.size}</span>
                 </div>
-                <h4 className="text-sm font-semibold text-[#f4eee2] group-hover:text-[#f7df94] transition mb-1">
+                <h3 className="text-sm font-semibold text-[#f5f3ee] group-hover:text-[#f2d77d] transition">
                   {preset.name}
-                </h4>
-                <p className="text-xs text-[#877461] line-clamp-2">
-                  {preset.description || `${preset.config.font} • ${preset.config.theme}`}
+                </h3>
+                <p className="text-xs text-[#807a72] line-clamp-2 mt-1">
+                  {preset.description || `${preset.config.font} · ${preset.config.theme}`}
                 </p>
               </div>
 
-              <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-[#231a12] text-[11px] text-[#baa791]">
-                <span>ফন্ট: {preset.config.font}</span>
-                <span className="text-[#d4af37] group-hover:underline font-medium">প্রয়োগ করুন →</span>
+              <div className="flex items-center justify-between pt-2.5 border-t border-white/[0.06] text-[11px] text-[#b6b0a6]">
+                <span>{preset.config.font}</span>
+                <span className="text-[#d4af37] font-semibold">প্রয়োগ করুন →</span>
               </div>
-            </div>
+            </button>
           ))}
         </div>
-      </div>
+      </section>
     </div>
   );
 };

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Header } from './Header';
-import { formatDateBn, toBengaliNumber } from '../utils/bengaliUtils';
+import { EmptyState } from './ui/EmptyState';
+import { ConfirmDialog } from './ui/ConfirmDialog';
+import { formatDateBn } from '../utils/bengaliUtils';
 import { downloadBlob, renderPoster } from '../utils/canvasRenderer';
 import { SavedDesign } from '../types';
 import { generateSeoFilename, generateLocalFacebookPost } from '../utils/seoUtils';
@@ -11,17 +13,14 @@ import {
   Download,
   Copy,
   Trash2,
-  CopyCheck,
   PlusCircle,
   Search,
-  ExternalLink
 } from 'lucide-react';
 
 export const SavedDesignsView: React.FC = () => {
   const {
     savedDesigns,
     deleteDesign,
-    duplicateDesign,
     loadDesignForEdit,
     setCurrentView,
     startNewDesign,
@@ -33,12 +32,19 @@ export const SavedDesignsView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sizeFilter, setSizeFilter] = useState<string>('all');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [designToDelete, setDesignToDelete] = useState<SavedDesign | null>(null);
 
   const filteredDesigns = savedDesigns.filter((d) => {
     if (sizeFilter !== 'all' && d.poster.size !== sizeFilter) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const text = (d.poster.bn + ' ' + (d.poster.ar || '') + ' ' + (d.poster.ref || '')).toLowerCase();
+      const text = (
+        d.poster.bn +
+        ' ' +
+        (d.poster.ar || '') +
+        ' ' +
+        (d.poster.ref || '')
+      ).toLowerCase();
       return text.includes(q);
     }
     return true;
@@ -72,17 +78,18 @@ export const SavedDesignsView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-200">
       <Header
         title="সংরক্ষিত পোস্টার গ্যালারি"
-        subtitle="আপনার পূর্বে তৈরিকৃত সকল পোস্টার এখানে সংরক্ষিত রয়েছে। যে কোনো সময় সম্পাদনা, ডাউনলোড বা শেয়ার করতে পারেন।"
+        subtitle="আপনার পূর্বে তৈরিকৃত সকল পোস্টার এখানে সংরক্ষিত রয়েছে। যেকোনো সময় সম্পাদনা, ডাউনলোড বা শেয়ার করুন।"
         actionButton={
           <button
+            type="button"
             onClick={() => {
               startNewDesign();
               setCurrentView('poster');
             }}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] font-semibold text-sm shadow-lg transition-transform active:scale-95"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#d4af37] hover:bg-[#e3be47] text-[#0b0b0e] font-bold text-xs sm:text-sm transition min-h-[40px]"
           >
             <PlusCircle className="w-4 h-4" />
             <span>নতুন পোস্টার</span>
@@ -90,21 +97,20 @@ export const SavedDesignsView: React.FC = () => {
         }
       />
 
-      {/* Filter and Search Bar */}
       {savedDesigns.length > 0 && (
-        <div className="bg-[#17110c] border border-[#2d2117] rounded-2xl p-4 flex flex-col sm:flex-row gap-3 items-center justify-between shadow-md">
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#877461]" />
+        <div className="bg-[#141419] border border-white/[0.08] rounded-2xl p-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+          <div className="relative flex-1 sm:max-w-xs">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#807a72]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="সংরক্ষিত ডিজাইনে খুঁজুন..."
-              className="w-full pl-9 pr-3 py-2 bg-[#120e0a] border border-[#2d2117] rounded-xl text-xs text-[#f4eee2] focus:border-[#d4af37] outline-none"
+              className="w-full pl-10 pr-3 py-2 bg-[#0e0e12] border border-white/10 rounded-xl text-xs text-[#f5f3ee] focus:border-[#d4af37] outline-none min-h-[40px]"
             />
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
             {[
               { id: 'all', label: 'সবগুলো' },
               { id: '1080x1080', label: 'বর্গাকার (১:১)' },
@@ -114,11 +120,12 @@ export const SavedDesignsView: React.FC = () => {
             ].map((s) => (
               <button
                 key={s.id}
+                type="button"
                 onClick={() => setSizeFilter(s.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition ${
+                className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition min-h-[36px] ${
                   sizeFilter === s.id
-                    ? 'bg-[#d4af37] text-[#140e0a] font-bold'
-                    : 'bg-[#1f1610] text-[#877461] hover:text-[#f4eee2]'
+                    ? 'bg-[#d4af37] text-[#0b0b0e] font-bold'
+                    : 'bg-[#1b1b22] text-[#b6b0a6] hover:text-[#f5f3ee]'
                 }`}
               >
                 {s.label}
@@ -128,117 +135,145 @@ export const SavedDesignsView: React.FC = () => {
         </div>
       )}
 
-      {/* Main Grid */}
       {filteredDesigns.length === 0 ? (
-        <div className="bg-[#17110c] border border-[#2d2117] rounded-2xl p-16 text-center">
-          <div className="w-16 h-16 rounded-full bg-[#201710] flex items-center justify-center text-[#7e6d5b] mx-auto mb-4">
-            <FolderHeart className="w-8 h-8 opacity-60" />
-          </div>
-          <h3 className="text-lg font-semibold text-[#f4eee2]">
-            {savedDesigns.length === 0 ? 'এখনো কোনো ডিজাইন সংরক্ষণ করা হয়নি' : 'কোনো ফলাফল পাওয়া যায়নি'}
-          </h3>
-          <p className="text-xs text-[#877461] mt-1 max-w-sm mx-auto">
-            {savedDesigns.length === 0
+        <EmptyState
+          icon={<FolderHeart className="w-6 h-6" />}
+          title={
+            savedDesigns.length === 0
+              ? 'এখনো কোনো ডিজাইন সংরক্ষণ করা হয়নি'
+              : 'কোনো ফলাফল পাওয়া যায়নি'
+          }
+          description={
+            savedDesigns.length === 0
               ? 'পোস্টার স্টুডিওতে যান এবং নতুন ডিজাইন বানিয়ে “সংরক্ষণ করুন” বাটনে চাপুন।'
-              : 'অনুসন্ধানের শব্দ পরিবর্তন করে চেষ্টা করুন।'}
-          </p>
-          <button
-            onClick={() => {
-              if (savedDesigns.length === 0) {
-                setCurrentView('poster');
-              } else {
-                setSearchQuery('');
-                setSizeFilter('all');
-              }
-            }}
-            className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#241a12] text-[#f7df94] border border-[#3f2f1d] hover:border-[#d4af37] text-xs font-semibold"
-          >
-            {savedDesigns.length === 0 ? 'পোস্টার স্টুডিওতে যান' : 'ফিল্টার রিসেট করুন'}
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {filteredDesigns.map((d) => (
-            <div
-              key={d.id}
-              className="bg-[#17110c] border border-[#2d2117] hover:border-[#423122] rounded-2xl overflow-hidden shadow-lg flex flex-col justify-between transition-all group"
+              : 'অনুসন্ধানের শব্দ বা ফিল্টার পরিবর্তন করে চেষ্টা করুন।'
+          }
+          action={
+            <button
+              type="button"
+              onClick={() => {
+                if (savedDesigns.length === 0) {
+                  setCurrentView('poster');
+                } else {
+                  setSearchQuery('');
+                  setSizeFilter('all');
+                }
+              }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1b1b22] hover:bg-[#23232c] text-[#f2d77d] border border-white/10 text-xs font-semibold min-h-[42px]"
             >
-              {/* Thumbnail Container */}
-              <div 
+              {savedDesigns.length === 0 ? 'পোস্টার স্টুডিওতে যান' : 'ফিল্টার রিসেট করুন'}
+            </button>
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+          {filteredDesigns.map((d) => (
+            <article
+              key={d.id}
+              className="bg-[#141419] border border-white/[0.08] hover:border-white/20 rounded-2xl overflow-hidden flex flex-col justify-between transition group"
+            >
+              <button
+                type="button"
                 onClick={() => loadDesignForEdit(d)}
-                className="relative bg-black/60 overflow-hidden cursor-pointer flex items-center justify-center"
-                style={{ aspectRatio: d.poster.size === '1080x1920' ? '9/16' : d.poster.size === '1080x1350' ? '4/5' : d.poster.size === '1200x630' ? '1.91/1' : '1/1' }}
+                className="relative bg-black/50 overflow-hidden flex items-center justify-center w-full"
+                style={{
+                  aspectRatio:
+                    d.poster.size === '1080x1920'
+                      ? '9/16'
+                      : d.poster.size === '1080x1350'
+                      ? '4/5'
+                      : d.poster.size === '1200x630'
+                      ? '1.91/1'
+                      : '1/1',
+                }}
               >
                 <img
                   src={d.thumb}
                   alt={d.title}
                   className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
                 />
-                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#140e0a]/90 text-[#f7df94] text-xs font-semibold backdrop-blur-sm shadow-md">
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141419] text-[#f2d77d] border border-white/15 text-xs font-semibold">
                     <Edit3 className="w-3.5 h-3.5" />
                     সম্পাদনা করুন
                   </span>
                 </div>
-                <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-[#140e0a]/80 text-[#f7df94] text-[10px] font-medium backdrop-blur-sm border border-[#2d2117]">
+                <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-black/75 text-[#f2d77d] text-[10px] font-mono border border-white/10">
                   {d.poster.size.replace('x', '×')}
-                </div>
-              </div>
+                </span>
+              </button>
 
-              {/* Info & Actions */}
               <div className="p-4 flex flex-col justify-between flex-1">
                 <div>
-                  <p className="font-bengali text-xs text-[#e8dcbe] line-clamp-2 leading-relaxed mb-1.5">
+                  <p className="font-bengali text-xs text-[#f5f3ee] line-clamp-2 leading-relaxed mb-1.5">
                     {d.poster.bn}
                   </p>
-                  <p className="text-[11px] text-[#877461]">
-                    {formatDateBn(d.updated)} {d.poster.ref ? `• ${d.poster.ref}` : ''}
+                  <p className="text-[11px] text-[#807a72] truncate">
+                    {formatDateBn(d.updated)} {d.poster.ref ? `· ${d.poster.ref}` : ''}
                   </p>
                 </div>
 
-                <div className="grid grid-cols-4 gap-1.5 mt-4 pt-3 border-t border-[#231a12]">
+                <div className="grid grid-cols-4 gap-1.5 mt-4 pt-3 border-t border-white/[0.06]">
                   <button
+                    type="button"
                     onClick={() => loadDesignForEdit(d)}
-                    className="flex items-center justify-center py-2 rounded-lg bg-[#221811] hover:bg-[#2e2016] text-[#f7df94] border border-[#3a2a1d] text-xs transition"
+                    className="flex items-center justify-center min-h-[38px] rounded-lg bg-[#1b1b22] hover:bg-[#23232c] text-[#f2d77d] border border-white/[0.08] transition"
                     title="সম্পাদনা করুন"
+                    aria-label="সম্পাদনা করুন"
                   >
                     <Edit3 className="w-3.5 h-3.5" />
                   </button>
 
                   <button
+                    type="button"
                     disabled={downloadingId === d.id}
                     onClick={() => handleDownload(d)}
-                    className="flex items-center justify-center py-2 rounded-lg bg-[#221811] hover:bg-[#2e2016] text-[#e0d2bf] border border-[#3a2a1d] text-xs transition"
+                    className="flex items-center justify-center min-h-[38px] rounded-lg bg-[#1b1b22] hover:bg-[#23232c] text-[#f5f3ee] border border-white/[0.08] transition disabled:opacity-50"
                     title="PNG ডাউনলোড"
+                    aria-label="PNG ডাউনলোড"
                   >
                     <Download className="w-3.5 h-3.5" />
                   </button>
 
                   <button
+                    type="button"
                     onClick={() => handleCopyCaption(d)}
-                    className="flex items-center justify-center py-2 rounded-lg bg-[#221811] hover:bg-[#2e2016] text-[#e0d2bf] border border-[#3a2a1d] text-xs transition"
+                    className="flex items-center justify-center min-h-[38px] rounded-lg bg-[#1b1b22] hover:bg-[#23232c] text-[#f5f3ee] border border-white/[0.08] transition"
                     title="ক্যাপশন কপি"
+                    aria-label="ক্যাপশন কপি"
                   >
                     <Copy className="w-3.5 h-3.5" />
                   </button>
 
                   <button
-                    onClick={() => {
-                      if (confirm('আপনি কি নিশ্চিত যে এই ডিজাইনটি মুছে ফেলতে চান?')) {
-                        deleteDesign(d.id);
-                      }
-                    }}
-                    className="flex items-center justify-center py-2 rounded-lg bg-[#281313] hover:bg-[#381a1a] text-red-400 border border-red-900/40 text-xs transition"
+                    type="button"
+                    onClick={() => setDesignToDelete(d)}
+                    className="flex items-center justify-center min-h-[38px] rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition"
                     title="মুছে ফেলুন"
+                    aria-label="মুছে ফেলুন"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
-            </div>
+            </article>
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={Boolean(designToDelete)}
+        onClose={() => setDesignToDelete(null)}
+        onConfirm={() => {
+          if (designToDelete) {
+            deleteDesign(designToDelete.id);
+            setDesignToDelete(null);
+          }
+        }}
+        title="পোস্টার ডিজাইন মুছে ফেলবেন?"
+        description="আপনি কি নিশ্চিত যে এই সংরক্ষিত পোস্টারটি স্থায়ীভাবে মুছে ফেলতে চান? এটি আর পুনরুদ্ধার করা যাবে না।"
+        confirmLabel="হ্যাঁ, মুছে ফেলুন"
+      />
     </div>
   );
 };

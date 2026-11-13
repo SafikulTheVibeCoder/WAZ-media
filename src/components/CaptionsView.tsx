@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Header } from './Header';
+import { EmptyState } from './ui/EmptyState';
 import { INITIAL_QUOTES, CATEGORIES } from '../data/quotes';
-import { SURAH_LIST, SurahMeta } from '../data/surahList';
+import { SURAH_LIST } from '../data/surahList';
 import {
   fetchAyahByNumber,
   fetchFullSurah,
@@ -24,80 +25,59 @@ import {
   Search,
   Copy,
   Check,
-  Palette,
   Bookmark,
   BookOpen,
-  Filter,
-  Share2,
   Sparkles,
   RefreshCw,
   Globe,
   Layers,
-  FileText,
-  ChevronDown,
   ArrowRight,
   ChevronLeft,
   ChevronRight,
-  BookMarked,
-  SlidersHorizontal,
   PlusCircle,
-  ExternalLink,
   ShieldCheck,
-  AlertCircle,
 } from 'lucide-react';
 
 export const CaptionsView: React.FC = () => {
-  const { loadQuoteToPoster, showToast, toggleFavorite, isFavorite, incrementStat, brand, activePresetId, presets } = useApp();
+  const { loadQuoteToPoster, showToast, toggleFavorite, isFavorite, incrementStat, brand } =
+    useApp();
 
-  // Mode: curated highlights vs full Quran browser vs Hadith explorer
   const [activeTabMode, setActiveTabMode] = useState<'curated' | 'quran' | 'hadith'>('curated');
 
-  // ──────────────────────────────────────────────────────────
   // 1. Curated & Dynamic Quotes State
-  // ──────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('সব');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [onlyFavorites, setOnlyFavorites] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  // Dynamic Quran Ayahs appended to curated collection
   const [extraCuratedAyahs, setExtraCuratedAyahs] = useState<QuoteItem[]>([]);
   const [curatedBatchPage, setCuratedBatchPage] = useState(1);
   const [isLoadingMoreCurated, setIsLoadingMoreCurated] = useState(false);
 
-  // ──────────────────────────────────────────────────────────
   // 2. Quran API Browser State
-  // ──────────────────────────────────────────────────────────
-  const [selectedSurahNumber, setSelectedSurahNumber] = useState<number>(2); // Default to Surah Al-Baqarah
-  const [inputAyahNumber, setInputAyahNumber] = useState<string>('153'); // Default to Ayah 153
+  const [selectedSurahNumber, setSelectedSurahNumber] = useState<number>(2);
+  const [inputAyahNumber, setInputAyahNumber] = useState<string>('153');
   const [quranAyahs, setQuranAyahs] = useState<AyahResult[]>([]);
   const [isFetchingQuran, setIsFetchingQuran] = useState(false);
   const [quranViewMode, setQuranViewMode] = useState<'single' | 'full'>('single');
   const [surahPage, setSurahPage] = useState(1);
   const ayahsPerPage = 15;
-
-  // API Live Search State
   const [apiSearchResults, setApiSearchResults] = useState<AyahResult[]>([]);
   const [isSearchingApi, setIsSearchingApi] = useState(false);
   const [hasSearchedApi, setHasSearchedApi] = useState(false);
 
-  // ──────────────────────────────────────────────────────────
   // 3. Hadith Explorer State
-  // ──────────────────────────────────────────────────────────
   const [hadithTopic, setHadithTopic] = useState<string>('সবর ও শোকর');
   const [selectedHadithBook, setSelectedHadithBook] = useState<string>('all');
   const [hadithList, setHadithList] = useState<HadithItem[]>([]);
   const [isFetchingHadith, setIsFetchingHadith] = useState(false);
-  const [hadithError, setHadithError] = useState<string | null>(null);
   const [hadithSearch, setHadithSearch] = useState('');
-
-  // Direct Hadith lookup inputs
-  const [directBook, setDirectBook] = useState<'bukhari' | 'muslim' | 'tirmidhi' | 'nawawi'>('bukhari');
+  const [directBook, setDirectBook] = useState<'bukhari' | 'muslim' | 'tirmidhi' | 'nawawi'>(
+    'bukhari'
+  );
   const [directNumber, setDirectNumber] = useState<string>('1');
   const [isFetchingDirect, setIsFetchingDirect] = useState(false);
 
-  // Initial load for default Ayah (Surah 2:153) and default Hadiths
   useEffect(() => {
     let isMounted = true;
     fetchAyahByNumber(2, 153).then((res) => {
@@ -106,7 +86,6 @@ export const CaptionsView: React.FC = () => {
       }
     });
 
-    // Pre-populate Hadiths for default topic
     fetchHadithsByTopic('সবর ও শোকর').then((items) => {
       if (isMounted && items.length > 0) {
         setHadithList(items);
@@ -118,12 +97,10 @@ export const CaptionsView: React.FC = () => {
     };
   }, []);
 
-  // Combined curated + dynamically fetched quotes
   const allCuratedQuotes = useMemo(() => {
     return [...INITIAL_QUOTES, ...extraCuratedAyahs];
   }, [extraCuratedAyahs]);
 
-  // Filtered curated quotes
   const filteredCuratedQuotes = useMemo(() => {
     return allCuratedQuotes.filter((q) => {
       if (onlyFavorites && !isFavorite(q.id)) return false;
@@ -142,7 +119,6 @@ export const CaptionsView: React.FC = () => {
     });
   }, [allCuratedQuotes, searchQuery, selectedCategory, selectedType, onlyFavorites, isFavorite]);
 
-  // Handle dynamically loading more Quran ayahs into the curated feed
   const handleLoadMoreDynamicQuran = async () => {
     setIsLoadingMoreCurated(true);
     try {
@@ -160,7 +136,9 @@ export const CaptionsView: React.FC = () => {
         }));
         setExtraCuratedAyahs((prev) => [...prev, ...newItems]);
         setCuratedBatchPage(nextPage);
-        showToast(`কুরআন এপিআই থেকে আরও ${toBengaliNumber(newItems.length)}টি আয়াত লোড করা হয়েছে!`);
+        showToast(
+          `কুরআন এপিআই থেকে আরও ${toBengaliNumber(newItems.length)}টি আয়াত লোড করা হয়েছে!`
+        );
       } else {
         showToast('নতুন আয়াত লোড করতে সমস্যা হয়েছে');
       }
@@ -171,9 +149,6 @@ export const CaptionsView: React.FC = () => {
     }
   };
 
-  // ──────────────────────────────────────────────────────────
-  // Quran Browser Handlers
-  // ──────────────────────────────────────────────────────────
   const handleFetchAyah = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const ayahNum = parseInt(inputAyahNumber, 10);
@@ -211,7 +186,9 @@ export const CaptionsView: React.FC = () => {
       if (res && res.length > 0) {
         setQuranAyahs(res);
         const surah = SURAH_LIST.find((s) => s.number === selectedSurahNumber);
-        showToast(`সূরা ${surah?.banglaName}-এর মোট ${toBengaliNumber(res.length)}টি আয়াত লোড হয়েছে`);
+        showToast(
+          `সূরা ${surah?.banglaName}-এর মোট ${toBengaliNumber(res.length)}টি আয়াত লোড হয়েছে`
+        );
       } else {
         showToast('সূরা লোড করা যায়নি');
       }
@@ -264,23 +241,20 @@ export const CaptionsView: React.FC = () => {
     }
   };
 
-  // ──────────────────────────────────────────────────────────
-  // Hadith Explorer Handlers
-  // ──────────────────────────────────────────────────────────
-  const handleLoadHadiths = async (topicName: string, bookName: string = selectedHadithBook) => {
+  const handleLoadHadiths = async (
+    topicName: string,
+    bookName: string = selectedHadithBook
+  ) => {
     setIsFetchingHadith(true);
-    setHadithError(null);
     setHadithTopic(topicName);
     setSelectedHadithBook(bookName);
 
     try {
-      // 1. Immediately hydrate verified authentic collection to prevent blank screen
       const localMatches = await fetchHadithsByTopic(topicName, bookName);
       if (localMatches.length > 0) {
         setHadithList(localMatches);
       }
 
-      // 2. Query server endpoint for dynamic Hadith curation
       const res = await fetch('/api/hadith/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -293,7 +267,11 @@ export const CaptionsView: React.FC = () => {
           const formatted: HadithItem[] = data.items.map((it: any, idx: number) => ({
             id: it.id || `h-${idx}-${Date.now()}`,
             type: 'hadith',
-            book: (it.ref?.includes('বুখারি') ? 'bukhari' : it.ref?.includes('মুসলিম') ? 'muslim' : 'tirmidhi') as any,
+            book: (it.ref?.includes('বুখারি')
+              ? 'bukhari'
+              : it.ref?.includes('মুসলিম')
+              ? 'muslim'
+              : 'tirmidhi') as any,
             bookNameBn: it.ref?.split(',')[0] || 'সহীহ হাদিস',
             hadithNumber: idx + 1,
             ar: it.ar || '',
@@ -306,9 +284,8 @@ export const CaptionsView: React.FC = () => {
           showToast(`"${topicName}" সম্পর্কিত হাদিস সংকলন প্রস্তুত!`);
         }
       }
-    } catch (err: any) {
+    } catch (err) {
       console.warn('Hadith API notice:', err);
-      // Fallback already populated via localMatches
       if (hadithList.length === 0) {
         const fallback = await fetchHadithsByTopic(topicName, bookName);
         setHadithList(fallback);
@@ -357,9 +334,6 @@ export const CaptionsView: React.FC = () => {
     });
   }, [hadithList, selectedHadithBook, hadithSearch]);
 
-  // ──────────────────────────────────────────────────────────
-  // Common Poster Generator & Copy Handlers
-  // ──────────────────────────────────────────────────────────
   const handleCopyQuote = (quote: { bn: string; ar?: string; ref: string }) => {
     const post = generateLocalFacebookPost(
       {
@@ -376,9 +350,15 @@ export const CaptionsView: React.FC = () => {
     showToast('সম্পূর্ণ এসইও ফেসবুক পোস্ট কপি করা হয়েছে');
   };
 
-  const handleSendToPoster = async (quote: { bn: string; ar?: string; ref: string; type?: ContentType; surahNumber?: number; ayahNumber?: number }) => {
+  const handleSendToPoster = async (quote: {
+    bn: string;
+    ar?: string;
+    ref: string;
+    type?: ContentType;
+    surahNumber?: number;
+    ayahNumber?: number;
+  }) => {
     let arabic = quote.ar || '';
-    // If arabic text is missing (e.g. from search), fetch it immediately
     if (!arabic && quote.surahNumber && quote.ayahNumber) {
       showToast('আরবি উসমানি পাঠ্য লোড হচ্ছে...');
       try {
@@ -401,9 +381,9 @@ export const CaptionsView: React.FC = () => {
     });
   };
 
-  const selectedSurahMeta = SURAH_LIST.find((s) => s.number === selectedSurahNumber) || SURAH_LIST[1];
+  const selectedSurahMeta =
+    SURAH_LIST.find((s) => s.number === selectedSurahNumber) || SURAH_LIST[1];
 
-  // Pagination for full surah view
   const paginatedQuranAyahs = useMemo(() => {
     if (quranViewMode !== 'full') return quranAyahs;
     const startIndex = (surahPage - 1) * ayahsPerPage;
@@ -413,157 +393,148 @@ export const CaptionsView: React.FC = () => {
   const totalSurahPages = Math.ceil(quranAyahs.length / ayahsPerPage);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-200">
       <Header
         title="ইসলামিক বাণী ও কুরআন ডিজিটাল লাইব্রেরি"
         subtitle="পবিত্র কুরআনুল কারীমের ১১৪টি সূরা, ৬,২৩৬টি আয়াত এবং সহীহ হাদিস ভাণ্ডার। সরাসরি পোস্টার ক্যানভাসে ব্যবহার করুন।"
       />
 
-      {/* Mode Switcher Tabs */}
-      <div className="bg-[#17110c] border border-[#2d2117] rounded-2xl p-2 sm:p-2.5 shadow-xl flex flex-wrap gap-2">
+      {/* Mode Segmented Control */}
+      <div className="bg-[#141419] border border-white/[0.08] rounded-2xl p-1.5 grid grid-cols-1 sm:grid-cols-3 gap-1.5">
         <button
+          type="button"
           onClick={() => setActiveTabMode('curated')}
-          className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-semibold transition ${
+          className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-semibold transition min-h-[42px] tabular-nums ${
             activeTabMode === 'curated'
-              ? 'bg-gradient-to-r from-[#d4af37] to-[#b38927] text-[#140e0a] font-bold shadow-md'
-              : 'bg-[#120e0a] text-[#a9947c] hover:bg-[#20160f] hover:text-[#f4eee2] border border-[#2b1f14]'
+              ? 'bg-[#d4af37] text-[#0b0b0e] font-bold'
+              : 'text-[#b6b0a6] hover:text-[#f5f3ee] hover:bg-[#1b1b22]'
           }`}
         >
           <Sparkles className="w-4 h-4 shrink-0" />
-          <span>নির্বাচিত বাণী ও হাদিস ({allCuratedQuotes.length})</span>
+          <span>নির্বাচিত বাণী ({toBengaliNumber(allCuratedQuotes.length)})</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveTabMode('quran')}
-          className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-semibold transition ${
+          className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-semibold transition min-h-[42px] ${
             activeTabMode === 'quran'
-              ? 'bg-gradient-to-r from-[#d4af37] to-[#b38927] text-[#140e0a] font-bold shadow-md'
-              : 'bg-[#120e0a] text-[#a9947c] hover:bg-[#20160f] hover:text-[#f4eee2] border border-[#2b1f14]'
+              ? 'bg-[#d4af37] text-[#0b0b0e] font-bold'
+              : 'text-[#b6b0a6] hover:text-[#f5f3ee] hover:bg-[#1b1b22]'
           }`}
         >
           <BookOpen className="w-4 h-4 shrink-0" />
-          <span>সমগ্র কুরআন (১১৪ সূরা • ৬,২৩৬ আয়াত)</span>
+          <span>সমগ্র কুরআন (১১৪ সূরা)</span>
         </button>
 
         <button
+          type="button"
           onClick={() => {
             setActiveTabMode('hadith');
             if (hadithList.length === 0) {
               handleLoadHadiths('সবর ও শোকর');
             }
           }}
-          className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-semibold transition ${
+          className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-semibold transition min-h-[42px] ${
             activeTabMode === 'hadith'
-              ? 'bg-gradient-to-r from-[#d4af37] to-[#b38927] text-[#140e0a] font-bold shadow-md'
-              : 'bg-[#120e0a] text-[#a9947c] hover:bg-[#20160f] hover:text-[#f4eee2] border border-[#2b1f14]'
+              ? 'bg-[#d4af37] text-[#0b0b0e] font-bold'
+              : 'text-[#b6b0a6] hover:text-[#f5f3ee] hover:bg-[#1b1b22]'
           }`}
         >
           <Layers className="w-4 h-4 shrink-0" />
-          <span>সহীহ হাদিস এক্সপ্লোরার ও লাইব্রেরি</span>
+          <span>সহীহ হাদিস এক্সপ্লোরার</span>
         </button>
       </div>
 
-      {/* ────────────────────────────────────────────────────────── */}
-      {/* 1. CURATED TAB (With Dynamic Expansion) */}
-      {/* ────────────────────────────────────────────────────────── */}
+      {/* TAB 1: CURATED */}
       {activeTabMode === 'curated' && (
-        <div className="space-y-6 animate-in fade-in duration-200">
-          {/* Filter and Search Bar */}
-          <div className="bg-[#17110c] border border-[#2d2117] rounded-2xl p-4 md:p-5 shadow-lg space-y-4">
+        <div className="space-y-5">
+          <div className="bg-[#141419] border border-white/[0.08] rounded-2xl p-4 sm:p-5 space-y-4">
             <div className="flex flex-col md:flex-row gap-3">
               <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#877461]" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#807a72]" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="বাণীতে খুঁজুন (উদাঃ ধৈর্য, সালাত, ক্ষমা, জান্নাত, বুখারি)..."
-                  className="w-full pl-10 pr-4 py-2.5 bg-[#120e0a] border border-[#2d2117] focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37] rounded-xl text-sm text-[#f4eee2] placeholder-[#7a6a58] outline-none transition"
+                  placeholder="বাণীতে খুঁজুন (যেমন: ধৈর্য, সালাত, ক্ষমা, জান্নাত, বুখারি)..."
+                  className="w-full pl-10 pr-16 py-2.5 bg-[#0e0e12] border border-white/10 focus:border-[#d4af37] rounded-xl text-sm text-[#f5f3ee] placeholder-[#807a72] outline-none transition min-h-[42px]"
                 />
                 {searchQuery && (
                   <button
+                    type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#877461] hover:text-[#f4eee2]"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#b6b0a6] hover:text-[#f5f3ee]"
                   >
                     মুছুন
                   </button>
                 )}
               </div>
 
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+                {[
+                  { id: 'all', label: `সব (${toBengaliNumber(allCuratedQuotes.length)})` },
+                  { id: 'quran', label: 'কুরআন' },
+                  { id: 'hadith', label: 'হাদিস' },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setSelectedType(t.id)}
+                    className={`px-3 py-2 text-xs rounded-xl font-semibold transition shrink-0 min-h-[40px] tabular-nums ${
+                      selectedType === t.id
+                        ? 'bg-[#d4af37] text-[#0b0b0e]'
+                        : 'bg-[#1b1b22] text-[#b6b0a6] hover:text-[#f5f3ee]'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+
                 <button
-                  onClick={() => setSelectedType('all')}
-                  className={`px-3 py-2 text-xs rounded-lg font-medium transition shrink-0 ${
-                    selectedType === 'all'
-                      ? 'bg-[#d4af37] text-[#140e0a] font-bold'
-                      : 'bg-[#1f1610] text-[#a9947c] hover:bg-[#2a1d13]'
-                  }`}
-                >
-                  সবগুলো ({toBengaliNumber(allCuratedQuotes.length)})
-                </button>
-                <button
-                  onClick={() => setSelectedType('quran')}
-                  className={`px-3 py-2 text-xs rounded-lg font-medium transition shrink-0 ${
-                    selectedType === 'quran'
-                      ? 'bg-[#d4af37] text-[#140e0a] font-bold'
-                      : 'bg-[#1f1610] text-[#a9947c] hover:bg-[#2a1d13]'
-                  }`}
-                >
-                  কুরআন
-                </button>
-                <button
-                  onClick={() => setSelectedType('hadith')}
-                  className={`px-3 py-2 text-xs rounded-lg font-medium transition shrink-0 ${
-                    selectedType === 'hadith'
-                      ? 'bg-[#d4af37] text-[#140e0a] font-bold'
-                      : 'bg-[#1f1610] text-[#a9947c] hover:bg-[#2a1d13]'
-                  }`}
-                >
-                  হাদিস
-                </button>
-                <button
+                  type="button"
                   onClick={() => setOnlyFavorites(!onlyFavorites)}
-                  className={`flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg font-medium transition shrink-0 border ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl font-semibold transition shrink-0 border min-h-[40px] ${
                     onlyFavorites
-                      ? 'bg-[#d4af37]/20 border-[#d4af37] text-[#f7df94]'
-                      : 'bg-[#1f1610] border-[#2d2117] text-[#a9947c] hover:text-[#f4eee2]'
+                      ? 'bg-[#d4af37]/15 border-[#d4af37] text-[#f2d77d]'
+                      : 'bg-[#1b1b22] border-white/[0.08] text-[#b6b0a6] hover:text-[#f5f3ee]'
                   }`}
                 >
                   <Bookmark className={`w-3.5 h-3.5 ${onlyFavorites ? 'fill-current' : ''}`} />
-                  <span>পছন্দের তালিকা</span>
+                  <span>পছন্দের</span>
                 </button>
               </div>
             </div>
 
-            {/* If user selected "Quran", clarify that 6,236 Ayahs are available in Tab 2 */}
             {selectedType === 'quran' && (
-              <div className="p-3 rounded-xl bg-[#241a12] border border-[#d4af37]/40 flex flex-col sm:flex-row items-center justify-between gap-2.5">
-                <div className="flex items-center gap-2 text-xs text-[#e8dcbe]">
+              <div className="p-3.5 rounded-xl bg-[#0e0e12] border border-[#d4af37]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs text-[#f5f3ee]">
                   <Globe className="w-4 h-4 text-[#d4af37] shrink-0" />
                   <span>
                     পবিত্র কুরআনের <strong>১১৪টি পূর্ণ সূরা ও ৬,২৩৬টি আয়াত</strong> ব্রাউজ ও সার্চ করতে চান?
                   </span>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setActiveTabMode('quran')}
-                  className="px-3.5 py-1.5 rounded-lg bg-[#d4af37] hover:bg-[#e6c878] text-[#140e0a] font-bold text-xs transition shadow shrink-0 flex items-center gap-1.5"
+                  className="px-3.5 py-2 rounded-lg bg-[#d4af37] hover:bg-[#e3be47] text-[#0b0b0e] font-bold text-xs transition shrink-0 inline-flex items-center gap-1.5"
                 >
                   <BookOpen className="w-3.5 h-3.5" />
-                  <span>সমগ্র কুরআন ব্রাউজারে যান</span>
+                  <span>সমগ্র কুরআন ব্রাউজার</span>
                 </button>
               </div>
             )}
 
-            {/* Categories Chips */}
-            <div className="flex flex-wrap gap-2 pt-2 border-t border-[#231a12]">
+            <div className="flex flex-wrap gap-1.5 pt-2 border-t border-white/[0.06]">
               {CATEGORIES.map((cat) => (
                 <button
                   key={cat}
+                  type="button"
                   onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1.5 rounded-full text-xs transition ${
+                  className={`px-3 py-1.5 rounded-lg text-xs transition ${
                     selectedCategory === cat
-                      ? 'bg-[#d4af37] text-[#140e0a] font-bold shadow'
-                      : 'bg-[#1f1610] text-[#9b8976] hover:bg-[#2a1d13] hover:text-[#d3c2ad]'
+                      ? 'bg-[#d4af37] text-[#0b0b0e] font-bold'
+                      : 'bg-[#1b1b22] text-[#b6b0a6] hover:text-[#f5f3ee]'
                   }`}
                 >
                   {cat}
@@ -572,179 +543,215 @@ export const CaptionsView: React.FC = () => {
             </div>
           </div>
 
-          {/* Result count & Dynamic Quran Loader banner */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#877461] px-1">
-            <span>
-              প্রদর্শিত হচ্ছে: <strong className="text-[#f7df94]">{toBengaliNumber(filteredCuratedQuotes.length)}</strong> টি বাণী
-              {extraCuratedAyahs.length > 0 && (
-                <span className="text-[#d4af37] ml-1">
-                  (এপিআই থেকে +{toBengaliNumber(extraCuratedAyahs.length)}টি আয়াত যুক্ত)
-                </span>
-              )}
+          {/* Count + Dynamic Loader */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#807a72] px-1">
+            <span className="tabular-nums">
+              প্রদর্শিত হচ্ছে:{' '}
+              <strong className="text-[#f2d77d]">
+                {toBengaliNumber(filteredCuratedQuotes.length)}
+              </strong>{' '}
+              টি বাণী
             </span>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-3">
               <button
+                type="button"
                 disabled={isLoadingMoreCurated}
                 onClick={handleLoadMoreDynamicQuran}
-                className="px-3 py-1.5 rounded-lg bg-[#271d15] hover:bg-[#382a1c] text-[#f7df94] border border-[#d4af37]/40 text-xs font-semibold transition flex items-center gap-1.5 disabled:opacity-50"
+                className="px-3 py-2 rounded-xl bg-[#141419] hover:bg-[#1b1b22] text-[#f2d77d] border border-white/10 text-xs font-semibold transition inline-flex items-center gap-1.5 disabled:opacity-50 min-h-[38px]"
               >
-                {isLoadingMoreCurated ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <PlusCircle className="w-3.5 h-3.5 text-[#d4af37]" />}
-                <span>কুরআন এপিআই থেকে আরও আয়াত লোড করুন</span>
+                {isLoadingMoreCurated ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <PlusCircle className="w-3.5 h-3.5 text-[#d4af37]" />
+                )}
+                <span>কুরআন API থেকে আরও আয়াত</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => setActiveTabMode('quran')}
-                className="text-[#d4af37] hover:underline flex items-center gap-1 font-medium"
+                className="text-[#d4af37] hover:underline inline-flex items-center gap-1 font-semibold"
               >
-                <span>সকল ১১৪টি সূরায় যান</span>
-                <ArrowRight className="w-3 h-3" />
+                <span>সকল ১১৪ সূরায় যান</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
 
-          {/* Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredCuratedQuotes.map((item) => {
-              const favorited = isFavorite(item.id);
-              return (
-                <div
-                  key={item.id}
-                  className="bg-[#17110c] border border-[#2d2117] hover:border-[#423122] rounded-2xl p-5 flex flex-col justify-between transition-all hover:shadow-lg group"
+          {filteredCuratedQuotes.length === 0 ? (
+            <EmptyState
+              icon={<Search className="w-6 h-6" />}
+              title="কোনো বাণী মেলেনি"
+              description="অনুসন্ধানের শব্দ বা ক্যাটাগরি পরিবর্তন করে আবার চেষ্টা করুন।"
+              action={
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedCategory('সব');
+                    setSelectedType('all');
+                    setOnlyFavorites(false);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-[#1b1b22] text-[#f2d77d] border border-white/10 text-xs font-semibold"
                 >
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#271d15] text-[#d4af37] border border-[#3f2f1d]">
-                          {item.type === 'quran' ? 'কুরআন' : item.type === 'hadith' ? 'হাদিস' : 'উক্তি'}
-                        </span>
-                        {item.cats.slice(1, 3).map((c) => (
-                          <span key={c} className="text-[10px] text-[#877461]">
-                            #{c}
+                  ফিল্টার রিসেট করুন
+                </button>
+              }
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredCuratedQuotes.map((item) => {
+                const favorited = isFavorite(item.id);
+                return (
+                  <article
+                    key={item.id}
+                    className="bg-[#141419] border border-white/[0.08] hover:border-white/20 rounded-2xl p-5 flex flex-col justify-between transition"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="font-semibold text-[#d4af37]">
+                            {item.type === 'quran'
+                              ? 'কুরআন'
+                              : item.type === 'hadith'
+                              ? 'হাদিস'
+                              : 'উক্তি'}
                           </span>
-                        ))}
+                          {item.cats.slice(1, 3).map((c) => (
+                            <span key={c} className="text-[#807a72]">
+                              · {c}
+                            </span>
+                          ))}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleFavorite(item.id)}
+                          className={`w-9 h-9 rounded-lg hover:bg-[#1b1b22] flex items-center justify-center transition ${
+                            favorited ? 'text-[#d4af37]' : 'text-[#807a72] hover:text-[#d4af37]'
+                          }`}
+                          aria-label="পছন্দে রাখুন"
+                        >
+                          <Bookmark className={`w-4 h-4 ${favorited ? 'fill-current' : ''}`} />
+                        </button>
                       </div>
 
-                      <button
-                        onClick={() => toggleFavorite(item.id)}
-                        className={`p-1.5 rounded-md hover:bg-[#241a12] transition ${
-                          favorited ? 'text-[#d4af37]' : 'text-[#6e5f50] hover:text-[#d4af37]'
-                        }`}
-                        title="পছন্দে রাখুন"
-                      >
-                        <Bookmark className={`w-4 h-4 ${favorited ? 'fill-current' : ''}`} />
-                      </button>
-                    </div>
+                      {item.ar && (
+                        <p
+                          dir="rtl"
+                          className="font-arabic text-xl text-[#f2d77d] leading-loose mb-3 text-right"
+                        >
+                          {item.ar}
+                        </p>
+                      )}
 
-                    {item.ar && (
-                      <p dir="rtl" className="font-arabic text-xl text-[#f7df94] leading-loose mb-3 text-right">
-                        {item.ar}
+                      <p className="font-bengali text-[15px] text-[#f5f3ee] leading-relaxed mb-3">
+                        {item.bn}
                       </p>
-                    )}
-
-                    <p className="font-bengali text-base text-[#f0e7d5] leading-relaxed mb-3">
-                      {item.bn}
-                    </p>
-                  </div>
-
-                  <div className="pt-3 border-t border-[#231a12] flex items-center justify-between flex-wrap gap-2">
-                    <span className="text-xs text-[#c49b3a] font-medium">
-                      {item.ref}
-                    </span>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleCopyQuote(item)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#221811] hover:bg-[#2b1f16] text-[#e0d2bf] text-xs font-medium border border-[#3a2a1d] transition"
-                        title="সম্পূর্ণ ফেসবুক পোস্ট কপি"
-                      >
-                        {copiedId === item.ref ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>কপি হয়েছে</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3.5 h-3.5 text-[#d4af37]" />
-                            <span>ফেসবুক পোস্ট কপি</span>
-                          </>
-                        )}
-                      </button>
-
-                      {/* Direct Poster Generator Button */}
-                      <button
-                        onClick={() => handleSendToPoster(item)}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#e6c878] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] text-xs font-bold transition shadow-lg hover:scale-[1.02] active:scale-95"
-                        title="পোস্টার স্টুডিওতে সরাসরি ডিজাইন করুন"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-[#140e0a]" />
-                        <span>পোস্টার তৈরি করুন</span>
-                      </button>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+
+                    <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between flex-wrap gap-2">
+                      <span className="text-xs text-[#b6b0a6] font-medium">{item.ref}</span>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyQuote(item)}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1b1b22] hover:bg-[#23232c] text-[#f5f3ee] text-xs font-medium border border-white/[0.08] transition min-h-[38px]"
+                        >
+                          {copiedId === item.ref ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>কপি হয়েছে</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5 text-[#d4af37]" />
+                              <span>পোস্ট কপি</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleSendToPoster(item)}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#d4af37] hover:bg-[#e3be47] text-[#0b0b0e] text-xs font-bold transition min-h-[38px]"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>পোস্টার তৈরি</span>
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
-      {/* ────────────────────────────────────────────────────────── */}
-      {/* 2. FULL QURAN API BROWSER (114 Surahs, 6,236 Ayahs) */}
-      {/* ────────────────────────────────────────────────────────── */}
+      {/* TAB 2: FULL QURAN BROWSER */}
       {activeTabMode === 'quran' && (
-        <div className="space-y-6 animate-in fade-in duration-200">
-          <div className="bg-[#17110c] border border-[#2d2117] rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
-            {/* Surah & Ayah Controls */}
+        <div className="space-y-5">
+          <div className="bg-[#141419] border border-white/[0.08] rounded-2xl p-4 sm:p-5 space-y-4">
             <form onSubmit={handleFetchAyah} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-              {/* Surah Selector */}
               <div className="sm:col-span-5 space-y-1.5">
-                <label className="text-xs font-semibold text-[#baa791]">
-                  সূরা নির্বাচন করুন (১-১১৪):
+                <label
+                  htmlFor="quran-surah-select"
+                  className="text-xs font-semibold text-[#b6b0a6] block"
+                >
+                  সূরা নির্বাচন করুন (১-১১৪)
                 </label>
                 <select
+                  id="quran-surah-select"
                   value={selectedSurahNumber}
                   onChange={(e) => {
                     setSelectedSurahNumber(Number(e.target.value));
                     setInputAyahNumber('1');
                   }}
-                  className="w-full px-3.5 py-2.5 bg-[#120e0a] border border-[#2d2117] focus:border-[#d4af37] rounded-xl text-xs sm:text-sm text-[#f4eee2] outline-none"
+                  className="w-full px-3 py-2.5 bg-[#0e0e12] border border-white/10 focus:border-[#d4af37] rounded-xl text-xs sm:text-sm text-[#f5f3ee] outline-none min-h-[42px]"
                 >
                   {SURAH_LIST.map((s) => (
-                    <option key={s.number} value={s.number} className="bg-[#17110c] text-[#f4eee2]">
-                      {s.number}. সূরা {s.banglaName} ({s.arabicName}) — {toBengaliNumber(s.totalAyahs)} আয়াত ({s.type})
+                    <option key={s.number} value={s.number}>
+                      {s.number}. সূরা {s.banglaName} ({s.arabicName}) —{' '}
+                      {toBengaliNumber(s.totalAyahs)} আয়াত
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Specific Ayah Input */}
               <div className="sm:col-span-3 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-[#baa791]">আয়াত নম্বর</label>
-                  <span className="text-[10px] text-[#877461]">
+                <div className="flex items-center justify-between text-xs">
+                  <label htmlFor="quran-ayah-input" className="font-semibold text-[#b6b0a6]">
+                    আয়াত নম্বর
+                  </label>
+                  <span className="text-[11px] text-[#807a72] tabular-nums">
                     সর্বোচ্চ: {toBengaliNumber(selectedSurahMeta.totalAyahs)}
                   </span>
                 </div>
                 <input
+                  id="quran-ayah-input"
                   type="number"
                   min={1}
                   max={selectedSurahMeta.totalAyahs}
                   value={inputAyahNumber}
                   onChange={(e) => setInputAyahNumber(e.target.value)}
-                  placeholder="যেমন: ১৫৩"
-                  className="w-full px-3 py-2 bg-[#120e0a] border border-[#2d2117] focus:border-[#d4af37] rounded-xl text-sm text-[#f4eee2] outline-none"
+                  className="w-full px-3 py-2.5 bg-[#0e0e12] border border-white/10 focus:border-[#d4af37] rounded-xl text-sm text-[#f5f3ee] outline-none min-h-[42px] tabular-nums"
                 />
               </div>
 
-              {/* Buttons */}
               <div className="sm:col-span-4 flex items-center gap-2">
                 <button
                   type="submit"
                   disabled={isFetchingQuran}
-                  className="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] font-bold text-xs shadow transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-[#d4af37] hover:bg-[#e3be47] text-[#0b0b0e] font-bold text-xs transition disabled:opacity-50 inline-flex items-center justify-center gap-1.5 min-h-[42px]"
                 >
-                  {isFetchingQuran ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                  {isFetchingQuran ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Search className="w-3.5 h-3.5" />
+                  )}
                   <span>আয়াত দেখুন</span>
                 </button>
 
@@ -752,73 +759,45 @@ export const CaptionsView: React.FC = () => {
                   type="button"
                   disabled={isFetchingQuran}
                   onClick={handleFetchFullSurah}
-                  className="py-2.5 px-3 rounded-xl bg-[#221811] hover:bg-[#322318] text-[#f7df94] border border-[#3f2f1d] text-xs font-semibold transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
-                  title="এই সূরার সকল আয়াত একসাথে লোড করুন"
+                  className="py-2.5 px-3.5 rounded-xl bg-[#1b1b22] hover:bg-[#23232c] text-[#f2d77d] border border-white/10 text-xs font-semibold transition disabled:opacity-50 inline-flex items-center justify-center gap-1.5 min-h-[42px]"
                 >
                   <Layers className="w-3.5 h-3.5 text-[#d4af37]" />
-                  <span className="hidden lg:inline">সম্পূর্ণ সূরা</span>
-                  <span className="lg:hidden">সব আয়াত</span>
+                  <span>সম্পূর্ণ সূরা</span>
                 </button>
               </div>
             </form>
 
-            {/* Quick Popular Verses */}
-            <div className="pt-2 pb-1 border-t border-[#231a12] flex flex-wrap items-center gap-1.5 text-[11px]">
-              <span className="text-[#877461]">জনপ্রিয় আয়াত:</span>
-              <button
-                type="button"
-                onClick={() => handleQuickAyahSelect(2, 153)}
-                className="px-2.5 py-1 rounded-lg bg-[#1a130d] hover:bg-[#281b12] border border-[#2d2117] hover:border-[#d4af37] text-[#c7b59e] transition"
-              >
-                ধৈর্য ও সালাত (২:১৫৩)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickAyahSelect(2, 255)}
-                className="px-2.5 py-1 rounded-lg bg-[#1a130d] hover:bg-[#281b12] border border-[#2d2117] hover:border-[#d4af37] text-[#c7b59e] transition"
-              >
-                আয়াতুল কুরসি (২:২৫৫)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickAyahSelect(94, 5)}
-                className="px-2.5 py-1 rounded-lg bg-[#1a130d] hover:bg-[#281b12] border border-[#2d2117] hover:border-[#d4af37] text-[#c7b59e] transition font-medium"
-              >
-                কষ্টের সাথে স্বস্তি (৯৪:৫)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickAyahSelect(94, 6)}
-                className="px-2.5 py-1 rounded-lg bg-[#1a130d] hover:bg-[#281b12] border border-[#2d2117] hover:border-[#d4af37] text-[#c7b59e] transition font-medium"
-              >
-                নিশ্চয় স্বস্তি (৯৪:৬)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickAyahSelect(39, 53)}
-                className="px-2.5 py-1 rounded-lg bg-[#1a130d] hover:bg-[#281b12] border border-[#2d2117] hover:border-[#d4af37] text-[#c7b59e] transition"
-              >
-                রহমতে হতাশ হয়ো না (৩৯:৫৩)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickAyahSelect(112, 1)}
-                className="px-2.5 py-1 rounded-lg bg-[#1a130d] hover:bg-[#281b12] border border-[#2d2117] hover:border-[#d4af37] text-[#c7b59e] transition"
-              >
-                সূরা ইখলাস (১১২:১)
-              </button>
+            {/* Quick Verses */}
+            <div className="pt-3 border-t border-white/[0.06] flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="text-[#807a72]">জনপ্রিয়:</span>
+              {[
+                { label: 'ধৈর্য ও সালাত (২:১৫৩)', surah: 2, ayah: 153 },
+                { label: 'আয়াতুল কুরসি (২:২৫৫)', surah: 2, ayah: 255 },
+                { label: 'কষ্টের সাথে স্বস্তি (৯৪:৫)', surah: 94, ayah: 5 },
+                { label: 'রহমতে হতাশ হয়ো না (৩৯:৫৩)', surah: 39, ayah: 53 },
+                { label: 'সূরা ইখলাস (১১২:১)', surah: 112, ayah: 1 },
+              ].map((q) => (
+                <button
+                  key={q.label}
+                  type="button"
+                  onClick={() => handleQuickAyahSelect(q.surah, q.ayah)}
+                  className="px-2.5 py-1.5 rounded-lg bg-[#0e0e12] hover:bg-[#1b1b22] border border-white/[0.08] text-[11px] text-[#b6b0a6] hover:text-[#f2d77d] transition"
+                >
+                  {q.label}
+                </button>
+              ))}
             </div>
 
-            {/* Keyword Search inside Quran API */}
-            <div className="pt-2.5 border-t border-[#231a12] flex flex-col sm:flex-row gap-2.5 items-center">
-              <div className="relative flex-1 w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#877461]" />
+            {/* Keyword API Search */}
+            <div className="pt-3 border-t border-white/[0.06] flex flex-col sm:flex-row gap-2.5">
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#807a72]" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="সমগ্র কুরআনের ৬,২৩৬টি আয়াত থেকে শব্দ দিয়ে খুঁজুন (যেমন: ধৈর্য, নামাজ, ক্ষমা, জান্নাত, রিজিক)..."
-                  className="w-full pl-9 pr-3 py-2 bg-[#120e0a] border border-[#2d2117] focus:border-[#d4af37] rounded-xl text-xs text-[#f4eee2] outline-none"
+                  placeholder="সমগ্র কুরআনের ৬,২৩৬টি আয়াত থেকে শব্দ দিয়ে খুঁজুন (যেমন: ধৈর্য, নামাজ, ক্ষমা)..."
+                  className="w-full pl-9 pr-3 py-2.5 bg-[#0e0e12] border border-white/10 focus:border-[#d4af37] rounded-xl text-xs text-[#f5f3ee] outline-none min-h-[40px]"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
@@ -832,97 +811,92 @@ export const CaptionsView: React.FC = () => {
                 type="button"
                 disabled={isSearchingApi}
                 onClick={handlePerformApiSearch}
-                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#271d15] hover:bg-[#382a1c] text-[#f7df94] border border-[#d4af37]/40 text-xs font-bold transition flex items-center justify-center gap-1.5 shrink-0"
+                className="px-4 py-2.5 rounded-xl bg-[#1b1b22] hover:bg-[#23232c] text-[#f2d77d] border border-white/10 text-xs font-semibold transition inline-flex items-center justify-center gap-1.5 shrink-0 min-h-[40px]"
               >
-                {isSearchingApi ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Globe className="w-3.5 h-3.5 text-[#d4af37]" />}
+                {isSearchingApi ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Globe className="w-3.5 h-3.5 text-[#d4af37]" />
+                )}
                 <span>কুরআন লাইভ সার্চ</span>
               </button>
             </div>
           </div>
 
-          {/* Surah Info Header Banner */}
-          <div className="p-4 rounded-xl bg-gradient-to-r from-[#1c130c] via-[#241a12] to-[#17110c] border border-[#2d2117] flex flex-wrap items-center justify-between gap-3 text-xs text-[#a9947c]">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#d4af37] animate-pulse" />
-              <span className="text-[#f7df94] font-semibold text-sm">
+          {/* Surah Header Bar */}
+          <div className="p-4 rounded-xl bg-[#141419] border border-white/[0.08] flex flex-wrap items-center justify-between gap-2 text-xs text-[#b6b0a6]">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[#f2d77d] font-bold text-sm">
                 সূরা {selectedSurahMeta.banglaName} ({selectedSurahMeta.arabicName})
               </span>
-              <span>• অর্থ: {selectedSurahMeta.meaningBn}</span>
-              <span>• মোট আয়াত: {toBengaliNumber(selectedSurahMeta.totalAyahs)}টি</span>
-              <span>• অবতীর্ণ: {selectedSurahMeta.type}</span>
+              <span className="text-[#807a72]">·</span>
+              <span>অর্থ: {selectedSurahMeta.meaningBn}</span>
+              <span className="text-[#807a72]">·</span>
+              <span className="tabular-nums">
+                আয়াত: {toBengaliNumber(selectedSurahMeta.totalAyahs)}টি
+              </span>
+              <span className="text-[#807a72]">·</span>
+              <span>{selectedSurahMeta.type}</span>
             </div>
 
             {hasSearchedApi && apiSearchResults.length > 0 && (
-              <span className="px-2.5 py-1 rounded bg-[#2a1d13] text-[#d4af37] border border-[#44301d] font-bold">
-                সার্চ রেজাল্ট: {toBengaliNumber(apiSearchResults.length)}টি আয়াত
+              <span className="text-xs text-[#d4af37] font-semibold tabular-nums">
+                ফলাফল: {toBengaliNumber(apiSearchResults.length)}টি আয়াত
               </span>
             )}
           </div>
 
-          {/* Loading indicator */}
-          {(isFetchingQuran || isSearchingApi) && (
-            <div className="py-16 text-center space-y-3">
-              <RefreshCw className="w-8 h-8 text-[#d4af37] animate-spin mx-auto" />
-              <p className="text-sm text-[#f4eee2] font-semibold">
+          {isFetchingQuran || isSearchingApi ? (
+            <div className="py-14 text-center space-y-2.5 bg-[#141419] border border-white/[0.08] rounded-2xl">
+              <RefreshCw className="w-7 h-7 text-[#d4af37] animate-spin mx-auto" />
+              <p className="text-sm text-[#f5f3ee] font-semibold">
                 আল-কুরআন এপিআই থেকে আয়াত লোড হচ্ছে...
               </p>
-              <p className="text-xs text-[#877461]">বিশুদ্ধ আরবি উসমানি ও বাংলা অনুবাদ ডাউনলোড হচ্ছে</p>
             </div>
-          )}
-
-          {/* Verses Display Grid */}
-          {!isFetchingQuran && !isSearchingApi && (
+          ) : (
             <div className="space-y-4">
-              {(hasSearchedApi && apiSearchResults.length > 0 ? apiSearchResults : paginatedQuranAyahs).map((ayah, idx) => (
-                <div
+              {(hasSearchedApi && apiSearchResults.length > 0
+                ? apiSearchResults
+                : paginatedQuranAyahs
+              ).map((ayah, idx) => (
+                <article
                   key={idx}
-                  className="bg-[#17110c] border border-[#2d2117] hover:border-[#4d361c] rounded-2xl p-5 shadow-lg flex flex-col justify-between transition-all group"
+                  className="bg-[#141419] border border-white/[0.08] rounded-2xl p-5 space-y-4"
                 >
-                  <div>
-                    {/* Header: Surah & Ayah Badge */}
-                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#231a12]">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-0.5 rounded-full bg-[#271d15] text-[#d4af37] text-xs font-bold border border-[#3f2f1d]">
-                          {ayah.reference}
-                        </span>
-                        <span className="text-xs font-arabic text-[#877461]">
-                          {ayah.surahNameAr}
-                        </span>
-                      </div>
-
-                      <span className="text-[11px] text-[#877461]">
-                        সূরা #{ayah.surahNumber} • আয়াত #{ayah.ayahNumber}
-                      </span>
+                  <div className="flex items-center justify-between pb-3 border-b border-white/[0.06] text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-[#d4af37]">{ayah.reference}</span>
+                      <span className="font-arabic text-[#807a72]">{ayah.surahNameAr}</span>
                     </div>
-
-                    {/* Arabic Uthmani Text */}
-                    {ayah.arabicText ? (
-                      <p
-                        dir="rtl"
-                        className="font-arabic text-2xl text-[#f7df94] leading-loose mb-4 text-right tracking-wide"
-                      >
-                        {ayah.arabicText}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-[#877461] italic mb-2">
-                        (আরবি উসমানি পাঠ্য পোস্টারে স্বয়ংক্রিয়ভাবে লোড হবে)
-                      </p>
-                    )}
-
-                    {/* Bengali Translation */}
-                    <p className="font-bengali text-base sm:text-lg text-[#f0e7d5] leading-relaxed mb-4">
-                      “{ayah.bengaliText}”
-                    </p>
+                    <span className="text-[#807a72] tabular-nums">
+                      সূরা {toBengaliNumber(ayah.surahNumber)} · আয়াত{' '}
+                      {toBengaliNumber(ayah.ayahNumber)}
+                    </span>
                   </div>
 
-                  {/* Actions Footer */}
-                  <div className="pt-3 border-t border-[#231a12] flex items-center justify-between flex-wrap gap-2">
-                    <span className="text-xs text-[#c49b3a] font-medium">
-                      মুহিউদ্দীন খান অনুবাদ
-                    </span>
+                  {ayah.arabicText ? (
+                    <p
+                      dir="rtl"
+                      className="font-arabic text-2xl text-[#f2d77d] leading-loose text-right"
+                    >
+                      {ayah.arabicText}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-[#807a72]">
+                      আরবি উসমানি পাঠ্য পোস্টারে স্বয়ংক্রিয়ভাবে লোড হবে
+                    </p>
+                  )}
+
+                  <p className="font-bengali text-base text-[#f5f3ee] leading-relaxed">
+                    “{ayah.bengaliText}”
+                  </p>
+
+                  <div className="pt-3 border-t border-white/[0.06] flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs text-[#807a72]">অনুবাদ: মুহিউদ্দীন খান</span>
 
                     <div className="flex items-center gap-2">
                       <button
+                        type="button"
                         onClick={() =>
                           handleCopyQuote({
                             bn: ayah.bengaliText,
@@ -930,24 +904,18 @@ export const CaptionsView: React.FC = () => {
                             ref: ayah.reference,
                           })
                         }
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#221811] hover:bg-[#2b1f16] text-[#e0d2bf] text-xs font-medium border border-[#3a2a1d] transition"
-                        title="সম্পূর্ণ ফেসবুক পোস্ট কপি"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1b1b22] hover:bg-[#23232c] text-[#f5f3ee] text-xs font-medium border border-white/[0.08] transition min-h-[38px]"
                       >
                         {copiedId === ayah.reference ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>কপি হয়েছে</span>
-                          </>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
                         ) : (
-                          <>
-                            <Copy className="w-3.5 h-3.5 text-[#d4af37]" />
-                            <span>ফেসবুক পোস্ট কপি</span>
-                          </>
+                          <Copy className="w-3.5 h-3.5 text-[#d4af37]" />
                         )}
+                        <span>{copiedId === ayah.reference ? 'কপি হয়েছে' : 'পোস্ট কপি'}</span>
                       </button>
 
-                      {/* Prominent Direct Poster Generator Button */}
                       <button
+                        type="button"
                         onClick={() =>
                           handleSendToPoster({
                             bn: ayah.bengaliText,
@@ -958,38 +926,39 @@ export const CaptionsView: React.FC = () => {
                             ayahNumber: ayah.ayahNumber,
                           })
                         }
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#e6c878] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] text-xs font-bold transition shadow-lg hover:scale-[1.02] active:scale-95"
-                        title="পোস্টার স্টুডিওতে সরাসরি ডিজাইন করুন"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#d4af37] hover:bg-[#e3be47] text-[#0b0b0e] text-xs font-bold transition min-h-[38px]"
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-[#140e0a]" />
-                        <span>পোস্টার তৈরি করুন</span>
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>পোস্টার তৈরি</span>
                       </button>
                     </div>
                   </div>
-                </div>
+                </article>
               ))}
 
-              {/* Pagination for Full Surah View */}
               {quranViewMode === 'full' && totalSurahPages > 1 && !hasSearchedApi && (
-                <div className="p-4 rounded-xl bg-[#17110c] border border-[#2d2117] flex items-center justify-between text-xs text-[#a9947c]">
-                  <span>
-                    পৃষ্ঠা <strong className="text-[#f7df94]">{toBengaliNumber(surahPage)}</strong> / {toBengaliNumber(totalSurahPages)}
+                <div className="p-4 rounded-xl bg-[#141419] border border-white/[0.08] flex items-center justify-between text-xs text-[#b6b0a6]">
+                  <span className="tabular-nums">
+                    পৃষ্ঠা <strong className="text-[#f2d77d]">{toBengaliNumber(surahPage)}</strong> /{' '}
+                    {toBengaliNumber(totalSurahPages)}
                   </span>
                   <div className="flex items-center gap-2">
                     <button
+                      type="button"
                       disabled={surahPage <= 1}
                       onClick={() => setSurahPage((p) => Math.max(1, p - 1))}
-                      className="px-3 py-1.5 rounded-lg bg-[#241a12] hover:bg-[#322419] text-[#f4eee2] disabled:opacity-40 transition flex items-center gap-1"
+                      className="px-3 py-2 rounded-xl bg-[#1b1b22] text-[#f5f3ee] disabled:opacity-40 inline-flex items-center gap-1 min-h-[36px]"
                     >
                       <ChevronLeft className="w-3.5 h-3.5" />
-                      <span>পূর্ববর্তী পৃষ্ঠা</span>
+                      <span>পূর্ববর্তী</span>
                     </button>
                     <button
+                      type="button"
                       disabled={surahPage >= totalSurahPages}
                       onClick={() => setSurahPage((p) => Math.min(totalSurahPages, p + 1))}
-                      className="px-3 py-1.5 rounded-lg bg-[#241a12] hover:bg-[#322419] text-[#f4eee2] disabled:opacity-40 transition flex items-center gap-1"
+                      className="px-3 py-2 rounded-xl bg-[#1b1b22] text-[#f5f3ee] disabled:opacity-40 inline-flex items-center gap-1 min-h-[36px]"
                     >
-                      <span>পরবর্তী পৃষ্ঠা</span>
+                      <span>পরবর্তী</span>
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -1000,49 +969,41 @@ export const CaptionsView: React.FC = () => {
         </div>
       )}
 
-      {/* ────────────────────────────────────────────────────────── */}
-      {/* 3. HADITH EXPLORER & LIBRARY (Fixed & Enhanced) */}
-      {/* ────────────────────────────────────────────────────────── */}
+      {/* TAB 3: HADITH EXPLORER */}
       {activeTabMode === 'hadith' && (
-        <div className="space-y-6 animate-in fade-in duration-200">
-          <div className="bg-[#17110c] border border-[#3d2a1c] rounded-2xl p-5 shadow-2xl space-y-4">
-            {/* Header & Controls */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[#2d2117]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#281b10] flex items-center justify-center text-[#d4af37] border border-[#44301d]">
-                  <Layers className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm sm:text-base text-[#f4eee2]">
-                    সহীহ হাদিস এক্সপ্লোরার ও লাইব্রেরি
-                  </h3>
-                  <p className="text-[11px] text-[#877461]">
-                    সহীহ বুখারি, সহীহ মুসলিম, জামে আত-তিরমিযী ও ৪০ হাদিস নববী থেকে বিষয়ভিত্তিক সহীহ হাদিস
-                  </p>
-                </div>
+        <div className="space-y-5">
+          <div className="bg-[#141419] border border-white/[0.08] rounded-2xl p-4 sm:p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.08]">
+              <div>
+                <h2 className="font-bold text-base text-[#f5f3ee]">
+                  সহীহ হাদিস এক্সপ্লোরার ও লাইব্রেরি
+                </h2>
+                <p className="text-xs text-[#807a72] mt-0.5">
+                  সহীহ বুখারি, সহীহ মুসলিম, তিরমিযী ও ৪০ হাদিস নববী থেকে বিষয়ভিত্তিক সংকলন
+                </p>
               </div>
-
               <button
+                type="button"
                 disabled={isFetchingHadith}
                 onClick={() => handleLoadHadiths(hadithTopic, selectedHadithBook)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#281b10] hover:bg-[#382618] text-[#f7df94] border border-[#44301d] text-xs font-bold transition disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#1b1b22] hover:bg-[#23232c] text-[#f2d77d] border border-white/10 text-xs font-semibold transition disabled:opacity-50 min-h-[40px]"
               >
-                <RefreshCw className={`w-3.5 h-3.5 text-[#d4af37] ${isFetchingHadith ? 'animate-spin' : ''}`} />
-                <span>হাদিস রিফ্রেশ করুন</span>
+                <RefreshCw className={`w-3.5 h-3.5 ${isFetchingHadith ? 'animate-spin' : ''}`} />
+                <span>রিফ্রেশ</span>
               </button>
             </div>
 
-            {/* Book Filter Selector */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              <span className="text-xs text-[#877461] whitespace-nowrap">গ্রন্থ:</span>
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              <span className="text-xs text-[#807a72] shrink-0 mr-1">গ্রন্থ:</span>
               {HADITH_BOOKS.map((b) => (
                 <button
                   key={b.id}
+                  type="button"
                   onClick={() => handleLoadHadiths(hadithTopic, b.id)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition ${
                     selectedHadithBook === b.id
-                      ? 'bg-[#d4af37] text-[#140e0a] font-bold shadow'
-                      : 'bg-[#1b140e] text-[#9b8976] hover:bg-[#281c13] hover:text-[#f4eee2] border border-[#2d2117]'
+                      ? 'bg-[#d4af37] text-[#0b0b0e] font-bold'
+                      : 'bg-[#1b1b22] text-[#b6b0a6] hover:text-[#f5f3ee]'
                   }`}
                 >
                   {b.nameBn}
@@ -1050,48 +1011,40 @@ export const CaptionsView: React.FC = () => {
               ))}
             </div>
 
-            {/* Hadith Topic Chips */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-[#baa791]">
-                বিষয় নির্বাচন করুন:
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {HADITH_TOPICS.map((topic) => (
-                  <button
-                    key={topic}
-                    onClick={() => handleLoadHadiths(topic, selectedHadithBook)}
-                    className={`px-3 py-1.5 rounded-full text-xs transition ${
-                      hadithTopic === topic
-                        ? 'bg-[#d4af37] text-[#140e0a] font-bold shadow'
-                        : 'bg-[#1f1610] text-[#9b8976] hover:bg-[#2a1d13] hover:text-[#d3c2ad]'
-                    }`}
-                  >
-                    {topic}
-                  </button>
-                ))}
-              </div>
+            <div className="flex flex-wrap gap-1.5">
+              {HADITH_TOPICS.map((topic) => (
+                <button
+                  key={topic}
+                  type="button"
+                  onClick={() => handleLoadHadiths(topic, selectedHadithBook)}
+                  className={`px-3 py-1.5 rounded-lg text-xs transition ${
+                    hadithTopic === topic
+                      ? 'bg-[#d4af37] text-[#0b0b0e] font-bold'
+                      : 'bg-[#0e0e12] text-[#b6b0a6] border border-white/[0.06] hover:text-[#f5f3ee]'
+                  }`}
+                >
+                  {topic}
+                </button>
+              ))}
             </div>
 
-            {/* Direct Number Lookup & Search */}
-            <div className="pt-3 border-t border-[#261c13] grid grid-cols-1 md:grid-cols-2 gap-3 items-center">
-              {/* Keyword Search in Hadiths */}
+            <div className="pt-3 border-t border-white/[0.06] grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#877461]" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#807a72]" />
                 <input
                   type="text"
                   value={hadithSearch}
                   onChange={(e) => setHadithSearch(e.target.value)}
                   placeholder="হাদিসের বাংলা টেক্সট বা বিষয়ে অনুসন্ধান..."
-                  className="w-full pl-9 pr-3 py-2 bg-[#120e0a] border border-[#2d2117] focus:border-[#d4af37] rounded-xl text-xs text-[#f4eee2] outline-none"
+                  className="w-full pl-9 pr-3 py-2 bg-[#0e0e12] border border-white/10 focus:border-[#d4af37] rounded-xl text-xs text-[#f5f3ee] outline-none min-h-[40px]"
                 />
               </div>
 
-              {/* Direct Hadith Fetch Form */}
               <form onSubmit={handleDirectHadithLookup} className="flex items-center gap-2">
                 <select
                   value={directBook}
                   onChange={(e) => setDirectBook(e.target.value as any)}
-                  className="px-2.5 py-2 bg-[#120e0a] border border-[#2d2117] focus:border-[#d4af37] rounded-xl text-xs text-[#f4eee2] outline-none"
+                  className="px-3 py-2 bg-[#0e0e12] border border-white/10 focus:border-[#d4af37] rounded-xl text-xs text-[#f5f3ee] outline-none min-h-[40px]"
                 >
                   <option value="bukhari">বুখারি</option>
                   <option value="muslim">মুসলিম</option>
@@ -1104,120 +1057,112 @@ export const CaptionsView: React.FC = () => {
                   min={1}
                   value={directNumber}
                   onChange={(e) => setDirectNumber(e.target.value)}
-                  placeholder="হাদিস নম্বর"
-                  className="w-24 px-2.5 py-2 bg-[#120e0a] border border-[#2d2117] focus:border-[#d4af37] rounded-xl text-xs text-[#f4eee2] text-center outline-none"
+                  placeholder="নম্বর"
+                  className="w-24 px-2.5 py-2 bg-[#0e0e12] border border-white/10 focus:border-[#d4af37] rounded-xl text-xs text-[#f5f3ee] text-center outline-none min-h-[40px] tabular-nums"
                 />
 
                 <button
                   type="submit"
                   disabled={isFetchingDirect}
-                  className="flex-1 px-3 py-2 bg-[#2a1e14] hover:bg-[#38281b] border border-[#4d361c] text-[#f7df94] text-xs font-bold rounded-xl transition flex items-center justify-center gap-1 disabled:opacity-50"
+                  className="flex-1 px-3 py-2 bg-[#1b1b22] hover:bg-[#23232c] border border-white/10 text-[#f2d77d] text-xs font-bold rounded-xl transition inline-flex items-center justify-center gap-1.5 disabled:opacity-50 min-h-[40px]"
                 >
-                  {isFetchingDirect ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                  {isFetchingDirect ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Search className="w-3.5 h-3.5" />
+                  )}
                   <span>হাদিস খুঁজুন</span>
                 </button>
               </form>
             </div>
           </div>
 
-          {/* Loading state */}
           {isFetchingHadith ? (
-            <div className="py-16 text-center space-y-3 bg-[#17110c] border border-[#2d2117] rounded-2xl">
-              <RefreshCw className="w-8 h-8 text-[#d4af37] animate-spin mx-auto" />
-              <p className="text-sm text-[#f4eee2] font-semibold">
-                "{hadithTopic}" সম্পর্কিত সহীহ হাদিস লাইব্রেরি থেকে লোড হচ্ছে...
+            <div className="py-14 text-center space-y-2.5 bg-[#141419] border border-white/[0.08] rounded-2xl">
+              <RefreshCw className="w-7 h-7 text-[#d4af37] animate-spin mx-auto" />
+              <p className="text-sm text-[#f5f3ee] font-semibold">
+                "{hadithTopic}" সম্পর্কিত সহীহ হাদিস লোড হচ্ছে...
               </p>
-              <p className="text-xs text-[#877461]">বিশুদ্ধ আরবি পাঠ ও বাংলা তরজমা প্রস্তুত হচ্ছে</p>
             </div>
+          ) : filteredHadithList.length === 0 ? (
+            <EmptyState
+              icon={<Layers className="w-6 h-6" />}
+              title="এই বিষয়ে কোনো হাদিস মেলেনি"
+              action={
+                <button
+                  type="button"
+                  onClick={() => handleLoadHadiths('সবর ও শোকর', 'all')}
+                  className="px-4 py-2 rounded-xl bg-[#d4af37] text-[#0b0b0e] font-bold text-xs"
+                >
+                  পুনরায় লোড করুন
+                </button>
+              }
+            />
           ) : (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredHadithList.map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-[#17110c] border border-[#2d2117] hover:border-[#423122] rounded-2xl p-5 flex flex-col justify-between transition-all hover:shadow-lg group"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#231a12]">
-                        <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#271d15] text-[#d4af37] border border-[#3f2f1d]">
-                          {item.topic || 'সহীহ হাদিস'}
-                        </span>
-                        <span className="text-xs text-[#f7df94] font-semibold">
-                          {item.ref}
-                        </span>
-                      </div>
-
-                      {item.narrator && (
-                        <p className="text-xs text-[#9b8976] mb-2 font-medium">
-                          বর্ণনাকারী: {item.narrator}
-                        </p>
-                      )}
-
-                      {item.ar && (
-                        <p dir="rtl" className="font-arabic text-xl text-[#f7df94] leading-loose mb-3 text-right">
-                          {item.ar}
-                        </p>
-                      )}
-
-                      <p className="font-bengali text-base text-[#f0e7d5] leading-relaxed mb-4">
-                        “{item.bn}”
-                      </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredHadithList.map((item) => (
+                <article
+                  key={item.id}
+                  className="bg-[#141419] border border-white/[0.08] rounded-2xl p-5 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/[0.06] text-xs">
+                      <span className="font-semibold text-[#d4af37]">
+                        {item.topic || 'সহীহ হাদিস'}
+                      </span>
+                      <span className="font-semibold text-[#f5f3ee]">{item.ref}</span>
                     </div>
 
-                    <div className="pt-3 border-t border-[#231a12] flex items-center justify-between flex-wrap gap-2">
-                      <span className="text-[11px] text-[#877461] flex items-center gap-1">
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>সহীহ সনদ</span>
-                      </span>
+                    {item.narrator && (
+                      <p className="text-xs text-[#807a72] mb-2">বর্ণনাকারী: {item.narrator}</p>
+                    )}
 
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleCopyQuote(item)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#221811] hover:bg-[#2b1f16] text-[#e0d2bf] text-xs font-medium border border-[#3a2a1d] transition"
-                          title="সম্পূর্ণ ফেসবুক পোস্ট কপি"
-                        >
-                          {copiedId === item.ref ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-emerald-400" />
-                              <span>কপি হয়েছে</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3.5 h-3.5 text-[#d4af37]" />
-                              <span>ফেসবুক পোস্ট কপি</span>
-                            </>
-                          )}
-                        </button>
+                    {item.ar && (
+                      <p
+                        dir="rtl"
+                        className="font-arabic text-xl text-[#f2d77d] leading-loose mb-3 text-right"
+                      >
+                        {item.ar}
+                      </p>
+                    )}
 
-                        {/* Prominent Direct Poster Generator Button */}
-                        <button
-                          onClick={() => handleSendToPoster({ ...item, type: 'hadith' })}
-                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#e6c878] to-[#b38927] hover:from-[#e3be47] hover:to-[#c69a30] text-[#140e0a] text-xs font-bold transition shadow-lg hover:scale-[1.02] active:scale-95"
-                          title="পোস্টার স্টুডিওতে সরাসরি ডিজাইন করুন"
-                        >
-                          <Sparkles className="w-3.5 h-3.5 text-[#140e0a]" />
-                          <span>পোস্টার তৈরি করুন</span>
-                        </button>
-                      </div>
+                    <p className="font-bengali text-[15px] text-[#f5f3ee] leading-relaxed mb-4">
+                      “{item.bn}”
+                    </p>
+                  </div>
+
+                  <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-xs text-emerald-400 inline-flex items-center gap-1 font-medium">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>সহীহ সনদ</span>
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleCopyQuote(item)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1b1b22] hover:bg-[#23232c] text-[#f5f3ee] text-xs font-medium border border-white/[0.08] transition min-h-[38px]"
+                      >
+                        {copiedId === item.ref ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5 text-[#d4af37]" />
+                        )}
+                        <span>{copiedId === item.ref ? 'কপি হয়েছে' : 'পোস্ট কপি'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSendToPoster({ ...item, type: 'hadith' })}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#d4af37] hover:bg-[#e3be47] text-[#0b0b0e] text-xs font-bold transition min-h-[38px]"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>পোস্টার তৈরি</span>
+                      </button>
                     </div>
                   </div>
-                ))}
-              </div>
-
-              {filteredHadithList.length === 0 && (
-                <div className="py-16 text-center space-y-3 bg-[#17110c] border border-dashed border-[#2d2117] rounded-2xl">
-                  <AlertCircle className="w-8 h-8 text-[#d4af37] mx-auto opacity-70" />
-                  <p className="text-sm text-[#f4eee2]">
-                    এই বিষয়ে কোনো হাদিস মেলেনি
-                  </p>
-                  <button
-                    onClick={() => handleLoadHadiths('সবর ও শোকর', 'all')}
-                    className="px-4 py-2 rounded-xl bg-[#d4af37] text-black font-bold text-xs"
-                  >
-                    পুনরায় লোড করুন
-                  </button>
-                </div>
-              )}
+                </article>
+              ))}
             </div>
           )}
         </div>
