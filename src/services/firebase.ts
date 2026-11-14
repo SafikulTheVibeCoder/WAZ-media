@@ -12,6 +12,7 @@ import {
 import {
   getFirestore,
   initializeFirestore,
+  FirestoreSettings,
   doc,
   getDocFromServer,
   collection,
@@ -28,30 +29,31 @@ import {
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-// Support Netlify environment variables fallback
+// Prioritize provisioned firebase-applet-config.json with env var fallback
 const config = {
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseConfig.projectId,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfig.appId,
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfig.authDomain,
-  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || firebaseConfig.firestoreDatabaseId,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfig.messagingSenderId,
+  projectId: firebaseConfig.projectId || import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  appId: firebaseConfig.appId || import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: firebaseConfig.apiKey || import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: firebaseConfig.authDomain || import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  firestoreDatabaseId: firebaseConfig.firestoreDatabaseId || import.meta.env.VITE_FIREBASE_DATABASE_ID,
+  storageBucket: firebaseConfig.storageBucket || import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: firebaseConfig.messagingSenderId || import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
 };
 
 // Initialize Firebase App singleton
 export const app = getApps().length > 0 ? getApp() : initializeApp(config);
 
-// Initialize Firestore with Database ID & auto-detect long polling (Critical requirement)
+// Initialize Firestore with Database ID & XHR long polling for reliable browser/proxy compatibility
 export const db = (() => {
   const dbId = config.firestoreDatabaseId || '(default)';
+  const settings: FirestoreSettings & { useFetchStreams?: boolean } = {
+    experimentalForceLongPolling: true,
+    useFetchStreams: false,
+  };
   try {
-    return initializeFirestore(
-      app,
-      { experimentalAutoDetectLongPolling: true },
-      dbId
-    );
-  } catch {
+    return initializeFirestore(app, settings, dbId);
+  } catch (err) {
+    console.warn('initializeFirestore fallback to getFirestore:', err);
     return getFirestore(app, dbId);
   }
 })();
