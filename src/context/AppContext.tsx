@@ -236,8 +236,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     isSuperAdmin || (userProfile?.role === 'approved_user' && userProfile?.status === 'active')
   );
 
-  // Subscription Plan & Limit Calculation
-  const currentPlan = isSuperAdmin ? 'enterprise' : (userProfile?.plan || 'free');
+  // Subscription Plan & Limit Calculation (with expiry enforcement)
+  const isPlanExpired = Boolean(
+    !isSuperAdmin &&
+    userProfile?.planExpiresAt &&
+    Number.isFinite(Date.parse(userProfile.planExpiresAt)) &&
+    Date.parse(userProfile.planExpiresAt) < Date.now()
+  );
+  const currentPlan = isSuperAdmin
+    ? 'enterprise'
+    : isPlanExpired
+    ? 'free'
+    : userProfile?.plan || 'free';
 
   // Limits: free = 5/day, pro = 50/day, enterprise = unlimited (-1)
   const dailyPosterLimit = isSuperAdmin

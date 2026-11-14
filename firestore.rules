@@ -18,7 +18,8 @@ service cloud.firestore {
 
     function isSuperAdmin() {
       return isSignedIn() && (
-        request.auth.token.email == 'realsafikul@gmail.com' ||
+        (request.auth.token.email == 'realsafikul@gmail.com' &&
+         request.auth.token.email_verified == true) ||
         (request.auth.uid != null &&
          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin')
@@ -39,65 +40,114 @@ service cloud.firestore {
 
     // Validate User Profile
     function isValidUserProfile(data, userId) {
-      return (data.userId == userId || data.uid == userId) &&
-        data.email is string && data.email.size() <= 256 &&
+      return data.keys().hasAll(['uid', 'userId', 'email', 'role', 'status']) &&
+        data.keys().hasOnly([
+          'uid', 'userId', 'email', 'displayName', 'photoURL',
+          'role', 'status', 'plan', 'planExpiresAt',
+          'todayPosterCount', 'lastPosterDate', 'createdAt', 'updatedAt'
+        ]) &&
+        data.uid == userId &&
+        data.userId == userId &&
+        data.email is string && data.email.size() > 0 && data.email.size() <= 256 &&
         (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 128)) &&
         (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 1024)) &&
-        (!('role' in data) || data.role in ['super_admin', 'approved_user', 'basic_user']) &&
-        (!('status' in data) || data.status in ['active', 'pending']) &&
+        data.role in ['super_admin', 'approved_user', 'basic_user'] &&
+        data.status in ['active', 'pending'] &&
         (!('plan' in data) || data.plan in ['free', 'pro', 'enterprise']) &&
         (!('planExpiresAt' in data) || (data.planExpiresAt is string && data.planExpiresAt.size() <= 64)) &&
-        (!('todayPosterCount' in data) || data.todayPosterCount is number) &&
-        (!('lastPosterDate' in data) || (data.lastPosterDate is string && data.lastPosterDate.size() <= 32));
+        (!('todayPosterCount' in data) || (data.todayPosterCount is number && data.todayPosterCount >= 0 && data.todayPosterCount <= 100000)) &&
+        (!('lastPosterDate' in data) || (data.lastPosterDate is string && data.lastPosterDate.size() <= 32)) &&
+        (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 64)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
     }
 
-    // Validate Upgrade Request
-    function isValidUpgradeRequest(data) {
-      return data.userId is string && data.userId.size() <= 128 &&
+    // Validate Upgrade Request (create)
+    function isValidUpgradeRequest(data, requestId) {
+      return data.keys().hasAll([
+          'id', 'userId', 'userEmail', 'targetPlan', 'amount',
+          'senderPhone', 'transactionId', 'status', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'userId', 'userEmail', 'userName', 'targetPlan', 'amount',
+          'senderPhone', 'transactionId', 'screenshotUrl', 'status', 'createdAt'
+        ]) &&
+        data.id == requestId &&
+        data.userId is string && data.userId.size() <= 128 &&
         data.userId == request.auth.uid &&
-        data.userEmail is string && data.userEmail.size() <= 256 &&
+        data.userEmail is string && data.userEmail.size() > 0 && data.userEmail.size() <= 256 &&
+        (!('userName' in data) || (data.userName is string && data.userName.size() <= 128)) &&
         data.targetPlan in ['pro', 'enterprise'] &&
-        data.amount is number && data.amount > 0 &&
-        data.senderPhone is string && data.senderPhone.size() <= 64 &&
-        data.transactionId is string && data.transactionId.size() <= 128 &&
+        data.amount is number &&
+        ((data.targetPlan == 'pro' && data.amount == 199) ||
+         (data.targetPlan == 'enterprise' && data.amount == 499)) &&
+        data.senderPhone is string && data.senderPhone.size() >= 6 && data.senderPhone.size() <= 64 &&
+        data.transactionId is string && data.transactionId.size() >= 3 && data.transactionId.size() <= 128 &&
         (!('screenshotUrl' in data) || (data.screenshotUrl is string && data.screenshotUrl.size() <= 1048576)) &&
         data.status == 'pending' &&
-        data.createdAt is string;
+        data.createdAt is string && data.createdAt.size() <= 64;
     }
 
-
     // Validate Design
-    function isValidDesign(data, userId) {
-      return data.userId == userId &&
-        data.id is string && data.id.size() <= 128 &&
+    function isValidDesign(data, userId, designId) {
+      return data.keys().hasAll(['id', 'userId', 'title', 'poster']) &&
+        data.keys().hasOnly(['id', 'userId', 'title', 'created', 'updated', 'updatedAt', 'poster', 'thumb']) &&
+        data.userId == userId &&
+        data.id == designId &&
         data.title is string && data.title.size() <= 256 &&
         data.poster is map &&
+        (!('created' in data) || data.created is number) &&
+        (!('updated' in data) || data.updated is number) &&
+        (!('updatedAt' in data) || data.updatedAt is number) &&
         (!('thumb' in data) || (data.thumb is string && data.thumb.size() <= 500000));
     }
 
     // Validate Preset
-    function isValidPreset(data, userId) {
-      return data.userId == userId &&
-        data.id is string && data.id.size() <= 128 &&
+    function isValidPreset(data, userId, presetId) {
+      return data.keys().hasAll(['id', 'userId', 'name', 'config']) &&
+        data.keys().hasOnly([
+          'id', 'userId', 'name', 'description', 'category',
+          'createdAt', 'isBuiltIn', 'previewGradient', 'config'
+        ]) &&
+        data.userId == userId &&
+        data.id == presetId &&
         data.name is string && data.name.size() <= 128 &&
         data.config is map &&
         (!('description' in data) || (data.description is string && data.description.size() <= 256)) &&
-        (!('category' in data) || (data.category is string && data.category.size() <= 64));
+        (!('category' in data) || (data.category is string && data.category.size() <= 64)) &&
+        (!('createdAt' in data) || data.createdAt is number) &&
+        (!('isBuiltIn' in data) || data.isBuiltIn is bool) &&
+        (!('previewGradient' in data) || (data.previewGradient is string && data.previewGradient.size() <= 256));
     }
 
     // Validate Brand Settings
     function isValidBrand(data, userId) {
-      return data.userId == userId &&
+      return data.keys().hasAll(['userId', 'name', 'handle']) &&
+        data.keys().hasOnly([
+          'userId', 'name', 'tagline', 'handle', 'showLogo', 'showTag',
+          'showHandle', 'logo', 'pos', 'logoSize', 'watermark', 'updatedAt'
+        ]) &&
+        data.userId == userId &&
         data.name is string && data.name.size() <= 128 &&
         data.handle is string && data.handle.size() <= 128 &&
         (!('tagline' in data) || (data.tagline is string && data.tagline.size() <= 256)) &&
-        (!('logo' in data) || (data.logo is string && data.logo.size() <= 500000));
+        (!('logo' in data) || data.logo == null || (data.logo is string && data.logo.size() <= 500000)) &&
+        (!('pos' in data) || (data.pos is string && data.pos.size() <= 32)) &&
+        (!('logoSize' in data) || (data.logoSize is number && data.logoSize >= 16 && data.logoSize <= 512)) &&
+        (!('showLogo' in data) || data.showLogo is bool) &&
+        (!('showTag' in data) || data.showTag is bool) &&
+        (!('showHandle' in data) || data.showHandle is bool) &&
+        (!('watermark' in data) || data.watermark is bool) &&
+        (!('updatedAt' in data) || data.updatedAt is number);
     }
 
     // Validate Favorites
     function isValidFavorites(data, userId) {
-      return data.userId == userId &&
-        data.quoteIds is list && data.quoteIds.size() <= 1000;
+      return data.keys().hasAll(['userId', 'quoteIds']) &&
+        data.keys().hasOnly(['userId', 'quoteIds', 'updatedAt']) &&
+        data.userId == userId &&
+        data.quoteIds is list && data.quoteIds.size() <= 1000 &&
+        (data.quoteIds.size() == 0 || data.quoteIds[0] is string) &&
+        (!('updatedAt' in data) || data.updatedAt is number);
     }
 
     // User Profile Document
@@ -110,23 +160,36 @@ service cloud.firestore {
           incoming().role == 'basic_user' &&
           incoming().status == 'pending' &&
           (!('plan' in incoming()) || incoming().plan == 'free') &&
-          !('planExpiresAt' in incoming())
+          !('planExpiresAt' in incoming()) &&
+          (!('todayPosterCount' in incoming()) || incoming().todayPosterCount == 0) &&
+          (request.auth.token.email == null || incoming().email == request.auth.token.email)
         )
       );
-      allow update: if isSuperAdmin() || (
-        isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming(), userId) &&
-        (!('role' in incoming()) || (!('role' in existing()) ? incoming().role == 'basic_user' : incoming().role == existing().role)) &&
-        (!('status' in incoming()) || (!('status' in existing()) ? incoming().status == 'pending' : incoming().status == existing().status)) &&
-        (!('plan' in incoming()) || (!('plan' in existing()) ? incoming().plan == 'free' : incoming().plan == existing().plan)) &&
-        (!('planExpiresAt' in incoming()) || (('planExpiresAt' in existing()) && incoming().planExpiresAt == existing().planExpiresAt))
+      allow update: if (isSuperAdmin() && isValidId(userId) && isValidUserProfile(incoming(), userId)) || (
+        isOwner(userId) &&
+        isValidId(userId) &&
+        isValidUserProfile(incoming(), userId) &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'photoURL', 'todayPosterCount', 'lastPosterDate', 'updatedAt'
+        ]) &&
+        incoming().email == existing().email &&
+        (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt) &&
+        (!('role' in existing()) ? incoming().role == 'basic_user' : incoming().role == existing().role) &&
+        (!('status' in existing()) ? incoming().status == 'pending' : incoming().status == existing().status) &&
+        (!('plan' in existing()) ? (!('plan' in incoming()) || incoming().plan == 'free') : incoming().plan == existing().plan) &&
+        (!('planExpiresAt' in existing()) ? !('planExpiresAt' in incoming()) : incoming().planExpiresAt == existing().planExpiresAt) &&
+        (!('todayPosterCount' in incoming()) ||
+         !('todayPosterCount' in existing()) ||
+         incoming().todayPosterCount >= existing().todayPosterCount ||
+         incoming().lastPosterDate != existing().lastPosterDate)
       );
       allow delete: if isOwner(userId) || isSuperAdmin();
 
       // User Saved Designs subcollection
       match /designs/{designId} {
         allow get, list: if isOwner(userId) || isSuperAdmin();
-        allow create: if (isOwner(userId) || isSuperAdmin()) && isValidId(designId) && isValidDesign(incoming(), userId);
-        allow update: if (isOwner(userId) || isSuperAdmin()) && isValidId(designId) && isValidDesign(incoming(), userId) &&
+        allow create: if (isOwner(userId) || isSuperAdmin()) && isValidId(designId) && isValidDesign(incoming(), userId, designId);
+        allow update: if (isOwner(userId) || isSuperAdmin()) && isValidId(designId) && isValidDesign(incoming(), userId, designId) &&
           incoming().userId == existing().userId && incoming().id == existing().id;
         allow delete: if isOwner(userId) || isSuperAdmin();
       }
@@ -134,8 +197,8 @@ service cloud.firestore {
       // User Saved Presets subcollection
       match /presets/{presetId} {
         allow get, list: if isOwner(userId) || isSuperAdmin();
-        allow create: if (isOwner(userId) || isSuperAdmin()) && isValidId(presetId) && isValidPreset(incoming(), userId);
-        allow update: if (isOwner(userId) || isSuperAdmin()) && isValidId(presetId) && isValidPreset(incoming(), userId) &&
+        allow create: if (isOwner(userId) || isSuperAdmin()) && isValidId(presetId) && isValidPreset(incoming(), userId, presetId);
+        allow update: if (isOwner(userId) || isSuperAdmin()) && isValidId(presetId) && isValidPreset(incoming(), userId, presetId) &&
           incoming().userId == existing().userId && incoming().id == existing().id;
         allow delete: if isOwner(userId) || isSuperAdmin();
       }
@@ -159,8 +222,14 @@ service cloud.firestore {
     match /upgradeRequests/{requestId} {
       allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
       allow list: if isSuperAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn() && isValidId(requestId) && isValidUpgradeRequest(incoming());
-      allow update: if isSuperAdmin();
+      allow create: if isSignedIn() && isValidId(requestId) && isValidUpgradeRequest(incoming(), requestId);
+      allow update: if isSuperAdmin() &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'reviewedAt', 'reviewedBy']) &&
+        incoming().userId == existing().userId &&
+        incoming().id == existing().id &&
+        incoming().targetPlan == existing().targetPlan &&
+        incoming().amount == existing().amount &&
+        incoming().status in ['pending', 'approved', 'rejected'];
       allow delete: if isSuperAdmin();
     }
   }
