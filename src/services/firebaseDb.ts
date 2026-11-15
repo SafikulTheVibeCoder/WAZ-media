@@ -9,12 +9,25 @@ import {
   collection,
   setDoc,
   getDoc,
+  getDocFromServer,
   getDocs,
   deleteDoc,
   deleteField,
+  onSnapshot,
+  query,
+  where,
+  writeBatch,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { formatLocalIsoDate } from '../utils/bengaliUtils';
+import {
+  INITIAL_BKASH_NUMBER,
+  isValidBdMobileNumber,
+  normalizeBdMobileNumber,
+  isValidTransactionId,
+  normalizeTransactionId,
+} from '../utils/paymentValidation';
 import {
   SavedDesign,
   PosterPreset,
@@ -24,10 +37,20 @@ import {
   UserStatus,
   SubscriptionPlan,
   PaymentUpgradeRequest,
+  PaymentSettings,
+  PaymentSettingsHistoryEntry,
+  UserNotification,
 } from '../types';
 import { User } from 'firebase/auth';
 
 export const SUPER_ADMIN_EMAIL = 'realsafikul@gmail.com';
+
+export const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = {
+  bkashNumber: INITIAL_BKASH_NUMBER,
+  paymentEnabled: true,
+  updatedAt: '',
+  updatedBy: 'সিস্টেম ডিফল্ট',
+};
 
 /**
  * Sync user profile to Firestore with RBAC role, plan, and status logic
@@ -251,33 +274,249 @@ export async function recordUserPosterGeneration(userId: string): Promise<{ toda
 }
 
 /**
- * Submit a bKash payment upgrade request
+ * Fetch active bKash payment settings from Firestore (defaults safely to initial configured number)
+ */
+export async function fetchPaymentSettings(): Promise<PaymentSettings> {
+  const path = 'settings/paymentSettings';
+  try {
+    const ref = doc(db, 'settings', 'paymentSettings');
+    let snap;
+    try {
+      snap = await getDocFromServer(ref);
+    } catch {
+      snap = await getDoc(ref);
+    }
+    if (snap.exists()) {
+      const data = snap.data();
+      return {
+        bkashNumber: typeof data.bkashNumber === 'string' && data.bkashNumber ? data.bkashNumber : INITIAL_BKASH_NUMBER,
+        paymentEnabled: data.paymentEnabled !== false,
+        updatedAt: typeof data.updatedAt === 'string' ? data.updatedAt : '',
+        updatedBy: typeof data.updatedBy === 'string' ? data.updatedBy : 'সিস্টেম',
+      };
+    }
+    return DEFAULT_PAYMENT_SETTINGS;
+  } catch (error) {
+    console.warn('Could not fetch payment settings, using fallback:', error);
+    return DEFAULT_PAYMENT_SETTINGS;
+  }
+}
+
+/**
+ * Subscribe to live bKash payment settings changes
+ */
+export function subscribePaymentSettings(
+  onUpdate: (settings: PaymentSettings) => void
+): () => void {
+  const ref = doc(db, 'settings', 'paymentSettings');
+  return onSnapshot(
+    ref,
+    (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        onUpdate({
+          bkashNumber: typeof data.bkashNumber === 'string' && data.bkashNumber ? data.bkashNumber : INITIAL_BKASH_NUMBER,
+          paymentEnabled: data.paymentEnabled !== false,
+          updatedAt: typeof data.updatedAt === 'string' ? data.updatedAt : '',
+          updatedBy: typeof data.updatedBy === 'string' ? data.updatedBy : 'সিস্টেম',
+        });
+      } else {
+        onUpdate(DEFAULT_PAYMENT_SETTINGS);
+      }
+    },
+    (error) => {
+      console.warn('Payment settings listener warning:', error);
+    }
+  );
+}
+
+/**
+ * Update bKash payment settings and record immutable audit log (Super Admin / Owner only)
+ */
+export async function updateBkashPaymentSettings(params: {
+  newNumber: string;
+  paymentEnabled: boolean;
+  adminEmail: string;
+  adminName?: string;
+  adminUid: string;
+}): Promise<PaymentSettings> {
+  const path = 'settings/paymentSettings';
+  const normalizedNew = normalizeBdMobileNumber(params.newNumber);
+  if (!isValidBdMobileNumber(normalizedNew)) {
+    throw new Error('INVALID_BD_MOBILE');
+  }
+
+  const current = await fetchPaymentSettings();
+  const previousNumber = current.bkashNumber || INITIAL_BKASH_NUMBER;
+  const now = new Date().toISOString();
+  const historyId = `hist_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+  try {
+    const batch = writeBatch(db);
+    const settingsRef = doc(db, 'settings', 'paymentSettings');
+    const historyRef = doc(db, 'paymentSettingsHistory', historyId);
+
+    const nextSettings: PaymentSettings = {
+      bkashNumber: normalizedNew,
+      paymentEnabled: params.paymentEnabled,
+      updatedAt: now,
+      updatedBy: params.adminEmail,
+    };
+
+    batch.set(settingsRef, {
+      ...nextSettings,
+      serverUpdatedAt: serverTimestamp(),
+    });
+
+    batch.set(historyRef, {
+      id: historyId,
+      previousNumber,
+      newNumber: normalizedNew,
+      changedBy: params.adminEmail,
+      changedByName: params.adminName || 'সুপার এডমিন',
+      changedByUid: params.adminUid,
+      changedAt: now,
+      serverChangedAt: serverTimestamp(),
+    });
+
+    await batch.commit();
+    return nextSettings;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+/**
+ * Fetch audit history of bKash number changes (Super Admin / Owner only)
+ */
+export async function fetchPaymentSettingsHistory(): Promise<PaymentSettingsHistoryEntry[]> {
+  const path = 'paymentSettingsHistory';
+  try {
+    const colRef = collection(db, 'paymentSettingsHistory');
+    const snap = await getDocs(colRef);
+    const list: PaymentSettingsHistoryEntry[] = [];
+    snap.forEach((docSnap) => {
+      list.push(docSnap.data() as PaymentSettingsHistoryEntry);
+    });
+    list.sort((a, b) => new Date(b.changedAt || 0).getTime() - new Date(a.changedAt || 0).getTime());
+    return list;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
+}
+
+/**
+ * Fetch current user's own bKash payment upgrade requests
+ */
+export async function fetchUserUpgradeRequests(userId: string): Promise<PaymentUpgradeRequest[]> {
+  const path = `upgradeRequests?userId=${userId}`;
+  try {
+    const q = query(collection(db, 'upgradeRequests'), where('userId', '==', userId));
+    const snap = await getDocs(q);
+    const list: PaymentUpgradeRequest[] = [];
+    snap.forEach((docSnap) => {
+      list.push(docSnap.data() as PaymentUpgradeRequest);
+    });
+    list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    return list;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
+}
+
+/**
+ * Submit a bKash payment upgrade request with atomic duplicate TrxID lock & receiver number snapshot
  */
 export async function submitPaymentUpgradeRequest(
   request: Omit<PaymentUpgradeRequest, 'id' | 'createdAt' | 'status'>
 ): Promise<string> {
+  const rawSender = request.senderNumber || request.senderPhone;
+  const normalizedSender = normalizeBdMobileNumber(rawSender);
+  if (!isValidBdMobileNumber(normalizedSender)) {
+    throw new Error('INVALID_SENDER_PHONE');
+  }
+
+  const normalizedTrxId = normalizeTransactionId(request.transactionId);
+  if (!isValidTransactionId(normalizedTrxId)) {
+    throw new Error('INVALID_TRX_ID');
+  }
+
+  // Always load live payment settings from Firestore so checkout never uses a stale/hardcoded receiver number
+  const liveSettings = await fetchPaymentSettings();
+  if (!liveSettings.paymentEnabled) {
+    throw new Error('PAYMENT_DISABLED');
+  }
+
+  // Pre-check current user's own history for duplicate TrxID for fast UX
+  try {
+    const existingMine = await fetchUserUpgradeRequests(request.userId);
+    if (existingMine.some((r) => normalizeTransactionId(r.transactionId || '') === normalizedTrxId)) {
+      throw new Error('DUPLICATE_TRX_ID');
+    }
+  } catch (err: any) {
+    if (err?.message === 'DUPLICATE_TRX_ID') throw err;
+  }
+
   const requestId = `pay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const path = `upgradeRequests/${requestId}`;
+  const now = new Date().toISOString();
 
-  const payload: PaymentUpgradeRequest = {
+  const planName =
+    request.planName ||
+    (request.targetPlan === 'enterprise' ? 'এন্টারপ্রাইজ আনলিমিটেড' : 'প্রো ক্রিয়েটর');
+
+  const payload: PaymentUpgradeRequest & { serverCreatedAt?: unknown } = {
     id: requestId,
     userId: request.userId,
     userEmail: request.userEmail,
     userName: request.userName,
+    planId: request.targetPlan,
+    planName,
     targetPlan: request.targetPlan,
     amount: request.amount,
-    senderPhone: request.senderPhone,
-    transactionId: request.transactionId,
+    currency: 'BDT',
+    paymentMethod: 'bkash',
+    receiverNumberAtSubmission: liveSettings.bkashNumber,
+    senderNumber: normalizedSender,
+    senderPhone: normalizedSender,
+    transactionId: normalizedTrxId,
     ...(request.screenshotUrl ? { screenshotUrl: request.screenshotUrl } : {}),
     status: 'pending',
-    createdAt: new Date().toISOString(),
+    createdAt: now,
+    serverCreatedAt: serverTimestamp(),
   };
 
   try {
+    const batch = writeBatch(db);
     const reqRef = doc(db, 'upgradeRequests', requestId);
-    await setDoc(reqRef, payload);
+    const trxLockRef = doc(db, 'usedTransactions', normalizedTrxId);
+
+    batch.set(reqRef, payload);
+    batch.set(trxLockRef, {
+      transactionId: normalizedTrxId,
+      userId: request.userId,
+      requestId,
+      createdAt: now,
+      serverCreatedAt: serverTimestamp(),
+    });
+
+    await batch.commit();
     return requestId;
-  } catch (error) {
+  } catch (error: any) {
+    const msg = String(error?.code || error?.message || error).toLowerCase();
+    // Atomic rule check fails if usedTransactions/{trxId} already exists
+    if (msg.includes('permission') || msg.includes('already-exists')) {
+      try {
+        // Check if it wasn't duplicate by testing if payment was disabled
+        const latestSettings = await fetchPaymentSettings();
+        if (!latestSettings.paymentEnabled) {
+          throw new Error('PAYMENT_DISABLED');
+        }
+      } catch (inner: any) {
+        if (inner?.message === 'PAYMENT_DISABLED') throw inner;
+      }
+      throw new Error('DUPLICATE_TRX_ID');
+    }
     handleFirestoreError(error, OperationType.CREATE, path);
   }
 }
@@ -303,35 +542,131 @@ export async function fetchAllUpgradeRequests(): Promise<PaymentUpgradeRequest[]
 }
 
 /**
+ * Subscribe to user notifications
+ */
+export function subscribeUserNotifications(
+  userId: string,
+  onUpdate: (items: UserNotification[]) => void
+): () => void {
+  const colRef = collection(db, 'users', userId, 'notifications');
+  return onSnapshot(
+    colRef,
+    (snap) => {
+      const items: UserNotification[] = [];
+      snap.forEach((d) => items.push(d.data() as UserNotification));
+      items.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      onUpdate(items);
+    },
+    (err) => {
+      console.warn('Notifications listener warning:', err);
+    }
+  );
+}
+
+/**
+ * Mark a user notification as read
+ */
+export async function markUserNotificationRead(userId: string, notifId: string): Promise<void> {
+  const path = `users/${userId}/notifications/${notifId}`;
+  try {
+    const ref = doc(db, 'users', userId, 'notifications', notifId);
+    await setDoc(ref, { read: true }, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+/**
  * Approve or Reject an upgrade request (Super Admin only)
+ * Prevents duplicate approval / duplicate TrxID processing, records timestamps & rejection reason, and notifies user.
  */
 export async function processPaymentUpgradeRequest(
   requestId: string,
   targetUserId: string,
   targetPlan: 'pro' | 'enterprise',
   status: 'approved' | 'rejected',
-  adminEmail: string
+  adminEmail: string,
+  options?: { rejectionReason?: string }
 ): Promise<void> {
   const path = `upgradeRequests/${requestId}`;
   const now = new Date().toISOString();
 
   try {
     const reqRef = doc(db, 'upgradeRequests', requestId);
+    const snap = await getDoc(reqRef);
+    if (!snap.exists()) {
+      throw new Error('REQUEST_NOT_FOUND');
+    }
+
+    const existingReq = snap.data() as PaymentUpgradeRequest;
+    if (existingReq.status !== 'pending') {
+      throw new Error('ALREADY_PROCESSED');
+    }
+
+    const normalizedTrx = normalizeTransactionId(existingReq.transactionId || '');
+    if (status === 'approved' && normalizedTrx) {
+      const allReqs = await fetchAllUpgradeRequests();
+      const alreadyApprovedDuplicate = allReqs.some(
+        (r) =>
+          r.id !== requestId &&
+          r.status === 'approved' &&
+          normalizeTransactionId(r.transactionId || '') === normalizedTrx
+      );
+      if (alreadyApprovedDuplicate) {
+        throw new Error('DUPLICATE_APPROVED_TRX_ID');
+      }
+    }
+
+    const trimmedReason = options?.rejectionReason?.trim() || 'পেমেন্ট তথ্য যাচাইয়ে অমিল পাওয়া গেছে';
+
     await setDoc(
       reqRef,
       {
         status,
         reviewedAt: now,
         reviewedBy: adminEmail,
+        serverReviewedAt: serverTimestamp(),
+        ...(status === 'rejected' ? { rejectionReason: trimmedReason } : {}),
       },
       { merge: true }
     );
 
     if (status === 'approved') {
-      // Upgrade user's plan to pro or enterprise for 30 days and approve their status
       await updateUserRoleAndPlan(targetUserId, 'approved_user', 'active', targetPlan, 30);
     }
-  } catch (error) {
+
+    // Create persisted user notification
+    const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const notifRef = doc(db, 'users', targetUserId, 'notifications', notifId);
+    const planLabel = targetPlan === 'enterprise' ? 'এন্টারপ্রাইজ আনলিমিটেড' : 'প্রো ক্রিয়েটর';
+
+    const notification: UserNotification = {
+      id: notifId,
+      userId: targetUserId,
+      type: status === 'approved' ? 'payment_approved' : 'payment_rejected',
+      title:
+        status === 'approved'
+          ? `পেমেন্ট অনুমোদিত! ${planLabel} সক্রিয় হয়েছে`
+          : 'বিকাশ পেমেন্ট রিকোয়েস্ট বাতিল হয়েছে',
+      message:
+        status === 'approved'
+          ? `আপনার TrxID (${existingReq.transactionId}) যাচাই করে ${planLabel} প্যাকেজ ১ মাসের জন্য সক্রিয় করা হয়েছে।`
+          : `আপনার TrxID (${existingReq.transactionId}) পেমেন্টটি অনুমোদিত হয়নি। কারণ: ${trimmedReason}`,
+      requestId,
+      ...(status === 'rejected' ? { rejectionReason: trimmedReason } : {}),
+      read: false,
+      createdAt: now,
+    };
+
+    await setDoc(notifRef, notification);
+  } catch (error: any) {
+    if (
+      error?.message === 'REQUEST_NOT_FOUND' ||
+      error?.message === 'ALREADY_PROCESSED' ||
+      error?.message === 'DUPLICATE_APPROVED_TRX_ID'
+    ) {
+      throw error;
+    }
     handleFirestoreError(error, OperationType.UPDATE, path);
   }
 }

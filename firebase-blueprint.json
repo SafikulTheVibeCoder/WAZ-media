@@ -10,7 +10,7 @@
         "email": { "type": "string", "maxLength": 256 },
         "displayName": { "type": "string", "maxLength": 128 },
         "photoURL": { "type": "string", "maxLength": 1024 },
-        "role": { "type": "string", "enum": ["super_admin", "approved_user", "basic_user"] },
+        "role": { "type": "string", "enum": ["super_admin", "approved_user", "basic_user", "admin"] },
         "status": { "type": "string", "enum": ["active", "pending"] },
         "plan": { "type": "string", "enum": ["free", "pro", "enterprise"] },
         "planExpiresAt": { "type": "string", "maxLength": 64 },
@@ -84,6 +84,23 @@
       },
       "required": ["userId", "quoteIds"]
     },
+    "UserNotification": {
+      "title": "UserNotification",
+      "description": "Payment verification and account notifications for a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "enum": ["payment_approved", "payment_rejected", "info"] },
+        "title": { "type": "string", "maxLength": 200 },
+        "message": { "type": "string", "maxLength": 600 },
+        "requestId": { "type": "string", "maxLength": 128 },
+        "rejectionReason": { "type": "string", "maxLength": 500 },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "userId", "type", "title", "message", "read", "createdAt"]
+    },
     "PaymentUpgradeRequest": {
       "title": "PaymentUpgradeRequest",
       "description": "User bKash payment upgrade request submitted for 1-month Pro or Enterprise activation",
@@ -93,17 +110,63 @@
         "userId": { "type": "string", "maxLength": 128 },
         "userEmail": { "type": "string", "maxLength": 256 },
         "userName": { "type": "string", "maxLength": 128 },
+        "planId": { "type": "string", "enum": ["pro", "enterprise"] },
+        "planName": { "type": "string", "maxLength": 128 },
         "targetPlan": { "type": "string", "enum": ["pro", "enterprise"] },
         "amount": { "type": "number" },
+        "currency": { "type": "string", "enum": ["BDT"] },
+        "paymentMethod": { "type": "string", "enum": ["bkash"] },
+        "receiverNumberAtSubmission": { "type": "string", "maxLength": 32 },
+        "senderNumber": { "type": "string", "maxLength": 32 },
         "senderPhone": { "type": "string", "maxLength": 32 },
         "transactionId": { "type": "string", "maxLength": 64 },
-        "screenshotUrl": { "type": "string", "maxLength": 500000 },
+        "screenshotUrl": { "type": "string", "maxLength": 1048576 },
         "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
-        "createdAt": { "type": "string" },
-        "reviewedAt": { "type": "string" },
-        "reviewedBy": { "type": "string", "maxLength": 128 }
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "reviewedAt": { "type": "string", "maxLength": 64 },
+        "reviewedBy": { "type": "string", "maxLength": 256 },
+        "rejectionReason": { "type": "string", "maxLength": 500 }
       },
       "required": ["id", "userId", "userEmail", "targetPlan", "amount", "senderPhone", "transactionId", "status", "createdAt"]
+    },
+    "PaymentSettings": {
+      "title": "PaymentSettings",
+      "description": "Dynamic bKash receiver number and manual payment configuration controlled by Super Admin",
+      "type": "object",
+      "properties": {
+        "bkashNumber": { "type": "string", "maxLength": 32 },
+        "paymentEnabled": { "type": "boolean" },
+        "updatedAt": { "type": "string", "maxLength": 64 },
+        "updatedBy": { "type": "string", "maxLength": 256 }
+      },
+      "required": ["bkashNumber", "paymentEnabled", "updatedAt", "updatedBy"]
+    },
+    "PaymentSettingsHistory": {
+      "title": "PaymentSettingsHistory",
+      "description": "Immutable audit log of bKash receiver number changes by Super Admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "previousNumber": { "type": "string", "maxLength": 32 },
+        "newNumber": { "type": "string", "maxLength": 32 },
+        "changedBy": { "type": "string", "maxLength": 256 },
+        "changedByName": { "type": "string", "maxLength": 128 },
+        "changedByUid": { "type": "string", "maxLength": 128 },
+        "changedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "previousNumber", "newNumber", "changedBy", "changedByUid", "changedAt"]
+    },
+    "UsedTransaction": {
+      "title": "UsedTransaction",
+      "description": "Atomic duplicate Transaction ID lock record",
+      "type": "object",
+      "properties": {
+        "transactionId": { "type": "string", "maxLength": 64 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "requestId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["transactionId", "userId", "requestId", "createdAt"]
     }
   },
   "firestore": {
@@ -127,10 +190,25 @@
       "schema": "UserFavorites",
       "description": "User bookmarked favorites"
     },
+    "/users/{userId}/notifications/{notifId}": {
+      "schema": "UserNotification",
+      "description": "User payment approval and rejection notifications"
+    },
     "/upgradeRequests/{requestId}": {
       "schema": "PaymentUpgradeRequest",
       "description": "Payment verification requests submitted by users"
+    },
+    "/settings/paymentSettings": {
+      "schema": "PaymentSettings",
+      "description": "Global active bKash payment configuration"
+    },
+    "/paymentSettingsHistory/{historyId}": {
+      "schema": "PaymentSettingsHistory",
+      "description": "Audit log of bKash receiver number changes"
+    },
+    "/usedTransactions/{trxId}": {
+      "schema": "UsedTransaction",
+      "description": "Duplicate bKash Transaction ID lock index"
     }
   }
 }
-

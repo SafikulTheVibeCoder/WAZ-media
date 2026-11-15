@@ -1,5 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { PosterConfig, BrandConfig, SavedDesign, UserStats, QuoteItem, PosterPreset, PosterPresetConfig, AppUserProfile } from '../types';
+import {
+  PosterConfig,
+  BrandConfig,
+  SavedDesign,
+  UserStats,
+  QuoteItem,
+  PosterPreset,
+  PosterPresetConfig,
+  AppUserProfile,
+  PaymentSettings,
+  UserNotification,
+} from '../types';
 import { DEFAULT_POSTER, DEFAULT_BRAND, DEFAULT_LOGO, INITIAL_QUOTES } from '../data/quotes';
 import { BUILTIN_PRESETS } from '../data/presets';
 import { auth } from '../services/firebase';
@@ -20,6 +31,10 @@ import {
   migrateLocalStorageToCloud,
   SUPER_ADMIN_EMAIL,
   recordUserPosterGeneration,
+  DEFAULT_PAYMENT_SETTINGS,
+  subscribePaymentSettings,
+  subscribeUserNotifications,
+  markUserNotificationRead,
 } from '../services/firebaseDb';
 import { formatLocalIsoDate } from '../utils/bengaliUtils';
 
@@ -84,6 +99,11 @@ interface AppContextType {
   triggerAccessGuard: (actionName: string) => boolean;
   checkAndConsumePosterQuota: () => boolean;
   refreshUserProfile: () => Promise<void>;
+  // Dynamic bKash Payment Settings & User Notifications
+  paymentSettings: PaymentSettings;
+  userNotifications: UserNotification[];
+  unreadNotificationsCount: number;
+  markNotificationRead: (notifId: string) => Promise<void>;
 }
 
 const STORAGE_KEYS = {
@@ -225,6 +245,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isPricingModalOpen, setIsPricingModalOpen] = useState<boolean>(false);
   const [selectedUpgradePlan, setSelectedUpgradePlan] = useState<'pro' | 'enterprise'>('pro');
   const [todayPosterCount, setTodayPosterCount] = useState<number>(0);
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>(DEFAULT_PAYMENT_SETTINGS);
+  const [userNotifications, setUserNotifications] = useState<UserNotification[]>([]);
 
   // RBAC computed properties
   const isSuperAdmin = Boolean(
@@ -322,6 +344,50 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     return true;
+  };
+
+  // Subscribe to live Firestore bKash payment settings (always reflects latest owner configuration)
+  useEffect(() => {
+    const unsubscribeSettings = subscribePaymentSettings((settings) => {
+      setPaymentSettings(settings);
+    });
+    return () => unsubscribeSettings();
+  }, []);
+
+  // Subscribe to user payment verification notifications when authenticated
+  useEffect(() => {
+    if (!currentUser) {
+      setUserNotifications([]);
+      return;
+    }
+    let firstSnapshot = true;
+    const unsubscribeNotifs = subscribeUserNotifications(currentUser.uid, (items) => {
+      setUserNotifications(items);
+      const unread = items.filter((n) => !n.read);
+      if (!firstSnapshot && unread.length > 0) {
+        const latest = unread[0];
+        showToast(latest.title);
+        if (latest.type === 'payment_approved') {
+          fetchUserProfile(currentUser.uid)
+            .then((prof) => {
+              if (prof) setUserProfile(prof);
+            })
+            .catch(() => {});
+        }
+      }
+      firstSnapshot = false;
+    });
+    return () => unsubscribeNotifs();
+  }, [currentUser?.uid]);
+
+  const unreadNotificationsCount = userNotifications.filter((n) => !n.read).length;
+
+  const markNotificationRead = async (notifId: string) => {
+    if (!currentUser) return;
+    setUserNotifications((prev) =>
+      prev.map((n) => (n.id === notifId ? { ...n, read: true } : n))
+    );
+    await markUserNotificationRead(currentUser.uid, notifId).catch(() => {});
   };
 
   // Auth observer and auto-hydration from Cloud Firestore
@@ -944,6 +1010,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         triggerAccessGuard,
         checkAndConsumePosterQuota,
         refreshUserProfile,
+        paymentSettings,
+        userNotifications,
+        unreadNotificationsCount,
+        markNotificationRead,
       }}
     >
       {children}

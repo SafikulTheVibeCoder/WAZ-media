@@ -1,15 +1,15 @@
 import { PlanLimitInfo } from '../types';
 
+import { INITIAL_BKASH_NUMBER } from '../utils/paymentValidation';
+
 export const BKASH_CONFIG = {
-  number: '0131198501',
+  defaultNumber: INITIAL_BKASH_NUMBER,
   type: 'Personal / Send Money (পার্সোনাল - সেন্ড মানি)',
-  instructions: [
-    'বিকাশ অ্যাপ বা *247# ডায়াল করে "Send Money" (সেন্ড মানি) অপশন নির্বাচন করুন।',
-    'প্রাপক নম্বর লিখুন: 0131198501',
-    'আপনার পছন্দের প্যাকেজ অনুযায়ী টাকার পরিমাণ দিন (প্রো: ১৯৯ টাকা, এন্টারপ্রাইজ: ৪৯৯ টাকা)।',
-    'রেফারেন্স হিসেবে আপনার ইমেইল বা নাম ব্যবহার করুন।',
-    'টাকা পাঠানো সম্পন্ন হলে ট্রানজেকশন আইডি (TrxID) এবং পেমেন্টের স্ক্রিনশট নিচে আপলোড করে সাবমিট করুন।',
-    'সুপার এডমিন ভেরিফাই করে অবিলম্বে আপনার একাউন্ট ১ মাসের জন্য আপগ্রেড করে দেবেন ইনশাআল্লাহ।'
+  getInstructions: (receiverNumber: string, amount?: number) => [
+    'Open bKash App — বিকাশ অ্যাপ খুলুন (অথবা *247# ডায়াল করুন)।',
+    'Choose Send Money — মেনু থেকে "Send Money" অপশন নির্বাচন করুন।',
+    `Enter Receiver Number & Exact Amount — প্রাপক নম্বর (${receiverNumber}) এবং ঠিক ${amount ? `৳${amount} BDT` : 'নির্ধারিত পরিমাণ'} লিখুন।`,
+    'Complete Transaction & Copy Trx ID — লেনদেন সম্পন্ন করে ট্রানজেকশন আইডি (Trx ID) কপি করে নিচে সাবমিট করুন।'
   ]
 };
 

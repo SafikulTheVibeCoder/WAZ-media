@@ -16,6 +16,7 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Strictly only the Super Admin / Owner (never ordinary admins, approved users, or basic users)
     function isSuperAdmin() {
       return isSignedIn() && (
         (request.auth.token.email == 'realsafikul@gmail.com' &&
@@ -28,6 +29,10 @@ service cloud.firestore {
 
     function isValidId(id) {
       return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidBdPhone(phone) {
+      return phone is string && (phone == '0131198501' || phone.matches('^01[3-9][0-9]{8}$'));
     }
 
     function incoming() {
@@ -51,7 +56,7 @@ service cloud.firestore {
         data.email is string && data.email.size() > 0 && data.email.size() <= 256 &&
         (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 128)) &&
         (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 1024)) &&
-        data.role in ['super_admin', 'approved_user', 'basic_user'] &&
+        data.role in ['super_admin', 'approved_user', 'basic_user', 'admin'] &&
         data.status in ['active', 'pending'] &&
         (!('plan' in data) || data.plan in ['free', 'pro', 'enterprise']) &&
         (!('planExpiresAt' in data) || (data.planExpiresAt is string && data.planExpiresAt.size() <= 64)) &&
@@ -68,8 +73,10 @@ service cloud.firestore {
           'senderPhone', 'transactionId', 'status', 'createdAt'
         ]) &&
         data.keys().hasOnly([
-          'id', 'userId', 'userEmail', 'userName', 'targetPlan', 'amount',
-          'senderPhone', 'transactionId', 'screenshotUrl', 'status', 'createdAt'
+          'id', 'userId', 'userEmail', 'userName',
+          'planId', 'planName', 'targetPlan', 'amount', 'currency', 'paymentMethod',
+          'receiverNumberAtSubmission', 'senderNumber', 'senderPhone',
+          'transactionId', 'screenshotUrl', 'status', 'createdAt', 'serverCreatedAt'
         ]) &&
         data.id == requestId &&
         data.userId is string && data.userId.size() <= 128 &&
@@ -77,13 +84,69 @@ service cloud.firestore {
         data.userEmail is string && data.userEmail.size() > 0 && data.userEmail.size() <= 256 &&
         (!('userName' in data) || (data.userName is string && data.userName.size() <= 128)) &&
         data.targetPlan in ['pro', 'enterprise'] &&
+        (!('planId' in data) || data.planId == data.targetPlan) &&
+        (!('planName' in data) || (data.planName is string && data.planName.size() <= 128)) &&
+        (!('currency' in data) || data.currency == 'BDT') &&
+        (!('paymentMethod' in data) || data.paymentMethod == 'bkash') &&
         data.amount is number &&
         ((data.targetPlan == 'pro' && data.amount == 199) ||
          (data.targetPlan == 'enterprise' && data.amount == 499)) &&
-        data.senderPhone is string && data.senderPhone.size() >= 6 && data.senderPhone.size() <= 64 &&
-        data.transactionId is string && data.transactionId.size() >= 3 && data.transactionId.size() <= 128 &&
+        data.senderPhone is string && data.senderPhone.matches('^01[3-9][0-9]{8}$') &&
+        (!('senderNumber' in data) || data.senderNumber == data.senderPhone) &&
+        (!('receiverNumberAtSubmission' in data) || isValidBdPhone(data.receiverNumberAtSubmission)) &&
+        data.transactionId is string && data.transactionId.size() >= 4 && data.transactionId.size() <= 64 &&
+        data.transactionId.matches('^[A-Z0-9_\\-]+$') &&
         (!('screenshotUrl' in data) || (data.screenshotUrl is string && data.screenshotUrl.size() <= 1048576)) &&
         data.status == 'pending' &&
+        data.createdAt is string && data.createdAt.size() <= 64 &&
+        (!('serverCreatedAt' in data) || data.serverCreatedAt == request.time);
+    }
+
+    // Validate Payment Settings
+    function isValidPaymentSettings(data) {
+      return data.keys().hasAll(['bkashNumber', 'paymentEnabled', 'updatedAt', 'updatedBy']) &&
+        data.keys().hasOnly(['bkashNumber', 'paymentEnabled', 'updatedAt', 'updatedBy', 'serverUpdatedAt']) &&
+        isValidBdPhone(data.bkashNumber) &&
+        data.paymentEnabled is bool &&
+        data.updatedAt is string && data.updatedAt.size() <= 64 &&
+        data.updatedBy is string && data.updatedBy.size() > 0 && data.updatedBy.size() <= 256 &&
+        (!('serverUpdatedAt' in data) || data.serverUpdatedAt == request.time);
+    }
+
+    // Validate Payment Settings Audit History Entry
+    function isValidPaymentSettingsHistory(data, historyId) {
+      return data.keys().hasAll([
+          'id', 'previousNumber', 'newNumber', 'changedBy', 'changedByUid', 'changedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'previousNumber', 'newNumber', 'changedBy', 'changedByName',
+          'changedByUid', 'changedAt', 'serverChangedAt'
+        ]) &&
+        data.id == historyId &&
+        isValidBdPhone(data.previousNumber) &&
+        data.newNumber is string && data.newNumber.matches('^01[3-9][0-9]{8}$') &&
+        data.changedBy is string && data.changedBy.size() > 0 && data.changedBy.size() <= 256 &&
+        (!('changedByName' in data) || (data.changedByName is string && data.changedByName.size() <= 128)) &&
+        data.changedByUid == request.auth.uid &&
+        data.changedAt is string && data.changedAt.size() <= 64 &&
+        (!('serverChangedAt' in data) || data.serverChangedAt == request.time);
+    }
+
+    // Validate User Notification
+    function isValidNotification(data, userId, notifId) {
+      return data.keys().hasAll(['id', 'userId', 'type', 'title', 'message', 'read', 'createdAt']) &&
+        data.keys().hasOnly([
+          'id', 'userId', 'type', 'title', 'message',
+          'requestId', 'rejectionReason', 'read', 'createdAt'
+        ]) &&
+        data.id == notifId &&
+        data.userId == userId &&
+        data.type in ['payment_approved', 'payment_rejected', 'info'] &&
+        data.title is string && data.title.size() <= 200 &&
+        data.message is string && data.message.size() <= 600 &&
+        (!('requestId' in data) || (data.requestId is string && data.requestId.size() <= 128)) &&
+        (!('rejectionReason' in data) || (data.rejectionReason is string && data.rejectionReason.size() <= 500)) &&
+        data.read is bool &&
         data.createdAt is string && data.createdAt.size() <= 64;
     }
 
@@ -216,22 +279,90 @@ service cloud.firestore {
         allow create, update: if (isOwner(userId) || isSuperAdmin()) && isValidId(favDoc) && isValidFavorites(incoming(), userId);
         allow delete: if isOwner(userId) || isSuperAdmin();
       }
+
+      // User Payment & Account Notifications
+      match /notifications/{notifId} {
+        allow get, list: if isOwner(userId) || isSuperAdmin();
+        allow create: if isSuperAdmin() && isValidId(notifId) && isValidNotification(incoming(), userId, notifId);
+        allow update: if (
+          isOwner(userId) &&
+          isValidId(notifId) &&
+          isValidNotification(incoming(), userId, notifId) &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['read']) &&
+          incoming().read is bool
+        ) || isSuperAdmin();
+        allow delete: if isOwner(userId) || isSuperAdmin();
+      }
+    }
+
+    // Payment Settings (Readable for active checkout receiver number, writable ONLY by Super Admin / Owner)
+    match /settings/paymentSettings {
+      allow get: if true;
+      allow list: if isSuperAdmin();
+      allow create, update: if isSuperAdmin() && isValidPaymentSettings(incoming());
+      allow delete: if false;
+    }
+
+    // Payment Settings Audit History (Immutable, Super Admin / Owner only)
+    match /paymentSettingsHistory/{historyId} {
+      allow get, list: if isSuperAdmin();
+      allow create: if isSuperAdmin() && isValidId(historyId) && isValidPaymentSettingsHistory(incoming(), historyId);
+      allow update, delete: if false;
+    }
+
+    // Atomic Duplicate Transaction ID Lock
+    match /usedTransactions/{trxId} {
+      allow get: if isSuperAdmin();
+      allow list: if false;
+      allow create: if isSignedIn() &&
+        isValidId(trxId) &&
+        trxId.size() >= 4 &&
+        trxId.size() <= 64 &&
+        trxId.matches('^[A-Z0-9_\\-]+$') &&
+        !exists(/databases/$(database)/documents/usedTransactions/$(trxId)) &&
+        incoming().keys().hasAll(['transactionId', 'userId', 'requestId', 'createdAt']) &&
+        incoming().keys().hasOnly(['transactionId', 'userId', 'requestId', 'createdAt', 'serverCreatedAt']) &&
+        incoming().transactionId == trxId &&
+        incoming().userId == request.auth.uid &&
+        isValidId(incoming().requestId) &&
+        incoming().createdAt is string && incoming().createdAt.size() <= 64 &&
+        (!('serverCreatedAt' in incoming()) || incoming().serverCreatedAt == request.time) &&
+        getAfter(/databases/$(database)/documents/upgradeRequests/$(incoming().requestId)).data.transactionId == trxId;
+      allow update: if false;
+      allow delete: if isSuperAdmin();
     }
 
     // Payment Upgrade Requests (bKash manual payments)
     match /upgradeRequests/{requestId} {
       allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
       allow list: if isSuperAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn() && isValidId(requestId) && isValidUpgradeRequest(incoming(), requestId);
+      allow create: if isSignedIn() &&
+        isValidId(requestId) &&
+        isValidUpgradeRequest(incoming(), requestId) &&
+        (
+          (!exists(/databases/$(database)/documents/settings/paymentSettings) &&
+           (!('receiverNumberAtSubmission' in incoming()) || incoming().receiverNumberAtSubmission == '0131198501')) ||
+          (exists(/databases/$(database)/documents/settings/paymentSettings) &&
+           get(/databases/$(database)/documents/settings/paymentSettings).data.paymentEnabled == true &&
+           (!('receiverNumberAtSubmission' in incoming()) || incoming().receiverNumberAtSubmission == get(/databases/$(database)/documents/settings/paymentSettings).data.bkashNumber))
+        ) &&
+        existsAfter(/databases/$(database)/documents/usedTransactions/$(incoming().transactionId));
       allow update: if isSuperAdmin() &&
-        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'reviewedAt', 'reviewedBy']) &&
+        existing().status == 'pending' &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'status', 'reviewedAt', 'reviewedBy', 'rejectionReason', 'serverReviewedAt'
+        ]) &&
         incoming().userId == existing().userId &&
         incoming().id == existing().id &&
         incoming().targetPlan == existing().targetPlan &&
         incoming().amount == existing().amount &&
-        incoming().status in ['pending', 'approved', 'rejected'];
+        incoming().transactionId == existing().transactionId &&
+        incoming().senderPhone == existing().senderPhone &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().status in ['approved', 'rejected'] &&
+        (!('rejectionReason' in incoming()) || (incoming().rejectionReason is string && incoming().rejectionReason.size() <= 500)) &&
+        (!('serverReviewedAt' in incoming()) || incoming().serverReviewedAt == request.time);
       allow delete: if isSuperAdmin();
     }
   }
 }
-

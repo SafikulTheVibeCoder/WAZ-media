@@ -153,7 +153,11 @@ export const LandingPageView: React.FC = () => {
     brand,
     setIsPricingModalOpen,
     setSelectedUpgradePlan,
+    paymentSettings,
   } = useApp();
+
+  const activeBkashNumber = paymentSettings?.bkashNumber || BKASH_CONFIG.defaultNumber;
+  const isPaymentEnabled = paymentSettings?.paymentEnabled !== false;
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'poster' | 'presets' | 'library' | 'rbac'>('poster');
@@ -1457,17 +1461,19 @@ export const LandingPageView: React.FC = () => {
           {/* bKash Payment Info Card */}
           <div className="p-5 sm:p-6 rounded-2xl bg-[#141419] border border-[#d4af37]/30 flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs">
             <div className="flex items-start sm:items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-pink-950/70 border border-pink-500/30 flex items-center justify-center text-pink-300 font-bold text-sm shrink-0">
-                বিকাশ
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#E2136E] to-[#C20E5E] flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm">
+                bKash
               </div>
               <div>
                 <h4 className="font-bold text-[#f2d77d] text-sm flex flex-wrap items-center gap-2">
                   <span>বিকাশ পার্সোনাল সেন্ড মানি:</span>
-                  <span className="font-mono tabular-nums text-pink-300">{BKASH_CONFIG.number}</span>
+                  <span className="font-mono tabular-nums text-pink-300">{activeBkashNumber}</span>
                   <span className="text-xs font-normal text-[#807a72]">· Send Money</span>
                 </h4>
                 <p className="text-[#b6b0a6] mt-1 leading-relaxed">
-                  উক্ত নম্বরে সেন্ড মানি করে ট্রানজেকশন আইডি ও স্ক্রিনশট সাবমিট করলে এডমিন আপনার একাউন্ট ১ মাসের জন্য আপগ্রেড করে দেবেন।
+                  {isPaymentEnabled
+                    ? 'উক্ত নম্বরে সেন্ড মানি করে ট্রানজেকশন আইডি ও স্ক্রিনশট সাবমিট করলে সুপার এডমিন যাচাই করে আপনার একাউন্ট ১ মাসের জন্য আপগ্রেড করে দেবেন।'
+                    : 'ম্যানুয়াল বিকাশ চেকআউট সাময়িকভাবে রক্ষণাবেক্ষণের জন্য বন্ধ রয়েছে। অনুগ্রহ করে পরে চেষ্টা করুন।'}
                 </p>
               </div>
             </div>
@@ -1476,8 +1482,8 @@ export const LandingPageView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  navigator.clipboard.writeText(BKASH_CONFIG.number);
-                  showToast('বিকাশ নম্বর কপি হয়েছে: ' + BKASH_CONFIG.number);
+                  navigator.clipboard.writeText(activeBkashNumber);
+                  showToast('বিকাশ নম্বর কপি হয়েছে: ' + activeBkashNumber);
                 }}
                 className="px-4 py-2.5 rounded-xl bg-[#1b1b22] hover:bg-[#23232c] text-[#f2d77d] border border-white/[0.08] font-semibold text-xs transition min-h-[42px]"
               >
@@ -1485,13 +1491,14 @@ export const LandingPageView: React.FC = () => {
               </button>
               <button
                 type="button"
+                disabled={!isPaymentEnabled}
                 onClick={() => {
                   setSelectedUpgradePlan('pro');
                   setIsPricingModalOpen(true);
                 }}
-                className="px-4 py-2.5 rounded-xl bg-[#d4af37] hover:bg-[#e3be47] text-[#0b0b0e] font-bold text-xs transition min-h-[42px]"
+                className="px-4 py-2.5 rounded-xl bg-[#E2136E] hover:bg-[#c81061] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs transition min-h-[42px]"
               >
-                স্ক্রিনশট জমা দিন
+                {isPaymentEnabled ? 'বিকাশ পেমেন্ট করুন' : 'চেকআউট বন্ধ'}
               </button>
             </div>
           </div>

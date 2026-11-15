@@ -185,8 +185,14 @@ export interface PaymentUpgradeRequest {
   userId: string;
   userEmail: string;
   userName: string;
+  planId?: 'pro' | 'enterprise';
+  planName?: string;
   targetPlan: 'pro' | 'enterprise';
   amount: number;
+  currency?: 'BDT';
+  paymentMethod?: 'bkash';
+  receiverNumberAtSubmission?: string;
+  senderNumber?: string;
   senderPhone: string;
   transactionId: string;
   screenshotUrl?: string;
@@ -194,6 +200,36 @@ export interface PaymentUpgradeRequest {
   createdAt: string;
   reviewedAt?: string;
   reviewedBy?: string;
+  rejectionReason?: string;
+}
+
+export interface PaymentSettings {
+  bkashNumber: string;
+  paymentEnabled: boolean;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface PaymentSettingsHistoryEntry {
+  id: string;
+  previousNumber: string;
+  newNumber: string;
+  changedBy: string;
+  changedByName?: string;
+  changedByUid: string;
+  changedAt: string;
+}
+
+export interface UserNotification {
+  id: string;
+  userId: string;
+  type: 'payment_approved' | 'payment_rejected' | 'info';
+  title: string;
+  message: string;
+  requestId?: string;
+  rejectionReason?: string;
+  read: boolean;
+  createdAt: string;
 }
 
 export interface BulkPosterScheduleItem {
