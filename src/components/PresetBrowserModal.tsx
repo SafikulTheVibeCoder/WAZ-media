@@ -149,6 +149,9 @@ export const PresetBrowserModal: React.FC<PresetBrowserModalProps> = ({
               const isCurrent = activePresetId === preset.id;
               const ratioObj = ASPECT_RATIOS.find((r) => r.id === preset.config.size);
               const themeObj = THEME_PRESETS.find((t) => t.id === preset.config.theme);
+              const isLightPreview = ['editorial-paper', 'classic', 'minimal'].includes(
+                preset.config.theme
+              );
 
               return (
                 <div
@@ -162,15 +165,25 @@ export const PresetBrowserModal: React.FC<PresetBrowserModalProps> = ({
                 >
                   <div>
                     <div
-                      className="h-12 rounded-lg px-3 flex items-center justify-between mb-3 border border-white/[0.08]"
+                      className={`h-12 rounded-lg px-3 flex items-center justify-between mb-3 border ${
+                        isLightPreview ? 'border-black/15' : 'border-white/[0.08]'
+                      }`}
                       style={{
                         background: preset.previewGradient || themeObj?.previewBg || '#1b1b22',
                       }}
                     >
-                      <span className="text-[11px] font-semibold text-[#f2d77d]">
+                      <span
+                        className={`text-[11px] font-bold ${
+                          isLightPreview ? 'text-[#171512]' : 'text-[#f2d77d]'
+                        }`}
+                      >
                         {preset.category || 'প্রিসেট'}
                       </span>
-                      <span className="text-[11px] text-[#b6b0a6]">
+                      <span
+                        className={`text-[11px] font-medium ${
+                          isLightPreview ? 'text-[#4A433A]' : 'text-[#b6b0a6]'
+                        }`}
+                      >
                         {preset.isBuiltIn ? 'বিল্ট-ইন' : 'কাস্টম'}
                       </span>
                     </div>

@@ -50,6 +50,7 @@ export type ThemeId =
   | 'sapphire' 
   | 'crimson' 
   | 'minimal' 
+  | 'editorial-paper'
   | 'nokia';
 
 export interface ThemeConfig {
@@ -68,6 +69,7 @@ export type BorderStyle = 'none' | 'simple' | 'double' | 'ornate' | 'arch';
 export type PatternStyle = 'none' | 'geometric' | 'arabesque' | 'stars' | 'subtle';
 
 export interface PosterConfig {
+  heading?: string;
   bn: string;
   ar: string;
   ref: string;
@@ -76,6 +78,7 @@ export interface PosterConfig {
   theme: ThemeId;
   size: AspectRatio;
   font: string;
+  arabicFont?: 'Amiri' | 'Noto Naskh Arabic';
   fontSize: number;
   arabicSizeRatio: number;
   lineHeight: number;
@@ -92,6 +95,8 @@ export interface PosterConfig {
   decorCorner: boolean;
   decorDivider: boolean;
   bgDataUrl?: string | null;
+  editorialMode?: boolean;
+  pageHandle?: string;
 }
 
 export interface SavedDesign {
@@ -113,6 +118,7 @@ export interface PosterPresetConfig {
   theme: ThemeId;
   size: AspectRatio;
   font: string;
+  arabicFont?: 'Amiri' | 'Noto Naskh Arabic';
   fontSize: number;
   arabicSizeRatio: number;
   lineHeight: number;
@@ -130,6 +136,7 @@ export interface PosterPresetConfig {
   decorDivider: boolean;
   showBismillah: boolean;
   bgDataUrl?: string | null;
+  editorialMode?: boolean;
   brandPos?: BrandPosition;
   brandLogoSize?: number;
   brandShowLogo?: boolean;

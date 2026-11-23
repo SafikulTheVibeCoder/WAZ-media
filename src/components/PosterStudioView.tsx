@@ -191,12 +191,23 @@ export const PosterStudioView: React.FC = () => {
     }
   };
 
+  const isEditorialPaper =
+    poster.theme === 'editorial-paper' || Boolean(poster.editorialMode);
+
   const handleCopyCaption = () => {
     const parts: string[] = [];
+    if (poster.heading?.trim()) parts.push(poster.heading.trim());
     if (poster.showAr && poster.ar) parts.push(poster.ar);
     if (poster.bn) parts.push(poster.bn);
     if (poster.ref) parts.push(`— ${poster.ref}`);
-    parts.push(`\n#${brand.name.replace(/\s+/g, '')} #IslamicPost #Hadith #Quran`);
+    const pageFooter =
+      (poster.pageHandle ?? '').trim() ||
+      (brand.showHandle ? (brand.handle || '').trim() : '');
+    if (isEditorialPaper && pageFooter) {
+      parts.push(pageFooter);
+    } else {
+      parts.push(`\n#${brand.name.replace(/\s+/g, '')} #IslamicPost #Hadith #Quran`);
+    }
 
     navigator.clipboard.writeText(parts.join('\n\n'));
     setCopiedCaption(true);
@@ -432,15 +443,57 @@ export const PosterStudioView: React.FC = () => {
 
   const handleThemeSelect = (themeId: ThemeId) => {
     const th = THEME_PRESETS.find((t) => t.id === themeId);
-    if (th) {
+    if (!th) return;
+
+    if (themeId === 'editorial-paper') {
       setPoster((prev) => ({
         ...prev,
+        theme: 'editorial-paper',
+        editorialMode: true,
+        font: 'Noto Serif Bengali',
+        arabicFont: prev.arabicFont || 'Amiri',
+        fontSize: Math.min(Math.max(prev.fontSize, 36), 46),
+        arabicSizeRatio: 1.24,
+        lineHeight: 1.72,
+        align: 'left',
+        bgType: 'theme',
+        bgDataUrl: null,
+        bgPattern: 'none',
+        borderStyle: 'none',
+        decorCorner: false,
+        decorDivider: false,
+        showBismillah: false,
+        textColor: '#171512',
+        accentColor: '#171512',
+        arabicColor: '#171512',
+      }));
+      showToast('প্রাকৃতিক কাগজ মিনিমাল মোড চালু হয়েছে');
+      return;
+    }
+
+    setPoster((prev) => {
+      const leavingEditorial =
+        prev.theme === 'editorial-paper' || Boolean(prev.editorialMode);
+      return {
+        ...prev,
         theme: themeId,
+        editorialMode: false,
         textColor: th.text,
         accentColor: th.accent,
         arabicColor: th.ar,
-      }));
-    }
+        ...(leavingEditorial
+          ? {
+              bgPattern: prev.bgPattern === 'none' ? 'geometric' : prev.bgPattern,
+              borderStyle: prev.borderStyle === 'none' ? 'double' : prev.borderStyle,
+              decorCorner: true,
+              decorDivider: true,
+              align: 'center',
+              fontSize: 64,
+              lineHeight: 1.5,
+            }
+          : {}),
+      };
+    });
   };
 
   const inspectorTabs = [
@@ -808,6 +861,62 @@ export const PosterStudioView: React.FC = () => {
             {/* 1. TEXT TAB */}
             {activeTab === 'text' && (
               <div className="space-y-4">
+                {/* Editorial Paper Quick Mode Switcher */}
+                <div className="p-3 rounded-xl bg-[#0e0e12] border border-white/[0.08] flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="w-3 h-3 rounded-sm border border-black/20 shrink-0"
+                        style={{ backgroundColor: '#F7F0E6' }}
+                      />
+                      <span className="text-xs font-semibold text-[#f5f3ee] truncate">
+                        {isEditorialPaper
+                          ? 'প্রাকৃতিক কাগজ মিনিমাল সক্রিয়'
+                          : 'প্রাকৃতিক কাগজ মিনিমাল (Ivory Paper)'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#807a72] mt-0.5 leading-snug">
+                      {isEditorialPaper
+                        ? 'গ্র্যাডিয়েন্ট, বর্ডার ও বাড়তি আইকন ছাড়া উষ্ণ ক্রিম কাগজ ও মুদ্রিত টাইপোগ্রাফি।'
+                        : 'বর্ডার ও প্যাটার্ন ছাড়া শান্ত এডিটোরিয়াল কাগজ স্টাইলে লিখুন।'}
+                    </p>
+                  </div>
+                  {isEditorialPaper ? (
+                    <button
+                      type="button"
+                      onClick={() => handleThemeSelect('golden')}
+                      className="px-2.5 py-1.5 rounded-lg bg-[#1b1b22] hover:bg-[#23232c] border border-white/10 text-[11px] font-medium text-[#b6b0a6] hover:text-[#f5f3ee] transition shrink-0 whitespace-nowrap"
+                    >
+                      থিম বদলান
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleThemeSelect('editorial-paper')}
+                      className="px-3 py-1.5 rounded-lg bg-[#F7F0E6] hover:bg-[#efe5d7] text-[#171512] text-[11px] font-bold transition shrink-0 whitespace-nowrap"
+                    >
+                      চালু করুন
+                    </button>
+                  )}
+                </div>
+
+                {/* Optional Editorial Heading */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-xs font-semibold text-[#b6b0a6]">
+                      শিরোনাম / হেডিং (ঐচ্ছিক)
+                    </label>
+                    <span className="text-[11px] text-[#807a72]">বড় ও বোল্ড দেখাবে</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={poster.heading || ''}
+                    onChange={(e) => updatePosterField('heading', e.target.value)}
+                    placeholder="যেমন: ধৈর্য ও কৃতজ্ঞতার শান্ত পথ"
+                    className="w-full px-3.5 py-2.5 bg-[#0e0e12] border border-white/[0.08] rounded-xl text-sm text-[#f5f3ee] placeholder:text-[#807a72] focus:border-[#d4af37] focus:outline-none"
+                  />
+                </div>
+
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <label className="text-xs font-semibold text-[#b6b0a6]">
                     বাংলা মূল বক্তব্য / অনুবাদ
@@ -845,12 +954,15 @@ export const PosterStudioView: React.FC = () => {
                 </div>
 
                 <textarea
-                  rows={4}
+                  rows={5}
                   value={poster.bn}
                   onChange={(e) => updatePosterField('bn', e.target.value)}
-                  placeholder="আপনার কাঙ্ক্ষিত বাণী বা বাংলা অনুবাদ লিখুন..."
-                  className="w-full p-3.5 bg-[#0e0e12] border border-white/[0.08] rounded-xl text-sm text-[#f5f3ee] placeholder:text-[#807a72] focus:border-[#d4af37] focus:outline-none resize-none leading-relaxed"
+                  placeholder="আপনার কাঙ্ক্ষিত বাণী বা বাংলা অনুবাদ লিখুন (নতুন অনুচ্ছেদের জন্য Enter দিন)..."
+                  className="w-full p-3.5 bg-[#0e0e12] border border-white/[0.08] rounded-xl text-sm text-[#f5f3ee] placeholder:text-[#807a72] focus:border-[#d4af37] focus:outline-none resize-y leading-relaxed"
                 />
+                <p className="text-[11px] text-[#807a72] -mt-2">
+                  আপনার প্রদত্ত বানান ও শব্দ অবিকৃত থাকবে; Enter দিয়ে অনুচ্ছেদ ভাগ করলে সুন্দর উল্লম্ব ফাঁকা জায়গা তৈরি হবে।
+                </p>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -873,14 +985,14 @@ export const PosterStudioView: React.FC = () => {
                     value={poster.ar}
                     onChange={(e) => updatePosterField('ar', e.target.value)}
                     placeholder="আরবি আয়াত বা হাদিসের মূল পাঠ্য..."
-                    className="w-full p-3.5 font-arabic text-lg bg-[#0e0e12] border border-white/[0.08] rounded-xl text-[#f2d77d] placeholder:text-[#807a72] focus:border-[#d4af37] focus:outline-none resize-none leading-relaxed"
+                    className="w-full p-3.5 font-arabic text-lg bg-[#0e0e12] border border-white/[0.08] rounded-xl text-[#f2d77d] placeholder:text-[#807a72] focus:border-[#d4af37] focus:outline-none resize-y leading-relaxed"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <label className="text-xs font-semibold text-[#b6b0a6]">
-                      রেফারেন্স / হাদিস বা সূরার নাম
+                      রেফারেন্স / হাদিস বা সূরার নাম (ঐচ্ছিক)
                     </label>
                     <span className="text-[11px] text-[#807a72]">উদাঃ সূরা আল-বাকারা, ২:১৫৩</span>
                   </div>
@@ -891,20 +1003,60 @@ export const PosterStudioView: React.FC = () => {
                     placeholder="যেমন: সূরা আল-বাকারা, আয়াত: ১৫৩ অথবা সহীহ বুখারি, হাদিস: ১"
                     className="w-full px-3.5 py-2.5 bg-[#0e0e12] border border-white/[0.08] rounded-xl text-sm text-[#f5f3ee] placeholder:text-[#807a72] focus:border-[#d4af37] focus:outline-none"
                   />
-                  <p className="text-[11px] text-[#807a72]">
-                    স্পষ্টভাবে আয়াত নম্বর উল্লেখ করলে পাঠকদের বুঝতে কোনো দ্বিধা থাকে না।
-                  </p>
                 </div>
 
+                {isEditorialPaper && (
+                  <div className="space-y-1.5 pt-2 border-t border-white/[0.08]">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="text-xs font-semibold text-[#b6b0a6]">
+                        ফেসবুক পেজের নাম (নিচে ডানে)
+                      </label>
+                      {poster.pageHandle && (
+                        <button
+                          type="button"
+                          onClick={() => updatePosterField('pageHandle', '')}
+                          className="text-[11px] text-[#807a72] hover:text-[#f5f3ee]"
+                        >
+                          রিসেট
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      value={poster.pageHandle ?? ''}
+                      onChange={(e) => updatePosterField('pageHandle', e.target.value)}
+                      placeholder={
+                        brand.showHandle && brand.handle
+                          ? `যেমন: ${brand.handle} (ফাঁকা রাখলে এটিই বসবে)`
+                          : 'যেমন: @YourPageName'
+                      }
+                      className="w-full px-3.5 py-2.5 bg-[#0e0e12] border border-white/[0.08] rounded-xl text-sm text-[#f5f3ee] placeholder:text-[#807a72] focus:border-[#d4af37] focus:outline-none"
+                    />
+                    <p className="text-[11px] text-[#807a72]">
+                      পোস্টারের নিচে ডান কোণে ছোট ও মৃদুভাবে আপনার প্রদত্ত নামটি প্রদর্শিত হবে।
+                    </p>
+                  </div>
+                )}
+
                 <div className="pt-3 border-t border-white/[0.08]">
-                  <label className="flex items-center gap-2.5 text-xs text-[#f5f3ee] cursor-pointer py-1">
+                  <label
+                    className={`flex items-center gap-2.5 text-xs py-1 ${
+                      isEditorialPaper
+                        ? 'text-[#807a72] cursor-not-allowed'
+                        : 'text-[#f5f3ee] cursor-pointer'
+                    }`}
+                  >
                     <input
                       type="checkbox"
-                      checked={poster.showBismillah}
+                      disabled={isEditorialPaper}
+                      checked={!isEditorialPaper && poster.showBismillah}
                       onChange={(e) => updatePosterField('showBismillah', e.target.checked)}
-                      className="rounded border-white/20 text-[#d4af37] focus:ring-0 accent-[#d4af37]"
+                      className="rounded border-white/20 text-[#d4af37] focus:ring-0 accent-[#d4af37] disabled:opacity-50"
                     />
-                    <span>উপরে “বিসমিল্লাহ” ক্যালিগ্রাফি যুক্ত করুন</span>
+                    <span>
+                      উপরে “বিসমিল্লাহ” ক্যালিগ্রাফি যুক্ত করুন
+                      {isEditorialPaper ? ' (এডিটোরিয়াল কাগজ থিমে বন্ধ)' : ''}
+                    </span>
                   </label>
                 </div>
               </div>
@@ -918,39 +1070,46 @@ export const PosterStudioView: React.FC = () => {
                     রঙিন থিম প্যালেট নির্বাচন করুন
                   </label>
                   <div className="grid grid-cols-2 gap-3">
-                    {THEME_PRESETS.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => handleThemeSelect(t.id)}
-                        className={`p-3 rounded-xl border text-left transition relative overflow-hidden flex flex-col justify-between h-24 ${
-                          poster.theme === t.id
-                            ? 'border-[#d4af37] ring-1 ring-[#d4af37]'
-                            : 'border-white/[0.08] hover:border-white/25'
-                        }`}
-                        style={{ background: t.previewBg }}
-                      >
-                        <div className="flex justify-between items-start gap-2">
-                          <span
-                            className="font-bold text-xs px-2 py-0.5 rounded-md bg-black/50"
-                            style={{ color: t.accent }}
-                          >
-                            {t.name}
-                          </span>
-                          {poster.theme === t.id && (
-                            <span className="w-5 h-5 rounded-md bg-[#d4af37] text-[#0b0b0e] flex items-center justify-center shrink-0">
-                              <Check className="w-3.5 h-3.5 stroke-[3]" />
-                            </span>
-                          )}
-                        </div>
-                        <span
-                          className="text-[11px] opacity-90 truncate font-medium"
-                          style={{ color: t.text }}
+                    {THEME_PRESETS.map((t) => {
+                      const isLightCard = ['editorial-paper', 'classic', 'minimal'].includes(t.id);
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => handleThemeSelect(t.id)}
+                          className={`p-3 rounded-xl border text-left transition relative overflow-hidden flex flex-col justify-between h-24 ${
+                            poster.theme === t.id
+                              ? 'border-[#d4af37] ring-1 ring-[#d4af37]'
+                              : 'border-white/[0.08] hover:border-white/25'
+                          }`}
+                          style={{ background: t.previewBg }}
                         >
-                          {t.bgDesc}
-                        </span>
-                      </button>
-                    ))}
+                          <div className="flex justify-between items-start gap-2">
+                            <span
+                              className={`font-bold text-xs px-2 py-0.5 rounded-md ${
+                                isLightCard
+                                  ? 'bg-[#171512]/10 border border-[#171512]/15'
+                                  : 'bg-black/50'
+                              }`}
+                              style={{ color: isLightCard ? '#171512' : t.accent }}
+                            >
+                              {t.name}
+                            </span>
+                            {poster.theme === t.id && (
+                              <span className="w-5 h-5 rounded-md bg-[#d4af37] text-[#0b0b0e] flex items-center justify-center shrink-0">
+                                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            className="text-[11px] opacity-90 truncate font-medium"
+                            style={{ color: isLightCard ? '#2e2a24' : t.text }}
+                          >
+                            {t.bgDesc}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -1054,10 +1213,31 @@ export const PosterStudioView: React.FC = () => {
                     </option>
                     <option value="Anek Bangla">আনেক বাংলা (Anek Bangla - আধুনিক ও স্পষ্ট)</option>
                     <option value="Noto Serif Bengali">
-                      নোটো সেরিফ বেঙ্গলি (Noto Serif - আভিজাত্যময়)
+                      নোটো সেরিফ বেঙ্গলি (Noto Serif - আভিজাত্যময় মুদ্রণ শৈলী)
                     </option>
-                    <option value="Tiro Bangla">তিরো বাংলা (Tiro Bangla - ঐতিহ্যবাহী)</option>
+                    <option value="Tiro Bangla">তিরো বাংলা (Tiro Bangla - ঐতিহ্যবাহী ছাপা ফন্ট)</option>
                     <option value="Hind Siliguri">হিন্দ শিলিগুড়ি (Hind Siliguri - স্ট্যান্ডার্ড)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-[#b6b0a6] block mb-1.5">
+                    আরবি ফন্ট (Arabic Typography)
+                  </label>
+                  <select
+                    value={poster.arabicFont || 'Amiri'}
+                    onChange={(e) =>
+                      updatePosterField(
+                        'arabicFont',
+                        e.target.value as 'Amiri' | 'Noto Naskh Arabic'
+                      )
+                    }
+                    className="w-full px-3.5 py-2.5 bg-[#0e0e12] border border-white/[0.08] rounded-xl text-sm text-[#f5f3ee] focus:border-[#d4af37] outline-none"
+                  >
+                    <option value="Amiri">আমিরি (Amiri — ঐতিহ্যবাহী মুদ্রিত আরবি বুক ফন্ট)</option>
+                    <option value="Noto Naskh Arabic">
+                      নোটো নাসখ আরবি (Noto Naskh Arabic — স্পষ্ট আধুনিক নাসখ)
+                    </option>
                   </select>
                 </div>
 
@@ -1088,6 +1268,24 @@ export const PosterStudioView: React.FC = () => {
                     onChange={(e) => updatePosterField('fontSize', Number(e.target.value))}
                     className="w-full accent-[#d4af37] cursor-pointer"
                   />
+
+                  <div className="pt-2">
+                    <div className="flex items-center justify-between text-xs text-[#b6b0a6] mb-1.5">
+                      <span>লাইন স্পেসিং (Line Height)</span>
+                      <span className="text-[#f2d77d] tabular-nums font-mono font-semibold">
+                        {(poster.lineHeight || 1.5).toFixed(2)}×
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1.3"
+                      max="2.0"
+                      step="0.05"
+                      value={poster.lineHeight || 1.5}
+                      onChange={(e) => updatePosterField('lineHeight', Number(e.target.value))}
+                      className="w-full accent-[#d4af37] cursor-pointer"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -1140,7 +1338,23 @@ export const PosterStudioView: React.FC = () => {
             {/* 4. BACKGROUND TAB */}
             {activeTab === 'bg' && (
               <div className="space-y-5">
-                <div>
+                {isEditorialPaper && (
+                  <div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-500/30 text-xs text-amber-100 space-y-2">
+                    <p className="font-semibold">প্রাকৃতিক কাগজ মিনিমাল মোড সক্রিয়</p>
+                    <p className="text-[11px] text-amber-200/85 leading-relaxed">
+                      খাঁটি ক্রিম কাগজের টেক্সচার (#F7F0E6) অটুট রাখতে এই থিমে কোনো ছবি, গ্র্যাডিয়েন্ট বা জ্যামিতিক প্যাটার্ন যুক্ত হয় না।
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleThemeSelect('golden')}
+                      className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-[#0b0b0e] font-bold text-[11px] transition"
+                    >
+                      স্ট্যান্ডার্ড থিমে ফিরে যান
+                    </button>
+                  </div>
+                )}
+
+                <div className={isEditorialPaper ? 'opacity-45 pointer-events-none select-none' : ''}>
                   <label className="text-xs font-semibold text-[#b6b0a6] block mb-2">
                     কাস্টম ব্যাকগ্রাউন্ড ছবি
                   </label>
@@ -1174,7 +1388,7 @@ export const PosterStudioView: React.FC = () => {
                   </label>
                 </div>
 
-                {poster.bgDataUrl && (
+                {poster.bgDataUrl && !isEditorialPaper && (
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs text-[#b6b0a6]">
                       <span>ছবির উপর ডার্ক ওভারলে</span>
@@ -1197,7 +1411,7 @@ export const PosterStudioView: React.FC = () => {
                   </div>
                 )}
 
-                <div>
+                <div className={isEditorialPaper ? 'opacity-45 pointer-events-none select-none' : ''}>
                   <label className="text-xs font-semibold text-[#b6b0a6] block mb-2">
                     ইসলামিক অলঙ্করণ প্যাটার্ন
                   </label>
@@ -1230,7 +1444,23 @@ export const PosterStudioView: React.FC = () => {
             {/* 5. DECORATION TAB */}
             {activeTab === 'decor' && (
               <div className="space-y-5">
-                <div>
+                {isEditorialPaper && (
+                  <div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-500/30 text-xs text-amber-100 space-y-2">
+                    <p className="font-semibold">প্রাকৃতিক কাগজ মিনিমাল মোড সক্রিয়</p>
+                    <p className="text-[11px] text-amber-200/85 leading-relaxed">
+                      এই মোডে বর্ডার, কোণার তারা বা অলঙ্করণ ডিভাইডার বন্ধ রাখা হয়েছে যাতে কেবল প্রাকৃতিক কাগজ ও টাইপোগ্রাফি প্রাধান্য পায়।
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleThemeSelect('golden')}
+                      className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-[#0b0b0e] font-bold text-[11px] transition"
+                    >
+                      স্ট্যান্ডার্ড থিমে ফিরে যান
+                    </button>
+                  </div>
+                )}
+
+                <div className={isEditorialPaper ? 'opacity-45 pointer-events-none select-none' : ''}>
                   <label className="text-xs font-semibold text-[#b6b0a6] block mb-2">
                     বর্ডার বা ফ্রেমের ধরণ
                   </label>
@@ -1258,7 +1488,11 @@ export const PosterStudioView: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="space-y-2.5 pt-3 border-t border-white/[0.08]">
+                <div
+                  className={`space-y-2.5 pt-3 border-t border-white/[0.08] ${
+                    isEditorialPaper ? 'opacity-45 pointer-events-none select-none' : ''
+                  }`}
+                >
                   <label className="flex items-center justify-between p-3.5 rounded-xl bg-[#0e0e12] border border-white/[0.08] cursor-pointer">
                     <span className="text-xs font-medium text-[#f5f3ee]">
                       চার কোণায় ইসলামিক তারা অলঙ্করণ
@@ -1289,7 +1523,29 @@ export const PosterStudioView: React.FC = () => {
             {/* 6. BRANDING TAB */}
             {activeTab === 'brand' && (
               <div className="space-y-5">
-                <div>
+                {isEditorialPaper && (
+                  <div className="p-3.5 rounded-xl bg-[#0e0e12] border border-[#d4af37]/30 space-y-2.5">
+                    <label className="text-xs font-semibold text-[#f2d77d] block">
+                      ফেসবুক পেজের নাম (নিচে ডানে ফুটার)
+                    </label>
+                    <input
+                      type="text"
+                      value={poster.pageHandle ?? ''}
+                      onChange={(e) => updatePosterField('pageHandle', e.target.value)}
+                      placeholder={
+                        brand.showHandle && brand.handle
+                          ? `যেমন: ${brand.handle}`
+                          : 'যেমন: @YourPageName'
+                      }
+                      className="w-full px-3.5 py-2.5 bg-[#141419] border border-white/[0.08] rounded-xl text-sm text-[#f5f3ee] placeholder:text-[#807a72] focus:border-[#d4af37] outline-none"
+                    />
+                    <p className="text-[11px] text-[#807a72] leading-relaxed">
+                      এডিটোরিয়াল কাগজ থিমে লোগো বা ওয়াটারমার্ক থাকে না — শুধুমাত্র প্রদত্ত ফেসবুক পেজের নামটি নিচের ডান কোণে ছোট ও স্পষ্টভাবে বসে।
+                    </p>
+                  </div>
+                )}
+
+                <div className={isEditorialPaper ? 'opacity-45 pointer-events-none select-none' : ''}>
                   <label className="text-xs font-semibold text-[#b6b0a6] block mb-1.5">
                     লোগো ও ব্র্যান্ডের অবস্থান
                   </label>
@@ -1312,23 +1568,31 @@ export const PosterStudioView: React.FC = () => {
                     পোস্টারে দৃশ্যমান উপাদান
                   </span>
 
-                  <label className="flex items-center justify-between p-3.5 rounded-xl bg-[#0e0e12] border border-white/[0.08] cursor-pointer">
+                  <label
+                    className={`flex items-center justify-between p-3.5 rounded-xl bg-[#0e0e12] border border-white/[0.08] ${
+                      isEditorialPaper ? 'opacity-45 pointer-events-none' : 'cursor-pointer'
+                    }`}
+                  >
                     <span className="text-xs text-[#f5f3ee]">ব্র্যান্ড লোগো আইকন</span>
                     <input
                       type="checkbox"
-                      checked={brand.showLogo}
+                      checked={!isEditorialPaper && brand.showLogo}
                       onChange={(e) => updateBrandField('showLogo', e.target.checked)}
                       className="rounded border-white/20 text-[#d4af37] focus:ring-0 accent-[#d4af37]"
                     />
                   </label>
 
-                  <label className="flex items-center justify-between p-3.5 rounded-xl bg-[#0e0e12] border border-white/[0.08] cursor-pointer gap-3">
+                  <label
+                    className={`flex items-center justify-between p-3.5 rounded-xl bg-[#0e0e12] border border-white/[0.08] gap-3 ${
+                      isEditorialPaper ? 'opacity-45 pointer-events-none' : 'cursor-pointer'
+                    }`}
+                  >
                     <span className="text-xs text-[#f5f3ee] truncate">
                       ট্যাগলাইন ({brand.tagline})
                     </span>
                     <input
                       type="checkbox"
-                      checked={brand.showTag}
+                      checked={!isEditorialPaper && brand.showTag}
                       onChange={(e) => updateBrandField('showTag', e.target.checked)}
                       className="rounded border-white/20 text-[#d4af37] focus:ring-0 accent-[#d4af37] shrink-0"
                     />
@@ -1346,34 +1610,40 @@ export const PosterStudioView: React.FC = () => {
                     />
                   </label>
 
-                  <label className="flex items-center justify-between p-3.5 rounded-xl bg-[#0e0e12] border border-white/[0.08] cursor-pointer">
+                  <label
+                    className={`flex items-center justify-between p-3.5 rounded-xl bg-[#0e0e12] border border-white/[0.08] ${
+                      isEditorialPaper ? 'opacity-45 pointer-events-none' : 'cursor-pointer'
+                    }`}
+                  >
                     <span className="text-xs text-[#f5f3ee]">ফুটার কপিরাইট ওয়াটারমার্ক</span>
                     <input
                       type="checkbox"
-                      checked={brand.watermark}
+                      checked={!isEditorialPaper && brand.watermark}
                       onChange={(e) => updateBrandField('watermark', e.target.checked)}
                       className="rounded border-white/20 text-[#d4af37] focus:ring-0 accent-[#d4af37]"
                     />
                   </label>
                 </div>
 
-                <div className="space-y-2 pt-3 border-t border-white/[0.08]">
-                  <div className="flex justify-between text-xs text-[#b6b0a6]">
-                    <span>লোগোর আকার</span>
-                    <span className="font-semibold text-[#f2d77d] tabular-nums font-mono">
-                      {toBengaliNumber(brand.logoSize)}px
-                    </span>
+                {!isEditorialPaper && (
+                  <div className="space-y-2 pt-3 border-t border-white/[0.08]">
+                    <div className="flex justify-between text-xs text-[#b6b0a6]">
+                      <span>লোগোর আকার</span>
+                      <span className="font-semibold text-[#f2d77d] tabular-nums font-mono">
+                        {toBengaliNumber(brand.logoSize)}px
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="50"
+                      max="220"
+                      step="5"
+                      value={brand.logoSize}
+                      onChange={(e) => updateBrandField('logoSize', Number(e.target.value))}
+                      className="w-full accent-[#d4af37] cursor-pointer"
+                    />
                   </div>
-                  <input
-                    type="range"
-                    min="50"
-                    max="220"
-                    step="5"
-                    value={brand.logoSize}
-                    onChange={(e) => updateBrandField('logoSize', Number(e.target.value))}
-                    className="w-full accent-[#d4af37] cursor-pointer"
-                  />
-                </div>
+                )}
               </div>
             )}
 

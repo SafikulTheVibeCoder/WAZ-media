@@ -10,8 +10,88 @@ const SIZES: Record<AspectRatio, [number, number]> = {
 
 const BISMILLAH_TEXT = 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ';
 
-// Cache loaded images
+// Cache loaded images and generated paper textures
 const imageCache = new Map<string, HTMLImageElement>();
+const paperTextureCache = new Map<string, HTMLCanvasElement>();
+
+function createSeededRandom(seed: number) {
+  let s = seed % 2147483647;
+  if (s <= 0) s += 2147483646;
+  return () => {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+/**
+ * Natural handmade ivory paper (#F7F0E6) with subtle fine cotton grain & micro fibers.
+ * No gradients, no patterns, no borders.
+ */
+function getEditorialPaperCanvas(width: number, height: number): HTMLCanvasElement {
+  const key = `${width}x${height}`;
+  const cached = paperTextureCache.get(key);
+  if (cached) return cached;
+
+  const offscreen = document.createElement('canvas');
+  offscreen.width = width;
+  offscreen.height = height;
+  const pCtx = offscreen.getContext('2d');
+  if (!pCtx) return offscreen;
+
+  // Base soft cream tone #F7F0E6 (rgb: 247, 240, 230)
+  pCtx.fillStyle = '#F7F0E6';
+  pCtx.fillRect(0, 0, width, height);
+
+  const rand = createSeededRandom(1448);
+
+  // Subtle organic pixel-level paper grain
+  try {
+    const imgData = pCtx.getImageData(0, 0, width, height);
+    const data = imgData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      // Deterministic lightweight LCG grain for natural handmade feel
+      const n = ((i * 2654435761) >>> 24) & 255;
+      const delta = ((n / 255) - 0.5) * 7.5;
+      data[i] = Math.min(255, Math.max(0, 247 + delta));
+      data[i + 1] = Math.min(255, Math.max(0, 240 + delta * 0.96));
+      data[i + 2] = Math.min(255, Math.max(0, 230 + delta * 0.92));
+      data[i + 3] = 255;
+    }
+    pCtx.putImageData(imgData, 0, 0);
+  } catch {
+    // Fallback solid #F7F0E6 remains intact
+  }
+
+  // Ultra-subtle natural cellulose fibers & soft handmade paper flecks
+  pCtx.save();
+  const fiberCount = Math.round((width * height) / 9500);
+  pCtx.lineCap = 'round';
+  for (let i = 0; i < fiberCount; i++) {
+    const x = rand() * width;
+    const y = rand() * height;
+    const len = (3 + rand() * 11) * (width / 1080);
+    const angle = rand() * Math.PI * 2;
+    const ctrlOffset = (rand() - 0.5) * 3 * (width / 1080);
+    const ex = x + Math.cos(angle) * len;
+    const ey = y + Math.sin(angle) * len;
+    const cx = (x + ex) / 2 - Math.sin(angle) * ctrlOffset;
+    const cy = (y + ey) / 2 + Math.cos(angle) * ctrlOffset;
+
+    pCtx.beginPath();
+    pCtx.moveTo(x, y);
+    pCtx.quadraticCurveTo(cx, cy, ex, ey);
+    pCtx.lineWidth = (0.4 + rand() * 0.65) * (width / 1080);
+    pCtx.strokeStyle =
+      rand() > 0.38
+        ? `rgba(116, 98, 74, ${(0.018 + rand() * 0.025).toFixed(3)})`
+        : `rgba(255, 253, 249, ${(0.18 + rand() * 0.18).toFixed(3)})`;
+    pCtx.stroke();
+  }
+  pCtx.restore();
+
+  paperTextureCache.set(key, offscreen);
+  return offscreen;
+}
 
 export function loadImage(src: string): Promise<HTMLImageElement | null> {
   if (!src) return Promise.resolve(null);
@@ -320,6 +400,9 @@ function drawBackgroundTheme(
     grad.addColorStop(1, '#eee6d8');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
+  } else if (themeId === 'editorial-paper') {
+    const paperCanvas = getEditorialPaperCanvas(width, height);
+    ctx.drawImage(paperCanvas, 0, 0, width, height);
   } else if (themeId === 'nokia') {
     ctx.fillStyle = '#a2bf75';
     ctx.fillRect(0, 0, width, height);
@@ -491,9 +574,59 @@ function wrapText(
   return lines;
 }
 
+interface ParagraphLine {
+  text: string;
+  gapAfter: number;
+}
+
+function wrapEditorialParagraphs(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  paragraphGap: number
+): ParagraphLine[] {
+  const result: ParagraphLine[] = [];
+  const rawParagraphs = text.replace(/\r\n/g, '\n').split('\n');
+  // Filter blank separator lines into clean paragraph spacing rather than blank rows
+  const nonEmptyIndices: number[] = [];
+  rawParagraphs.forEach((p, idx) => {
+    if (p.trim()) nonEmptyIndices.push(idx);
+  });
+
+  nonEmptyIndices.forEach((paraIdx, listPos) => {
+    const para = rawParagraphs[paraIdx].trim();
+    const words = para.split(/\s+/);
+    let currentLine = '';
+
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+        result.push({ text: currentLine, gapAfter: 0 });
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    }
+    if (currentLine) {
+      const hasMore = listPos < nonEmptyIndices.length - 1;
+      // Slightly larger vertical breathing room if separated by an empty blank line (\n\n)
+      const nextIdx = hasMore ? nonEmptyIndices[listPos + 1] : -1;
+      const hadBlankLine = hasMore && nextIdx - paraIdx > 1;
+      result.push({
+        text: currentLine,
+        gapAfter: hasMore ? (hadBlankLine ? paragraphGap * 1.25 : paragraphGap) : 0,
+      });
+    }
+  });
+
+  return result;
+}
+
 interface BlockItem {
-  type: 'bismillah' | 'ar' | 'bn' | 'div' | 'ref';
+  type: 'bismillah' | 'heading' | 'ar' | 'bn' | 'div' | 'ref';
   lines?: string[];
+  paraLines?: ParagraphLine[];
   font?: string;
   lineHeight?: number;
   color?: string;
@@ -525,7 +658,9 @@ export async function renderPoster(
   if (!ctx) return;
 
   const k = W / 1080;
-  const fontName = poster.font || 'Noto Sans Bengali';
+  const isEditorialPaper = poster.theme === 'editorial-paper' || Boolean(poster.editorialMode);
+  const fontName = poster.font || (isEditorialPaper ? 'Noto Serif Bengali' : 'Noto Sans Bengali');
+  const arFontName = poster.arabicFont || (isEditorialPaper ? 'Amiri' : 'Noto Naskh Arabic');
 
   // Ensure custom web fonts are fully loaded in memory before rendering to canvas
   try {
@@ -533,11 +668,15 @@ export async function renderPoster(
     const refSize = Math.round(Math.max(baseSize * 0.46, 22 * k));
     await Promise.all([
       document.fonts.load(`700 ${Math.round(28 * k)}px "Cinzel"`),
+      document.fonts.load(`400 ${baseSize}px "${fontName}"`),
+      document.fonts.load(`500 ${baseSize}px "${fontName}"`),
       document.fonts.load(`600 ${baseSize}px "${fontName}"`),
+      document.fonts.load(`700 ${Math.round(baseSize * 1.28)}px "${fontName}"`),
       document.fonts.load(`500 ${refSize}px "${fontName}"`),
       document.fonts.load(`600 ${refSize}px "${fontName}"`),
       document.fonts.load(`700 ${refSize}px "${fontName}"`),
-      document.fonts.load(`400 ${Math.round(baseSize * (poster.arabicSizeRatio || 1.15))}px "Noto Naskh Arabic"`),
+      document.fonts.load(`400 ${Math.round(baseSize * (poster.arabicSizeRatio || 1.2))}px "${arFontName}"`),
+      document.fonts.load(`400 ${Math.round(baseSize * (poster.arabicSizeRatio || 1.2))}px "Noto Naskh Arabic"`),
       document.fonts.ready,
     ]);
   } catch (err) {
@@ -547,19 +686,27 @@ export async function renderPoster(
   const theme = THEME_PRESETS.find((t) => t.id === poster.theme) || THEME_PRESETS[0];
 
   const isDarkCanvas =
-    ['golden', 'black', 'emerald', 'sapphire', 'crimson'].includes(poster.theme) ||
-    (poster.bgType === 'custom' && (poster.overlay || 0) >= 0.25);
+    !isEditorialPaper &&
+    (['golden', 'black', 'emerald', 'sapphire', 'crimson'].includes(poster.theme) ||
+      (poster.bgType === 'custom' && (poster.overlay || 0) >= 0.25));
 
-  let primaryText = poster.textColor || theme.text;
-  let accent = poster.accentColor || theme.accent;
-  let arColor = poster.arabicColor || theme.ar;
+  let primaryText = isEditorialPaper ? '#171512' : poster.textColor || theme.text;
+  let accent = isEditorialPaper ? '#171512' : poster.accentColor || theme.accent;
+  let arColor = isEditorialPaper ? '#171512' : poster.arabicColor || theme.ar;
 
-  // Auto-Contrast Guard: On dark backgrounds, NEVER allow text or Arabic to collapse to dark brown/black!
-  if (isDarkCanvas) {
+  if (isEditorialPaper) {
+    // Allow deliberate near-black ink customization while preventing low-contrast pale ink on ivory paper
+    if (poster.textColor && getHexLuminance(poster.textColor) < 85) {
+      primaryText = poster.textColor;
+    }
+    if (poster.arabicColor && getHexLuminance(poster.arabicColor) < 85) {
+      arColor = poster.arabicColor;
+    }
+  } else if (isDarkCanvas) {
+    // Auto-Contrast Guard: On dark backgrounds, NEVER allow text or Arabic to collapse to dark brown/black!
     if (getHexLuminance(primaryText) < 150) {
       primaryText = '#fffdf5';
     } else if (primaryText.toUpperCase() === '#FFFFFF' && poster.theme === 'golden') {
-      // Bright golden-white for luxury contrast
       primaryText = '#fffdf4';
     }
     if (getHexLuminance(arColor) < 150) {
@@ -572,36 +719,229 @@ export async function renderPoster(
 
   // 1. Clear & draw background
   ctx.clearRect(0, 0, W, H);
-  drawBackgroundTheme(ctx, W, H, poster.theme, accent);
+  drawBackgroundTheme(
+    ctx,
+    W,
+    H,
+    isEditorialPaper ? 'editorial-paper' : poster.theme,
+    accent
+  );
 
-  // 2. Custom Background or Pattern
-  if (poster.bgType === 'custom' && poster.bgDataUrl) {
-    const img = await loadImage(poster.bgDataUrl);
-    if (img) {
-      const ratio = Math.max(W / img.width, H / img.height);
-      const nw = img.width * ratio;
-      const nh = img.height * ratio;
-      const ox = (W - nw) / 2;
-      const oy = (H - nh) / 2;
+  // 2. Custom Background or Pattern (Strictly suppressed in Editorial Natural Paper mode)
+  if (!isEditorialPaper) {
+    if (poster.bgType === 'custom' && poster.bgDataUrl) {
+      const img = await loadImage(poster.bgDataUrl);
+      if (img) {
+        const ratio = Math.max(W / img.width, H / img.height);
+        const nw = img.width * ratio;
+        const nh = img.height * ratio;
+        const ox = (W - nw) / 2;
+        const oy = (H - nh) / 2;
 
+        ctx.save();
+        ctx.drawImage(img, ox, oy, nw, nh);
+        ctx.fillStyle = `rgba(0, 0, 0, ${poster.overlay})`;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+    } else if (poster.bgPattern !== 'none') {
+      drawGeometricPattern(ctx, W, H, accent, k, poster.bgPattern);
+    }
+
+    // 3. Borders & Corner Ornaments
+    drawBorders(ctx, W, H, poster.borderStyle, accent, k);
+    if (poster.decorCorner && poster.borderStyle !== 'none') {
+      drawCorners(ctx, W, H, accent, k);
+    }
+  }
+
+  // Dedicated Minimalist Natural Ivory Paper Editorial Rendering Path
+  if (isEditorialPaper) {
+    const editorialWidth = W > H ? Math.round(W * 0.7) : Math.round(W * 0.66);
+    const editorialLeft = Math.round((W - editorialWidth) / 2);
+    const topReserved = Math.round(H * 0.13);
+    const footerPadRight = Math.round(W * 0.085);
+    const footerPadBottom = Math.round(H * 0.075);
+
+    const suppliedPageName = (poster.pageHandle ?? '').trim() || (brand.showHandle ? (brand.handle || '').trim() : '');
+    const footerReserved = suppliedPageName ? Math.round(H * 0.14) : Math.round(H * 0.12);
+    const availableHeight = H - topReserved - footerReserved;
+
+    const buildEditorialLayout = (baseSize: number) => {
+      const blockSpacing = baseSize * 0.72;
+      const paraGap = baseSize * 0.56;
+      const items: BlockItem[] = [];
+
+      // Optional Heading (slightly larger & bold, exact wording)
+      if (poster.heading && poster.heading.trim()) {
+        const headingSize = Math.round(baseSize * 1.28);
+        const headingFont = `700 ${headingSize}px "${fontName}", "Noto Serif Bengali", "Tiro Bangla", serif`;
+        const headingLH = headingSize * 1.48;
+        ctx.font = headingFont;
+        const paraLines = wrapEditorialParagraphs(
+          ctx,
+          poster.heading.trim(),
+          editorialWidth,
+          headingSize * 0.45
+        );
+        const totalH =
+          paraLines.length * headingLH +
+          paraLines.reduce((acc, pl) => acc + pl.gapAfter, 0);
+        items.push({
+          type: 'heading',
+          paraLines,
+          font: headingFont,
+          lineHeight: headingLH,
+          color: primaryText,
+          dir: 'ltr',
+          height: totalH,
+        });
+      }
+
+      // Optional Arabic Text (graceful Arabic typography, proper RTL shaping & diacritics)
+      if (poster.showAr && poster.ar && poster.ar.trim()) {
+        const arSize = Math.round(baseSize * (poster.arabicSizeRatio || 1.22));
+        const arFontStr = `400 ${arSize}px "${arFontName}", "Amiri", "Noto Naskh Arabic", serif`;
+        const arLH = arSize * 1.88;
+        ctx.font = arFontStr;
+        ctx.direction = 'rtl';
+        const paraLines = wrapEditorialParagraphs(
+          ctx,
+          poster.ar.trim(),
+          editorialWidth,
+          arSize * 0.52
+        );
+        ctx.direction = 'ltr';
+        const totalH =
+          paraLines.length * arLH +
+          paraLines.reduce((acc, pl) => acc + pl.gapAfter, 0);
+        items.push({
+          type: 'ar',
+          paraLines,
+          font: arFontStr,
+          lineHeight: arLH,
+          color: arColor,
+          dir: 'rtl',
+          height: totalH,
+        });
+      }
+
+      // Bengali Body Text (medium-sized, comfortable line & paragraph spacing, exact wording)
+      if (poster.bn && poster.bn.trim()) {
+        const bnSize = baseSize;
+        const bnFontStr = `400 ${bnSize}px "${fontName}", "Noto Serif Bengali", "Tiro Bangla", sans-serif`;
+        const bnLH = bnSize * Math.max(poster.lineHeight || 1.72, 1.65);
+        ctx.font = bnFontStr;
+        const paraLines = wrapEditorialParagraphs(ctx, poster.bn.trim(), editorialWidth, paraGap);
+        const totalH =
+          paraLines.length * bnLH +
+          paraLines.reduce((acc, pl) => acc + pl.gapAfter, 0);
+        items.push({
+          type: 'bn',
+          paraLines,
+          font: bnFontStr,
+          lineHeight: bnLH,
+          color: primaryText,
+          dir: 'ltr',
+          height: totalH,
+        });
+      }
+
+      // Optional Reference / Source (exact wording preserved, quiet hierarchy)
+      if (poster.ref && poster.ref.trim()) {
+        const refSize = Math.round(Math.max(baseSize * 0.72, 22 * k));
+        const refFontStr = `500 ${refSize}px "${fontName}", "Noto Serif Bengali", sans-serif`;
+        const refLH = refSize * 1.55;
+        ctx.font = refFontStr;
+        const paraLines = wrapEditorialParagraphs(
+          ctx,
+          poster.ref.trim(),
+          editorialWidth,
+          refSize * 0.4
+        );
+        const totalH =
+          paraLines.length * refLH +
+          paraLines.reduce((acc, pl) => acc + pl.gapAfter, 0);
+        items.push({
+          type: 'ref',
+          paraLines,
+          font: refFontStr,
+          lineHeight: refLH,
+          color: 'rgba(23, 21, 18, 0.72)',
+          dir: 'ltr',
+          height: totalH,
+        });
+      }
+
+      const totalHeight =
+        items.reduce((acc, it) => acc + it.height, 0) +
+        Math.max(0, items.length - 1) * blockSpacing;
+
+      return { items, blockSpacing, totalHeight };
+    };
+
+    let editorialBaseSize = Math.min(poster.fontSize || 44, 72) * k;
+    let edLayout = buildEditorialLayout(editorialBaseSize);
+    if (poster.autoFit) {
+      while (edLayout.totalHeight > availableHeight && editorialBaseSize > 20 * k) {
+        editorialBaseSize -= 1.5 * k;
+        edLayout = buildEditorialLayout(editorialBaseSize);
+      }
+    }
+
+    const align = poster.align || 'left';
+    const edAlignX =
+      align === 'left'
+        ? editorialLeft
+        : align === 'right'
+        ? editorialLeft + editorialWidth
+        : W / 2;
+
+    let currY = topReserved + Math.max(0, (availableHeight - edLayout.totalHeight) / 2);
+
+    ctx.save();
+    ctx.textBaseline = 'middle';
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'transparent';
+
+    edLayout.items.forEach((item, idx) => {
+      if (idx > 0) currY += edLayout.blockSpacing;
       ctx.save();
-      ctx.drawImage(img, ox, oy, nw, nh);
-      // Dark overlay
-      ctx.fillStyle = `rgba(0, 0, 0, ${poster.overlay})`;
-      ctx.fillRect(0, 0, W, H);
+      ctx.font = item.font!;
+      ctx.fillStyle = item.color!;
+      ctx.direction = item.dir || 'ltr';
+      ctx.textAlign = align;
+
+      const lh = item.lineHeight || 48 * k;
+      for (const lineObj of item.paraLines || []) {
+        ctx.fillText(lineObj.text, edAlignX, currY + lh / 2);
+        currY += lh + lineObj.gapAfter;
+      }
+      ctx.restore();
+    });
+
+    // Subtle, readable supplied Facebook Page Name at the bottom-right corner
+    if (suppliedPageName) {
+      const hasBengali = /[\u0980-\u09FF]/.test(suppliedPageName);
+      const footerSize = Math.round(Math.max(20 * k, W * 0.02));
+      ctx.save();
+      ctx.fillStyle = 'rgba(23, 21, 18, 0.62)';
+      ctx.direction = 'ltr';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'alphabetic';
+      ctx.font = hasBengali
+        ? `500 ${footerSize}px "${fontName}", "Noto Serif Bengali", sans-serif`
+        : `500 ${footerSize}px "Noto Serif Bengali", Georgia, serif`;
+      ctx.letterSpacing = hasBengali ? '0px' : `${0.4 * k}px`;
+      ctx.fillText(suppliedPageName, W - footerPadRight, H - footerPadBottom);
       ctx.restore();
     }
-  } else if (poster.bgPattern !== 'none') {
-    drawGeometricPattern(ctx, W, H, accent, k, poster.bgPattern);
+
+    ctx.restore();
+    return;
   }
 
-  // 3. Borders & Corner Ornaments
-  drawBorders(ctx, W, H, poster.borderStyle, accent, k);
-  if (poster.decorCorner && poster.borderStyle !== 'none') {
-    drawCorners(ctx, W, H, accent, k);
-  }
-
-  // 4. Margins & Padding calculation
+  // 4. Margins & Padding calculation (Standard Ornate / Branded Themes)
   const marginX = W * 0.11;
   const padY = W * 0.085 + (H > 1500 ? 110 * k : 0);
 
@@ -757,11 +1097,11 @@ export async function renderPoster(
     // Bismillah
     if (poster.showBismillah) {
       const bismSize = Math.max(baseSize * 0.65, 24 * k);
-      ctx.font = `400 ${bismSize}px "Noto Naskh Arabic", "Amiri", serif`;
+      ctx.font = `400 ${bismSize}px "${arFontName}", "Noto Naskh Arabic", "Amiri", serif`;
       items.push({
         type: 'bismillah',
         lines: [BISMILLAH_TEXT],
-        font: `400 ${bismSize}px "Noto Naskh Arabic", "Amiri", serif`,
+        font: `400 ${bismSize}px "${arFontName}", "Noto Naskh Arabic", "Amiri", serif`,
         lineHeight: bismSize * 1.6,
         color: accent,
         dir: 'rtl',
@@ -769,10 +1109,27 @@ export async function renderPoster(
       });
     }
 
+    // Optional Heading
+    if (poster.heading && poster.heading.trim()) {
+      const headingSize = Math.round(baseSize * 1.18);
+      const headingFontStr = `700 ${headingSize}px "${fontName}", "Noto Sans Bengali", sans-serif`;
+      ctx.font = headingFontStr;
+      const headingLines = wrapText(ctx, poster.heading.trim(), maxContentWidth);
+      items.push({
+        type: 'heading',
+        lines: headingLines,
+        font: headingFontStr,
+        lineHeight: headingSize * 1.38,
+        color: accent,
+        dir: 'ltr',
+        height: headingLines.length * (headingSize * 1.38),
+      });
+    }
+
     // Arabic text
     if (poster.showAr && poster.ar && poster.ar.trim()) {
       const arSize = baseSize * (poster.arabicSizeRatio || 1.15);
-      const fontStr = `400 ${arSize}px "Noto Naskh Arabic", "Amiri", serif`;
+      const fontStr = `400 ${arSize}px "${arFontName}", "Noto Naskh Arabic", "Amiri", serif`;
       ctx.font = fontStr;
       ctx.direction = 'rtl';
       const lines = wrapText(ctx, poster.ar.trim(), maxContentWidth);
@@ -804,7 +1161,7 @@ export async function renderPoster(
     });
 
     // Divider & Reference
-    let hasRef = Boolean(poster.ref && poster.ref.trim());
+    const hasRef = Boolean(poster.ref && poster.ref.trim());
     let refItem: BlockItem | null = null;
     let divItem: BlockItem | null = null;
 
@@ -833,7 +1190,7 @@ export async function renderPoster(
 
     // Compose in chosen order
     let mainSequence: BlockItem[] = [];
-    let pinnedBottom: BlockItem[] = [];
+    const pinnedBottom: BlockItem[] = [];
 
     if (poster.refPos === 'bottom' && refItem) {
       if (divItem) pinnedBottom.push(divItem);
@@ -909,16 +1266,14 @@ export async function renderPoster(
       ctx.direction = item.dir || 'ltr';
 
       if (item.type === 'bismillah') {
-        ctx.shadowColor = 'rgba(241, 206, 104, 0.45)';
-        ctx.shadowBlur = 8 * k;
+        ctx.shadowColor = isDarkCanvas ? 'rgba(241, 206, 104, 0.45)' : 'transparent';
+        ctx.shadowBlur = isDarkCanvas ? 8 * k : 0;
       } else if (item.type === 'ar') {
-        // Clear, prominent, and luminous golden Arabic text with rich contrast
-        ctx.shadowColor = 'rgba(250, 219, 127, 0.45)';
-        ctx.shadowBlur = 12 * k;
-      } else if (item.type === 'bn') {
-        // Clean, modern, highly readable, bright golden-white font with max contrast
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
-        ctx.shadowBlur = 6 * k;
+        ctx.shadowColor = isDarkCanvas ? 'rgba(250, 219, 127, 0.45)' : 'transparent';
+        ctx.shadowBlur = isDarkCanvas ? 12 * k : 0;
+      } else if (item.type === 'bn' || item.type === 'heading') {
+        ctx.shadowColor = isDarkCanvas ? 'rgba(0, 0, 0, 0.75)' : 'transparent';
+        ctx.shadowBlur = isDarkCanvas ? 6 * k : 0;
       } else if (item.type === 'ref') {
         ctx.shadowBlur = 0;
         ctx.letterSpacing = `${1.5 * k}px`;

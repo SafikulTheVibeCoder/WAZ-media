@@ -563,6 +563,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             theme: cfg.theme,
             size: cfg.size,
             font: cfg.font,
+            arabicFont: cfg.arabicFont ?? prev.arabicFont,
             fontSize: cfg.fontSize,
             arabicSizeRatio: cfg.arabicSizeRatio,
             lineHeight: cfg.lineHeight,
@@ -579,6 +580,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             decorCorner: cfg.decorCorner,
             decorDivider: cfg.decorDivider,
             showBismillah: cfg.showBismillah,
+            editorialMode: cfg.editorialMode ?? cfg.theme === 'editorial-paper',
           }
         : {}),
       bn: quote.bn,
@@ -738,6 +740,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       theme: poster.theme,
       size: poster.size,
       font: poster.font,
+      arabicFont: poster.arabicFont,
       fontSize: poster.fontSize,
       arabicSizeRatio: poster.arabicSizeRatio,
       lineHeight: poster.lineHeight,
@@ -755,6 +758,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       decorDivider: poster.decorDivider,
       showBismillah: poster.showBismillah,
       bgDataUrl: poster.bgDataUrl,
+      editorialMode: poster.editorialMode || poster.theme === 'editorial-paper',
       brandPos: brand.pos,
       brandLogoSize: brand.logoSize,
       brandShowLogo: brand.showLogo,
@@ -797,6 +801,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       theme: cfg.theme,
       size: cfg.size,
       font: cfg.font,
+      arabicFont: cfg.arabicFont ?? prev.arabicFont,
       fontSize: cfg.fontSize,
       arabicSizeRatio: cfg.arabicSizeRatio,
       lineHeight: cfg.lineHeight,
@@ -814,6 +819,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       decorDivider: cfg.decorDivider,
       showBismillah: cfg.showBismillah,
       bgDataUrl: cfg.bgDataUrl !== undefined ? cfg.bgDataUrl : prev.bgDataUrl,
+      editorialMode: cfg.editorialMode ?? cfg.theme === 'editorial-paper',
     }));
 
     if (cfg.brandPos !== undefined) {

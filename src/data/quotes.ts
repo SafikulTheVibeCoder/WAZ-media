@@ -101,6 +101,17 @@ export const THEME_PRESETS: ThemeConfig[] = [
     previewBg: 'linear-gradient(135deg, #ffffff 0%, #f4eee3 100%)',
   },
   {
+    id: 'editorial-paper',
+    name: 'প্রাকৃতিক কাগজ মিনিমাল',
+    nameEn: 'Natural Ivory Paper',
+    text: '#171512',
+    accent: '#171512',
+    ar: '#171512',
+    border: '#F7F0E6',
+    bgDesc: 'উষ্ণ ক্রিম হাতে তৈরি কাগজ (#F7F0E6) ও মুদ্রিত টাইপোগ্রাফি',
+    previewBg: '#F7F0E6',
+  },
+  {
     id: 'nokia',
     name: 'রেট্রো মনোটোন',
     nameEn: 'Vintage Retro',
@@ -193,6 +204,7 @@ export const DEFAULT_BRAND: BrandConfig = {
 };
 
 export const DEFAULT_POSTER: PosterConfig = {
+  heading: '',
   bn: 'নিশ্চয়ই কষ্টের সাথেই রয়েছে স্বস্তি।',
   ar: 'فَإِنَّ مَعَ الْعُسْرِ يُسْرًا ۝ إِنَّ مَعَ الْعُسْرِ يُسْرًا',
   ref: 'সূরা আশ-শারহ, আয়াত: ৫-৬',
@@ -201,6 +213,7 @@ export const DEFAULT_POSTER: PosterConfig = {
   theme: 'golden',
   size: '1080x1080',
   font: 'Noto Sans Bengali',
+  arabicFont: 'Noto Naskh Arabic',
   fontSize: 68,
   arabicSizeRatio: 1.15,
   lineHeight: 1.5,
@@ -217,4 +230,6 @@ export const DEFAULT_POSTER: PosterConfig = {
   decorCorner: true,
   decorDivider: true,
   bgDataUrl: null,
+  editorialMode: false,
+  pageHandle: '',
 };

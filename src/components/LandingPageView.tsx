@@ -317,7 +317,9 @@ export const LandingPageView: React.FC = () => {
       theme: cfg.theme,
       size: cfg.size,
       font: cfg.font,
+      arabicFont: cfg.arabicFont || prev.arabicFont || 'Amiri',
       fontSize: cfg.fontSize,
+      lineHeight: cfg.lineHeight,
       borderStyle: cfg.borderStyle,
       bgPattern: cfg.bgPattern,
       textColor: cfg.textColor,
@@ -329,6 +331,7 @@ export const LandingPageView: React.FC = () => {
       decorCorner: cfg.decorCorner,
       decorDivider: cfg.decorDivider,
       showBismillah: cfg.showBismillah,
+      editorialMode: cfg.editorialMode ?? cfg.theme === 'editorial-paper',
     }));
     setActiveTab('poster');
     showToast(`"${preset.name}" স্টাইল ডেমো ক্যানভাসে প্রয়োগ করা হয়েছে!`);
@@ -879,19 +882,54 @@ export const LandingPageView: React.FC = () => {
                   <label className="text-xs font-semibold text-[#b6b0a6] block mb-2">
                     লাইভ থিম প্যালেট:
                   </label>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {THEME_PRESETS.map((t: ThemeConfig) => (
                       <button
                         key={t.id}
                         type="button"
                         onClick={() =>
-                          setDemoPoster((prev) => ({
-                            ...prev,
-                            theme: t.id,
-                            textColor: t.text,
-                            accentColor: t.accent,
-                            arabicColor: t.ar,
-                          }))
+                          setDemoPoster((prev) => {
+                            if (t.id === 'editorial-paper') {
+                              return {
+                                ...prev,
+                                theme: 'editorial-paper',
+                                editorialMode: true,
+                                font: 'Noto Serif Bengali',
+                                arabicFont: 'Amiri',
+                                fontSize: 44,
+                                lineHeight: 1.72,
+                                align: 'left',
+                                bgPattern: 'none',
+                                borderStyle: 'none',
+                                decorCorner: false,
+                                decorDivider: false,
+                                showBismillah: false,
+                                textColor: '#171512',
+                                accentColor: '#171512',
+                                arabicColor: '#171512',
+                              };
+                            }
+                            const leaving = prev.theme === 'editorial-paper' || prev.editorialMode;
+                            return {
+                              ...prev,
+                              theme: t.id,
+                              editorialMode: false,
+                              textColor: t.text,
+                              accentColor: t.accent,
+                              arabicColor: t.ar,
+                              ...(leaving
+                                ? {
+                                    bgPattern: 'geometric',
+                                    borderStyle: 'double',
+                                    decorCorner: true,
+                                    decorDivider: true,
+                                    align: 'center',
+                                    fontSize: 64,
+                                    lineHeight: 1.5,
+                                  }
+                                : {}),
+                            };
+                          })
                         }
                         className={`p-2 rounded-xl border flex flex-col items-center gap-1.5 text-[11px] font-medium transition min-h-[56px] ${
                           demoPoster.theme === t.id
@@ -901,7 +939,9 @@ export const LandingPageView: React.FC = () => {
                       >
                         <span
                           className="w-4 h-4 rounded-md border border-white/15 shrink-0"
-                          style={{ backgroundColor: t.accent }}
+                          style={{
+                            backgroundColor: t.id === 'editorial-paper' ? '#F7F0E6' : t.accent,
+                          }}
                         />
                         <span className="truncate w-full text-center text-[10px]">{t.name}</span>
                       </button>
