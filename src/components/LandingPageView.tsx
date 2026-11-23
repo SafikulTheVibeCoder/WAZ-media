@@ -167,9 +167,9 @@ export const LandingPageView: React.FC = () => {
     bn: 'নিশ্চয়ই কষ্টের সাথেই রয়েছে স্বস্তি।',
     ar: 'فَإِنَّ مَعَ الْعُسْرِ يُسْرًا ۝ إِنَّ مَعَ الْعُسْرِ يُسْرًا',
     ref: 'সূরা আশ-শারহ, আয়াত: ৫-৬',
-    theme: 'golden',
+    theme: 'editorial-paper',
+    editorialMode: true,
     size: '1080x1080',
-    borderStyle: 'double',
   });
 
   const [activeQuoteIndex, setActiveQuoteIndex] = useState(0);
@@ -840,9 +840,21 @@ export const LandingPageView: React.FC = () => {
                   {showCustomTextEditor && (
                     <div className="mt-3 space-y-2.5 pt-3 border-t border-white/[0.08]">
                       <div>
+                        <label className="text-[11px] text-[#807a72] block mb-1">শিরোনাম (ঐচ্ছিক):</label>
+                        <input
+                          type="text"
+                          value={demoPoster.heading || ''}
+                          placeholder="যেমন: ধৈর্য ও কৃতজ্ঞতার শান্ত পথ"
+                          onChange={(e) =>
+                            setDemoPoster((prev) => ({ ...prev, heading: e.target.value }))
+                          }
+                          className="w-full p-2.5 bg-[#141419] border border-white/[0.08] rounded-lg text-xs text-[#f5f3ee] placeholder:text-[#807a72] focus:border-[#d4af37] outline-none"
+                        />
+                      </div>
+                      <div>
                         <label className="text-[11px] text-[#807a72] block mb-1">বাংলা বাণী:</label>
                         <textarea
-                          rows={2}
+                          rows={3}
                           value={demoPoster.bn}
                           onChange={(e) =>
                             setDemoPoster((prev) => ({ ...prev, bn: e.target.value }))
@@ -862,16 +874,30 @@ export const LandingPageView: React.FC = () => {
                           className="w-full p-2.5 bg-[#141419] border border-white/[0.08] rounded-lg text-xs text-[#f2d77d] font-arabic focus:border-[#d4af37] outline-none"
                         />
                       </div>
-                      <div>
-                        <label className="text-[11px] text-[#807a72] block mb-1">রেফারেন্স:</label>
-                        <input
-                          type="text"
-                          value={demoPoster.ref}
-                          onChange={(e) =>
-                            setDemoPoster((prev) => ({ ...prev, ref: e.target.value }))
-                          }
-                          className="w-full p-2.5 bg-[#141419] border border-white/[0.08] rounded-lg text-xs text-[#f5f3ee] focus:border-[#d4af37] outline-none"
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[11px] text-[#807a72] block mb-1">রেফারেন্স:</label>
+                          <input
+                            type="text"
+                            value={demoPoster.ref}
+                            onChange={(e) =>
+                              setDemoPoster((prev) => ({ ...prev, ref: e.target.value }))
+                            }
+                            className="w-full p-2.5 bg-[#141419] border border-white/[0.08] rounded-lg text-xs text-[#f5f3ee] focus:border-[#d4af37] outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] text-[#807a72] block mb-1">ফেসবুক পেজ নাম (নিচে ডানে):</label>
+                          <input
+                            type="text"
+                            value={demoPoster.pageHandle || ''}
+                            placeholder="যেমন: @YourPageName"
+                            onChange={(e) =>
+                              setDemoPoster((prev) => ({ ...prev, pageHandle: e.target.value }))
+                            }
+                            className="w-full p-2.5 bg-[#141419] border border-white/[0.08] rounded-lg text-xs text-[#f5f3ee] placeholder:text-[#807a72] focus:border-[#d4af37] outline-none"
+                          />
+                        </div>
                       </div>
                     </div>
                   )}
@@ -940,7 +966,7 @@ export const LandingPageView: React.FC = () => {
                         <span
                           className="w-4 h-4 rounded-md border border-white/15 shrink-0"
                           style={{
-                            backgroundColor: t.id === 'editorial-paper' ? '#F7F0E6' : t.accent,
+                            backgroundColor: t.id === 'editorial-paper' ? '#F5EBDD' : t.accent,
                           }}
                         />
                         <span className="truncate w-full text-center text-[10px]">{t.name}</span>

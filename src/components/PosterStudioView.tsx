@@ -453,7 +453,7 @@ export const PosterStudioView: React.FC = () => {
         font: 'Noto Serif Bengali',
         arabicFont: prev.arabicFont || 'Amiri',
         fontSize: Math.min(Math.max(prev.fontSize, 36), 46),
-        arabicSizeRatio: 1.24,
+        arabicSizeRatio: 1.16,
         lineHeight: 1.72,
         align: 'left',
         bgType: 'theme',
@@ -867,18 +867,18 @@ export const PosterStudioView: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span
                         className="w-3 h-3 rounded-sm border border-black/20 shrink-0"
-                        style={{ backgroundColor: '#F7F0E6' }}
+                        style={{ backgroundColor: '#F5EBDD' }}
                       />
                       <span className="text-xs font-semibold text-[#f5f3ee] truncate">
                         {isEditorialPaper
-                          ? 'প্রাকৃতিক কাগজ মিনিমাল সক্রিয়'
-                          : 'প্রাকৃতিক কাগজ মিনিমাল (Ivory Paper)'}
+                          ? 'হাতে তৈরি কাগজ মিনিমাল সক্রিয়'
+                          : 'হাতে তৈরি কাগজ মিনিমাল (Textured Paper)'}
                       </span>
                     </div>
                     <p className="text-[11px] text-[#807a72] mt-0.5 leading-snug">
                       {isEditorialPaper
-                        ? 'গ্র্যাডিয়েন্ট, বর্ডার ও বাড়তি আইকন ছাড়া উষ্ণ ক্রিম কাগজ ও মুদ্রিত টাইপোগ্রাফি।'
-                        : 'বর্ডার ও প্যাটার্ন ছাড়া শান্ত এডিটোরিয়াল কাগজ স্টাইলে লিখুন।'}
+                        ? 'প্রাকৃতিক কাগজের আঁশ, সূক্ষ্ম ভাঁজ ও কোমল আলো-ছায়ায় মুদ্রিত টাইপোগ্রাফি।'
+                        : 'বর্ডার ও প্যাটার্ন ছাড়া হাতে তৈরি ক্রিম কাগজ স্টাইলে লিখুন।'}
                     </p>
                   </div>
                   {isEditorialPaper ? (
@@ -893,7 +893,7 @@ export const PosterStudioView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleThemeSelect('editorial-paper')}
-                      className="px-3 py-1.5 rounded-lg bg-[#F7F0E6] hover:bg-[#efe5d7] text-[#171512] text-[11px] font-bold transition shrink-0 whitespace-nowrap"
+                      className="px-3 py-1.5 rounded-lg bg-[#F5EBDD] hover:bg-[#EBDEC9] text-[#171512] text-[11px] font-bold transition shrink-0 whitespace-nowrap"
                     >
                       চালু করুন
                     </button>
@@ -1342,7 +1342,7 @@ export const PosterStudioView: React.FC = () => {
                   <div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-500/30 text-xs text-amber-100 space-y-2">
                     <p className="font-semibold">প্রাকৃতিক কাগজ মিনিমাল মোড সক্রিয়</p>
                     <p className="text-[11px] text-amber-200/85 leading-relaxed">
-                      খাঁটি ক্রিম কাগজের টেক্সচার (#F7F0E6) অটুট রাখতে এই থিমে কোনো ছবি, গ্র্যাডিয়েন্ট বা জ্যামিতিক প্যাটার্ন যুক্ত হয় না।
+                      খাঁটি হাতে তৈরি ক্রিম কাগজের টেক্সচার (#F5EBDD) অটুট রাখতে এই থিমে কোনো ছবি, গ্র্যাডিয়েন্ট বা জ্যামিতিক প্যাটার্ন যুক্ত হয় না।
                     </p>
                     <button
                       type="button"

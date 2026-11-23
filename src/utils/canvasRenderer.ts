@@ -23,12 +23,132 @@ function createSeededRandom(seed: number) {
   };
 }
 
+function buildNoiseGrid(cols: number, rows: number, rand: () => number): Float32Array {
+  const arr = new Float32Array((cols + 1) * (rows + 1));
+  for (let i = 0; i < arr.length; i++) {
+    arr[i] = rand();
+  }
+  return arr;
+}
+
+function sampleNoiseGrid(
+  grid: Float32Array,
+  cols: number,
+  rows: number,
+  nx: number,
+  ny: number
+): number {
+  const gx = Math.min(cols - 0.0001, Math.max(0, nx * cols));
+  const gy = Math.min(rows - 0.0001, Math.max(0, ny * rows));
+  const x0 = Math.floor(gx);
+  const y0 = Math.floor(gy);
+  const fx = gx - x0;
+  const fy = gy - y0;
+  // Smoothstep curve for organic cotton paper transitions
+  const sx = fx * fx * (3 - 2 * fx);
+  const sy = fy * fy * (3 - 2 * fy);
+  const stride = cols + 1;
+  const v00 = grid[y0 * stride + x0];
+  const v10 = grid[y0 * stride + x0 + 1];
+  const v01 = grid[(y0 + 1) * stride + x0];
+  const v11 = grid[(y0 + 1) * stride + x0 + 1];
+  const ix0 = v00 + (v10 - v00) * sx;
+  const ix1 = v01 + (v11 - v01) * sx;
+  return ix0 + (ix1 - ix0) * sy;
+}
+
 /**
- * Natural handmade ivory paper (#F7F0E6) with subtle fine cotton grain & micro fibers.
- * No gradients, no patterns, no borders.
+ * Generates an organic crease & subtle wrinkle heightmap canvas (0..255)
+ * used both for soft directional relief shadows and natural paper depth.
+ */
+function buildCreaseHeightmap(size: number, rand: () => number): Uint8ClampedArray {
+  const hmCanvas = document.createElement('canvas');
+  hmCanvas.width = size;
+  hmCanvas.height = size;
+  const hCtx = hmCanvas.getContext('2d');
+  if (!hCtx) return new Uint8ClampedArray(size * size).fill(128);
+
+  hCtx.fillStyle = 'rgb(128,128,128)';
+  hCtx.fillRect(0, 0, size, size);
+
+  // Soft wide paper ripples / deckle undulations
+  for (let i = 0; i < 16; i++) {
+    const cx = rand() * size;
+    const cy = rand() * size;
+    const rad = size * (0.18 + rand() * 0.34);
+    const val = rand() > 0.5 ? 168 : 88;
+    const g = hCtx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+    g.addColorStop(0, `rgba(${val},${val},${val},0.28)`);
+    g.addColorStop(1, 'rgba(128,128,128,0)');
+    hCtx.fillStyle = g;
+    hCtx.fillRect(0, 0, size, size);
+  }
+
+  // Subtle organic creases and micro-wrinkles with irregular wobbly paths
+  hCtx.lineCap = 'round';
+  hCtx.lineJoin = 'round';
+  const creaseCount = 26;
+  for (let i = 0; i < creaseCount; i++) {
+    const x0 = rand() * size;
+    const y0 = rand() * size;
+    const angle = rand() * Math.PI * 2;
+    const totalLen = size * (0.14 + rand() * 0.42);
+    const steps = 6;
+    const isRidge = rand() > 0.45;
+    const shade = isRidge ? 185 : 70;
+
+    hCtx.beginPath();
+    hCtx.moveTo(x0, y0);
+    let px = x0;
+    let py = y0;
+    for (let s = 1; s <= steps; s++) {
+      const t = s / steps;
+      const wobble = (rand() - 0.5) * size * 0.055;
+      const perpAngle = angle + Math.PI / 2;
+      px = x0 + Math.cos(angle) * totalLen * t + Math.cos(perpAngle) * wobble;
+      py = y0 + Math.sin(angle) * totalLen * t + Math.sin(perpAngle) * wobble;
+      hCtx.lineTo(px, py);
+    }
+
+    // Soft outer crease slope + sharper inner fold line
+    hCtx.strokeStyle = `rgba(${shade},${shade},${shade},0.20)`;
+    hCtx.lineWidth = 4.5 + rand() * 5;
+    hCtx.stroke();
+
+    hCtx.strokeStyle = `rgba(${shade},${shade},${shade},0.26)`;
+    hCtx.lineWidth = 1.2 + rand() * 1.8;
+    hCtx.stroke();
+  }
+
+  // Blur gently for continuous smooth slope derivatives
+  const blurred = document.createElement('canvas');
+  blurred.width = size;
+  blurred.height = size;
+  const bCtx = blurred.getContext('2d');
+  if (bCtx) {
+    bCtx.filter = 'blur(2.2px)';
+    bCtx.drawImage(hmCanvas, 0, 0);
+    const raw = bCtx.getImageData(0, 0, size, size).data;
+    const out = new Uint8ClampedArray(size * size);
+    for (let i = 0; i < out.length; i++) {
+      out[i] = raw[i * 4];
+    }
+    return out;
+  }
+
+  const raw = hCtx.getImageData(0, 0, size, size).data;
+  const out = new Uint8ClampedArray(size * size);
+  for (let i = 0; i < out.length; i++) out[i] = raw[i * 4];
+  return out;
+}
+
+/**
+ * Realistic handmade textured ivory paper (#F5EBDD) with uneven beige variations,
+ * visible paper grain, organic creases, directional ambient light/shadow relief, and cotton fibers.
+ * No decorative patterns, borders, or digital flat gradients.
  */
 function getEditorialPaperCanvas(width: number, height: number): HTMLCanvasElement {
-  const key = `${width}x${height}`;
+  const key = `handmade-v2-${width}x${height}`;
   const cached = paperTextureCache.get(key);
   if (cached) return cached;
 
@@ -38,40 +158,96 @@ function getEditorialPaperCanvas(width: number, height: number): HTMLCanvasEleme
   const pCtx = offscreen.getContext('2d');
   if (!pCtx) return offscreen;
 
-  // Base soft cream tone #F7F0E6 (rgb: 247, 240, 230)
-  pCtx.fillStyle = '#F7F0E6';
-  pCtx.fillRect(0, 0, width, height);
+  const rand = createSeededRandom(2047);
 
-  const rand = createSeededRandom(1448);
+  // Multi-octave organic noise fields (visible on both 1080p & mobile screens)
+  const macroGrid = buildNoiseGrid(5, 5, rand);      // Soft uneven cream/beige zones
+  const mesoGrid = buildNoiseGrid(16, 16, rand);     // Paper undulation & tonal clouding
+  const roughGrid = buildNoiseGrid(46, 46, rand);    // Tactile cotton mottling
+  const pulpGrid = buildNoiseGrid(165, 165, rand);   // Coarse visible rag paper grain
 
-  // Subtle organic pixel-level paper grain
+  const hmSize = 256;
+  const creaseMap = buildCreaseHeightmap(hmSize, rand);
+
   try {
-    const imgData = pCtx.getImageData(0, 0, width, height);
+    const imgData = pCtx.createImageData(width, height);
     const data = imgData.data;
-    for (let i = 0; i < data.length; i += 4) {
-      // Deterministic lightweight LCG grain for natural handmade feel
-      const n = ((i * 2654435761) >>> 24) & 255;
-      const delta = ((n / 255) - 0.5) * 7.5;
-      data[i] = Math.min(255, Math.max(0, 247 + delta));
-      data[i + 1] = Math.min(255, Math.max(0, 240 + delta * 0.96));
-      data[i + 2] = Math.min(255, Math.max(0, 230 + delta * 0.92));
-      data[i + 3] = 255;
+
+    // Warm ivory #F5EBDD (245, 235, 221) base with natural beige variations
+    for (let y = 0; y < height; y++) {
+      const ny = y / height;
+      const hmY = Math.min(hmSize - 2, Math.max(1, Math.floor(ny * hmSize)));
+      const hmPrevY = hmY - 1;
+      const hmNextY = hmY + 1;
+
+      for (let x = 0; x < width; x++) {
+        const nx = x / width;
+        const idx = (y * width + x) * 4;
+
+        // 1. Soft directional ambient illumination (warm upper-left light gently fading lower-right)
+        const lightBias = (0.5 - (nx * 0.52 + ny * 0.48)) * 9.5;
+
+        // 2. Soft perimeter paper depth falloff (subtle physical sheet edge variation)
+        const dxEdge = (nx - 0.5) * 2;
+        const dyEdge = (ny - 0.5) * 2;
+        const edgeDist = Math.min(1, Math.sqrt(dxEdge * dxEdge + dyEdge * dyEdge) / 1.414);
+        const ambientEdge = -Math.pow(edgeDist, 2.2) * 8.5;
+
+        // 3. Multi-octave handmade pulp tonal variation (centered ~0)
+        const nMacro = (sampleNoiseGrid(macroGrid, 5, 5, nx, ny) - 0.5) * 16;
+        const nMeso = (sampleNoiseGrid(mesoGrid, 16, 16, nx, ny) - 0.5) * 13;
+        const nRough = (sampleNoiseGrid(roughGrid, 46, 46, nx, ny) - 0.5) * 11;
+        const nPulp = (sampleNoiseGrid(pulpGrid, 165, 165, nx, ny) - 0.5) * 14;
+
+        // 4. Crease & paper surface relief via directional derivative from upper-left (-1, -1)
+        const hmX = Math.min(hmSize - 2, Math.max(1, Math.floor(nx * hmSize)));
+        const hCenter = creaseMap[hmY * hmSize + hmX] - 128;
+        const hLit = creaseMap[hmPrevY * hmSize + (hmX - 1)];
+        const hShade = creaseMap[hmNextY * hmSize + (hmX + 1)];
+        const reliefSlope = (hLit - hShade) * 0.52;
+        const reliefHeight = hCenter * 0.14;
+
+        // 5. Fine deterministic high-frequency rag tooth
+        const hash = (((x * 374761393 + y * 668265263) ^ (x * y)) >>> 24) & 255;
+        const fineGrain = ((hash / 255) - 0.5) * 12;
+
+        const delta =
+          lightBias +
+          ambientEdge +
+          nMacro +
+          nMeso +
+          nRough +
+          nPulp +
+          reliefSlope +
+          reliefHeight +
+          fineGrain;
+
+        // Subtle warm beige shift in darker hollows so shadows stay warm earthy beige, not grey
+        const warmShift = delta < 0 ? delta * 0.14 : 0;
+
+        data[idx] = Math.min(255, Math.max(0, 245 + delta));
+        data[idx + 1] = Math.min(255, Math.max(0, 235 + delta * 0.94 + warmShift * 0.5));
+        data[idx + 2] = Math.min(255, Math.max(0, 221 + delta * 0.86 + warmShift * 1.1));
+        data[idx + 3] = 255;
+      }
     }
     pCtx.putImageData(imgData, 0, 0);
   } catch {
-    // Fallback solid #F7F0E6 remains intact
+    pCtx.fillStyle = '#F5EBDD';
+    pCtx.fillRect(0, 0, width, height);
   }
 
-  // Ultra-subtle natural cellulose fibers & soft handmade paper flecks
+  // Visible natural handmade paper fibers & organic pulp flecks (visible even on mobile thumbnails)
   pCtx.save();
-  const fiberCount = Math.round((width * height) / 9500);
+  const kScale = width / 1080;
+  const fiberCount = Math.round((width * height) / 1450);
   pCtx.lineCap = 'round';
   for (let i = 0; i < fiberCount; i++) {
     const x = rand() * width;
     const y = rand() * height;
-    const len = (3 + rand() * 11) * (width / 1080);
+    const len = (5 + rand() * 19) * kScale;
     const angle = rand() * Math.PI * 2;
-    const ctrlOffset = (rand() - 0.5) * 3 * (width / 1080);
+    const ctrlOffset = (rand() - 0.5) * 6.5 * kScale;
     const ex = x + Math.cos(angle) * len;
     const ey = y + Math.sin(angle) * len;
     const cx = (x + ex) / 2 - Math.sin(angle) * ctrlOffset;
@@ -80,12 +256,30 @@ function getEditorialPaperCanvas(width: number, height: number): HTMLCanvasEleme
     pCtx.beginPath();
     pCtx.moveTo(x, y);
     pCtx.quadraticCurveTo(cx, cy, ex, ey);
-    pCtx.lineWidth = (0.4 + rand() * 0.65) * (width / 1080);
-    pCtx.strokeStyle =
-      rand() > 0.38
-        ? `rgba(116, 98, 74, ${(0.018 + rand() * 0.025).toFixed(3)})`
-        : `rgba(255, 253, 249, ${(0.18 + rand() * 0.18).toFixed(3)})`;
+    pCtx.lineWidth = (0.65 + rand() * 1.15) * kScale;
+    if (rand() > 0.34) {
+      pCtx.strokeStyle = `rgba(126, 98, 66, ${(0.055 + rand() * 0.085).toFixed(3)})`;
+    } else {
+      pCtx.strokeStyle = `rgba(255, 252, 246, ${(0.24 + rand() * 0.24).toFixed(3)})`;
+    }
     pCtx.stroke();
+  }
+
+  // Natural tiny organic botanical flecks embedded in handmade cotton pulp
+  const fleckCount = Math.round((width * height) / 9500);
+  for (let i = 0; i < fleckCount; i++) {
+    const fx = rand() * width;
+    const fy = rand() * height;
+    const rx = (0.7 + rand() * 1.6) * kScale;
+    const ry = (0.5 + rand() * 1.1) * kScale;
+    pCtx.save();
+    pCtx.translate(fx, fy);
+    pCtx.rotate(rand() * Math.PI);
+    pCtx.beginPath();
+    pCtx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+    pCtx.fillStyle = `rgba(108, 82, 54, ${(0.09 + rand() * 0.14).toFixed(3)})`;
+    pCtx.fill();
+    pCtx.restore();
   }
   pCtx.restore();
 
@@ -755,21 +949,24 @@ export async function renderPoster(
     }
   }
 
-  // Dedicated Minimalist Natural Ivory Paper Editorial Rendering Path
+  // Dedicated Minimalist Handmade Textured Paper Editorial Rendering Path
   if (isEditorialPaper) {
-    const editorialWidth = W > H ? Math.round(W * 0.7) : Math.round(W * 0.66);
-    const editorialLeft = Math.round((W - editorialWidth) / 2);
+    const editorialWidth = Math.round(W * 0.68);
+    // Position main text block slightly left of center with generous negative space
+    const editorialLeft = Math.round(W * 0.145);
     const topReserved = Math.round(H * 0.13);
     const footerPadRight = Math.round(W * 0.085);
     const footerPadBottom = Math.round(H * 0.075);
 
-    const suppliedPageName = (poster.pageHandle ?? '').trim() || (brand.showHandle ? (brand.handle || '').trim() : '');
+    const suppliedPageName =
+      (poster.pageHandle ?? '').trim() ||
+      (brand.showHandle ? (brand.handle || '').trim() : '');
     const footerReserved = suppliedPageName ? Math.round(H * 0.14) : Math.round(H * 0.12);
     const availableHeight = H - topReserved - footerReserved;
 
     const buildEditorialLayout = (baseSize: number) => {
-      const blockSpacing = baseSize * 0.72;
-      const paraGap = baseSize * 0.56;
+      const blockSpacing = baseSize * 0.74;
+      const paraGap = baseSize * 0.6;
       const items: BlockItem[] = [];
 
       // Optional Heading (slightly larger & bold, exact wording)
@@ -800,7 +997,7 @@ export async function renderPoster(
 
       // Optional Arabic Text (graceful Arabic typography, proper RTL shaping & diacritics)
       if (poster.showAr && poster.ar && poster.ar.trim()) {
-        const arSize = Math.round(baseSize * (poster.arabicSizeRatio || 1.22));
+        const arSize = Math.round(baseSize * (poster.arabicSizeRatio || 1.24));
         const arFontStr = `400 ${arSize}px "${arFontName}", "Amiri", "Noto Naskh Arabic", serif`;
         const arLH = arSize * 1.88;
         ctx.font = arFontStr;
@@ -809,7 +1006,7 @@ export async function renderPoster(
           ctx,
           poster.ar.trim(),
           editorialWidth,
-          arSize * 0.52
+          arSize * 0.54
         );
         ctx.direction = 'ltr';
         const totalH =
@@ -826,7 +1023,7 @@ export async function renderPoster(
         });
       }
 
-      // Bengali Body Text (medium-sized, comfortable line & paragraph spacing, exact wording)
+      // Bengali Body Text (comfortable line & paragraph spacing, exact supplied wording)
       if (poster.bn && poster.bn.trim()) {
         const bnSize = baseSize;
         const bnFontStr = `400 ${bnSize}px "${fontName}", "Noto Serif Bengali", "Tiro Bangla", sans-serif`;
@@ -867,7 +1064,7 @@ export async function renderPoster(
           paraLines,
           font: refFontStr,
           lineHeight: refLH,
-          color: 'rgba(23, 21, 18, 0.72)',
+          color: 'rgba(23, 21, 18, 0.74)',
           dir: 'ltr',
           height: totalH,
         });
@@ -895,7 +1092,7 @@ export async function renderPoster(
         ? editorialLeft
         : align === 'right'
         ? editorialLeft + editorialWidth
-        : W / 2;
+        : Math.round(W * 0.48);
 
     let currY = topReserved + Math.max(0, (availableHeight - edLayout.totalHeight) / 2);
 
@@ -903,6 +1100,8 @@ export async function renderPoster(
     ctx.textBaseline = 'middle';
     ctx.shadowBlur = 0;
     ctx.shadowColor = 'transparent';
+    // Natural ink absorption without losing crisp letterpress contrast
+    ctx.globalAlpha = 0.94;
 
     edLayout.items.forEach((item, idx) => {
       if (idx > 0) currY += edLayout.blockSpacing;
@@ -920,12 +1119,13 @@ export async function renderPoster(
       ctx.restore();
     });
 
-    // Subtle, readable supplied Facebook Page Name at the bottom-right corner
+    // Subtle, readable supplied Facebook Page Name near bottom-right corner
     if (suppliedPageName) {
       const hasBengali = /[\u0980-\u09FF]/.test(suppliedPageName);
       const footerSize = Math.round(Math.max(20 * k, W * 0.02));
       ctx.save();
-      ctx.fillStyle = 'rgba(23, 21, 18, 0.62)';
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = 'rgba(23, 21, 18, 0.66)';
       ctx.direction = 'ltr';
       ctx.textAlign = 'right';
       ctx.textBaseline = 'alphabetic';
@@ -935,6 +1135,18 @@ export async function renderPoster(
       ctx.letterSpacing = hasBengali ? '0px' : `${0.4 * k}px`;
       ctx.fillText(suppliedPageName, W - footerPadRight, H - footerPadBottom);
       ctx.restore();
+    }
+
+    // Ultra-subtle paper-tooth veil over finished print so ink bonds naturally with paper surface
+    try {
+      const paperVeil = getEditorialPaperCanvas(W, H);
+      ctx.save();
+      ctx.globalCompositeOperation = 'soft-light';
+      ctx.globalAlpha = 0.24;
+      ctx.drawImage(paperVeil, 0, 0, W, H);
+      ctx.restore();
+    } catch {
+      // Ignore if composite op unsupported
     }
 
     ctx.restore();

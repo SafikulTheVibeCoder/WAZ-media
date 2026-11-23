@@ -3,19 +3,19 @@ import { PosterPreset, PosterPresetConfig } from '../types';
 export const BUILTIN_PRESETS: PosterPreset[] = [
   {
     id: 'preset-editorial-paper',
-    name: 'প্রাকৃতিক কাগজ মিনিমাল (Editorial Ivory Paper)',
-    description: 'উষ্ণ ক্রিম আইভরি হাতে তৈরি কাগজ (#F7F0E6), ঐতিহ্যবাহী বাংলা ও আরবি মুদ্রিত টাইপোগ্রাফি, কোনো বর্ডার বা প্যাটার্ন ছাড়া শান্ত এডিটোরিয়াল লেআউট।',
+    name: 'হাতে তৈরি কাগজ মিনিমাল (Handmade Textured Paper)',
+    description: 'হাতে তৈরি উষ্ণ ক্রিম কাগজ (#F5EBDD), প্রাকৃতিক আঁশ, সূক্ষ্ম ভাঁজ ও কোমল আলো-ছায়ায় মুদ্রিত বাংলা ও আরবি টাইপোগ্রাফি।',
     category: 'মিনিমাল এডিটোরিয়াল',
     createdAt: 1700000006000,
     isBuiltIn: true,
-    previewGradient: '#F7F0E6',
+    previewGradient: 'linear-gradient(135deg, #FAF3E8 0%, #F5EBDD 52%, #E8DAC5 100%)',
     config: {
       theme: 'editorial-paper',
       size: '1080x1080',
       font: 'Noto Serif Bengali',
       arabicFont: 'Amiri',
       fontSize: 44,
-      arabicSizeRatio: 1.24,
+      arabicSizeRatio: 1.16,
       lineHeight: 1.72,
       autoFit: true,
       textColor: '#171512',
