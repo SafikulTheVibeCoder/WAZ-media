@@ -23,6 +23,7 @@ import {
   LayoutDashboard,
   Menu,
   X,
+  Smartphone,
 } from 'lucide-react';
 
 const FEATURED_POSTERS_SHOWCASE = [
@@ -526,6 +527,18 @@ export const LandingPageView: React.FC = () => {
               </button>
             ))}
 
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setCurrentView('retro-phone');
+              }}
+              className="w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold text-[#F7B500] hover:bg-[#1b1b22] transition min-h-[44px] flex items-center gap-2"
+            >
+              <Smartphone className="w-4 h-4" />
+              <span>রেট্রো মোবাইল পোস্টার</span>
+            </button>
+
             {currentUser && (
               <div className="pt-2 border-t border-white/[0.08] grid grid-cols-2 gap-2">
                 <button
@@ -600,6 +613,15 @@ export const LandingPageView: React.FC = () => {
               <Palette className="w-4 h-4 text-[#d4af37]" />
               <span>লাইভ ডেমো চালিয়ে দেখুন</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => setCurrentView('retro-phone')}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl bg-[#141419] hover:bg-[#1b1b22] text-[#F7B500] border border-[#F7B500]/35 font-semibold text-sm transition min-h-[48px]"
+            >
+              <Smartphone className="w-4 h-4" />
+              <span>রেট্রো মোবাইল পোস্টার</span>
+            </button>
           </div>
 
           {currentUser && (
@@ -610,6 +632,16 @@ export const LandingPageView: React.FC = () => {
                 className="text-[#f2d77d] hover:underline font-medium"
               >
                 পোস্টার স্টুডিও →
+              </button>
+              <span aria-hidden="true" className="text-[#807a72]">
+                ·
+              </span>
+              <button
+                type="button"
+                onClick={() => setCurrentView('retro-phone')}
+                className="text-[#F7B500] hover:underline font-medium"
+              >
+                রেট্রো ফোন জেনারেটর →
               </button>
               <span aria-hidden="true" className="text-[#807a72]">
                 ·

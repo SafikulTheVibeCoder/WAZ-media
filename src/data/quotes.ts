@@ -113,14 +113,14 @@ export const THEME_PRESETS: ThemeConfig[] = [
   },
   {
     id: 'nokia',
-    name: 'রেট্রো মনোটোন',
-    nameEn: 'Vintage Retro',
-    text: '#172808',
-    accent: '#2c4a14',
-    ar: '#172808',
-    border: '#3c631b',
-    bgDesc: 'নস্টালজিক পিক্সেল ও ক্লাসিক গ্রিন',
-    previewBg: 'linear-gradient(135deg, #abc57c 0%, #87a553 100%)',
+    name: 'রেট্রো মোবাইল অ্যাম্বার',
+    nameEn: 'Retro Amber Screen',
+    text: '#111111',
+    accent: '#F7B500',
+    ar: '#111111',
+    border: '#D88200',
+    bgDesc: 'পুরনো কিপ্যাড মোবাইলের উষ্ণ অ্যাম্বার স্ক্রিন',
+    previewBg: 'linear-gradient(135deg, #FFC21C 0%, #F7B500 55%, #D88200 100%)',
   }
 ];
 

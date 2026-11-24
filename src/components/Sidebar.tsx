@@ -14,6 +14,7 @@ import {
   X,
   ChevronRight,
   LogIn,
+  Smartphone,
 } from 'lucide-react';
 import { toBengaliNumber } from '../utils/bengaliUtils';
 
@@ -41,6 +42,7 @@ export const Sidebar: React.FC = () => {
     { id: 'captions', label: 'বাণী ও ক্যাপশন', icon: BookOpen },
     { id: 'planner', label: 'মিডিয়া প্ল্যানার', icon: Calendar },
     { id: 'poster', label: 'পোস্টার স্টুডিও', icon: Sparkles },
+    { id: 'retro-phone', label: 'রেট্রো মোবাইল', icon: Smartphone },
     { id: 'brand', label: 'ব্র্যান্ডিং', icon: BadgeCheck },
     {
       id: 'saved',
@@ -61,6 +63,7 @@ export const Sidebar: React.FC = () => {
   ];
 
   const secondaryMobileItems = [
+    { id: 'retro-phone', label: 'রেট্রো মোবাইল পোস্টার', icon: Smartphone },
     { id: 'brand', label: 'ব্র্যান্ডিং ও লোগো', icon: BadgeCheck },
     {
       id: 'saved',

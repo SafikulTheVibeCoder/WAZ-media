@@ -9,6 +9,7 @@ import { SavedDesignsView } from './components/SavedDesignsView';
 import { LandingPageView } from './components/LandingPageView';
 import { AdminDashboardView } from './components/AdminDashboardView';
 import { BulkPlannerView } from './components/BulkPlannerView';
+import { RetroPhoneStudioView } from './components/RetroPhoneStudioView';
 import { Toast } from './components/Toast';
 import { AuthModal } from './components/AuthModal';
 import { AccessDeniedModal } from './components/AccessDeniedModal';
@@ -32,6 +33,7 @@ const MainContent: React.FC = () => {
       {currentView === 'captions' && <CaptionsView />}
       {currentView === 'planner' && <BulkPlannerView />}
       {currentView === 'poster' && <PosterStudioView />}
+      {currentView === 'retro-phone' && <RetroPhoneStudioView />}
       {currentView === 'brand' && <BrandManagerView />}
       {currentView === 'saved' && <SavedDesignsView />}
       {currentView === 'admin' && <AdminDashboardView />}

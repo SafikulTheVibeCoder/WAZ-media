@@ -278,3 +278,39 @@ export interface BulkMediaPlanResult {
   generatedAt: number;
 }
 
+export type RetroScreenPresetId =
+  | 'amber-classic'
+  | 'amber-warm'
+  | 'amber-bright'
+  | 'green-lcd';
+
+export interface RetroPhonePosterConfig {
+  version: number;
+  text: string;
+  time: string;
+  bottomTag: string;
+  leftSoftKey: string;
+  rightSoftKey: string;
+  screenPreset: RetroScreenPresetId;
+  screenBrightness: number;
+  screenGlow: number;
+  signalLevel: number;
+  batteryLevel: number;
+  showEnvelope: boolean;
+  size: '1080x1080' | '1080x1350';
+  bengaliFont: 'Noto Sans Bengali' | 'Hind Siliguri' | 'Noto Serif Bengali' | 'Anek Bangla';
+  arabicFont: 'Amiri' | 'Noto Naskh Arabic';
+  uiFont: 'Barlow Condensed' | 'Archivo' | 'Noto Sans Bengali';
+  fontSize: number;
+  lineHeight: number;
+  curvature: number;
+}
+
+export interface RetroPhoneSavedPreset {
+  id: string;
+  name: string;
+  createdAt: number;
+  config: RetroPhonePosterConfig;
+}
+
+

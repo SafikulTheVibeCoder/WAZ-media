@@ -1,5 +1,9 @@
 import { PosterConfig, BrandConfig, AspectRatio, ThemeConfig, BorderStyle } from '../types';
 import { THEME_PRESETS } from '../data/quotes';
+import {
+  DEFAULT_RETRO_PHONE_CONFIG,
+  renderRetroPhonePoster,
+} from './retroPhoneRenderer';
 
 const SIZES: Record<AspectRatio, [number, number]> = {
   '1080x1080': [1080, 1080],
@@ -846,6 +850,24 @@ export async function renderPoster(
   options: { scale?: number } = {}
 ): Promise<void> {
   const [W, H] = SIZES[poster.size] || [1080, 1080];
+
+  if (poster.theme === 'nokia') {
+    const combinedText = [poster.ar, poster.bn, poster.ref].filter((s) => Boolean(s && s.trim())).join('\n\n');
+    const tag =
+      (poster.pageHandle ?? '').trim() ||
+      (brand.showHandle ? brand.handle.trim() : '') ||
+      (brand.name || '').trim() ||
+      'WAZ MEDIA';
+    await renderRetroPhonePoster(canvas, {
+      ...DEFAULT_RETRO_PHONE_CONFIG,
+      text: combinedText || DEFAULT_RETRO_PHONE_CONFIG.text,
+      bottomTag: tag,
+      size: poster.size === '1080x1350' ? '1080x1350' : '1080x1080',
+      fontSize: Math.min(Math.max(poster.fontSize || 40, 28), 60),
+    });
+    return;
+  }
+
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d');

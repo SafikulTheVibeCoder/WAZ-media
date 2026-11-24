@@ -46,6 +46,7 @@ import {
   Crown,
   AlertCircle,
   Plus,
+  Smartphone,
 } from 'lucide-react';
 
 export const PosterStudioView: React.FC = () => {
@@ -73,6 +74,7 @@ export const PosterStudioView: React.FC = () => {
     dailyPosterLimit,
     remainingDailyPosters,
     setIsPricingModalOpen,
+    setCurrentView,
   } = useApp();
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1110,6 +1112,26 @@ export const PosterStudioView: React.FC = () => {
                         </button>
                       );
                     })}
+                  </div>
+
+                  {/* Dedicated Retro Feature Phone Studio Shortcut */}
+                  <div className="mt-3 p-3 rounded-xl border border-[#F7B500]/25 bg-[#F7B500]/[0.06] flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-[#F7B500]">
+                        রেট্রো ফিচার ফোন পোস্টার স্টুডিও
+                      </p>
+                      <p className="text-[11px] text-[#b6b0a6] truncate">
+                        সময় (10:34), সিগন্যাল, ব্যাটারি ও বটম ট্যাগ এডিট করতে খুলুন
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentView('retro-phone')}
+                      className="px-3 py-1.5 rounded-lg bg-[#F7B500] hover:bg-[#FFA800] text-[#111111] text-xs font-bold flex items-center gap-1.5 shrink-0 transition"
+                    >
+                      <Smartphone className="w-3.5 h-3.5" />
+                      <span>খুলুন</span>
+                    </button>
                   </div>
                 </div>
 
